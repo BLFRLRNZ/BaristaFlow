@@ -1,0 +1,907 @@
+{
+ "fornitori": {
+  "f-molino": {
+   "nome": "Molino del Borgo",
+   "piva": "",
+   "telefono": "",
+   "email": "",
+   "note": "Farine",
+   "creato": 1793516400000,
+   "esempio": true
+  },
+  "f-latteria": {
+   "nome": "Latteria Val Verde",
+   "piva": "",
+   "telefono": "",
+   "email": "",
+   "note": "Burro, latte e panna: consegna martedì e venerdì",
+   "creato": 1793520000000,
+   "esempio": true
+  },
+  "f-ingrosso": {
+   "nome": "Dolciaria Ingrosso",
+   "piva": "",
+   "telefono": "",
+   "email": "",
+   "note": "Zucchero, uova, frutta secca, bevande, imballaggi",
+   "creato": 1793523600000,
+   "esempio": true
+  }
+ },
+ "articoli": {
+  "a-farina": {
+   "nome": "Farina 00",
+   "categoria": "materia",
+   "unita": "kg",
+   "pesoPz": null,
+   "etichetta": "farina di GRANO tenero tipo 00",
+   "allergeni": [
+    "glutine"
+   ],
+   "conservazione": "ambiente",
+   "scortaMin": 10,
+   "fornitoreId": "f-molino",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  },
+  "a-burro": {
+   "nome": "Burro",
+   "categoria": "materia",
+   "unita": "kg",
+   "pesoPz": null,
+   "etichetta": "burro",
+   "allergeni": [
+    "latte"
+   ],
+   "conservazione": "frigo",
+   "scortaMin": 2,
+   "fornitoreId": "f-latteria",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  },
+  "a-zucchero": {
+   "nome": "Zucchero semolato",
+   "categoria": "materia",
+   "unita": "kg",
+   "pesoPz": null,
+   "etichetta": "zucchero",
+   "allergeni": [],
+   "conservazione": "ambiente",
+   "scortaMin": 5,
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  },
+  "a-uova": {
+   "nome": "Uova fresche cat. A",
+   "categoria": "materia",
+   "unita": "pz",
+   "pesoPz": 55,
+   "etichetta": "UOVA",
+   "allergeni": [
+    "uova"
+   ],
+   "conservazione": "frigo",
+   "scortaMin": 30,
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  },
+  "a-latte": {
+   "nome": "Latte intero fresco",
+   "categoria": "materia",
+   "unita": "l",
+   "pesoPz": null,
+   "etichetta": "LATTE intero",
+   "allergeni": [
+    "latte"
+   ],
+   "conservazione": "frigo",
+   "scortaMin": 4,
+   "fornitoreId": "f-latteria",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  },
+  "a-amido": {
+   "nome": "Amido di mais",
+   "categoria": "materia",
+   "unita": "kg",
+   "pesoPz": null,
+   "etichetta": "amido di mais",
+   "allergeni": [],
+   "conservazione": "ambiente",
+   "scortaMin": 0.5,
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  },
+  "a-nocciole": {
+   "nome": "Nocciole tostate",
+   "categoria": "materia",
+   "unita": "kg",
+   "pesoPz": null,
+   "etichetta": "NOCCIOLE",
+   "allergeni": [
+    "frutta_guscio"
+   ],
+   "conservazione": "ambiente",
+   "scortaMin": 0.5,
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  },
+  "a-acqua": {
+   "nome": "Acqua naturale 0,5 l",
+   "categoria": "rivendita",
+   "unita": "pz",
+   "pesoPz": null,
+   "etichetta": "",
+   "allergeni": [],
+   "conservazione": "ambiente",
+   "scortaMin": 24,
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  },
+  "a-sacchetti": {
+   "nome": "Sacchetti carta per alimenti",
+   "categoria": "imballaggio",
+   "unita": "pz",
+   "pesoPz": null,
+   "etichetta": "",
+   "allergeni": [],
+   "conservazione": "ambiente",
+   "scortaMin": 100,
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "archiviato": false,
+   "creato": 1793527200000,
+   "esempio": true
+  }
+ },
+ "documenti": {
+  "d-ddt401": {
+   "tipo": "ddt",
+   "numero": "401",
+   "data": "2026-11-02",
+   "fornitoreId": "f-latteria",
+   "note": "",
+   "allegati": [],
+   "creato": 1793606400000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-burro",
+     "qta": 1,
+     "importo": 9.0,
+     "lotto": "LV-3150",
+     "scadenza": "2026-11-23"
+    }
+   ],
+   "esempio": true
+  },
+  "d-fatt1187": {
+   "tipo": "fattura",
+   "numero": "1187",
+   "data": "2026-11-10",
+   "fornitoreId": "f-molino",
+   "note": "",
+   "allegati": [],
+   "creato": 1794297600000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-farina",
+     "qta": 25,
+     "importo": 22.5,
+     "lotto": "MB2610-44",
+     "scadenza": "2027-05-31"
+    }
+   ],
+   "esempio": true
+  },
+  "d-fatt889": {
+   "tipo": "fattura",
+   "numero": "889",
+   "data": "2026-11-20",
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "allegati": [],
+   "creato": 1795161600000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-zucchero",
+     "qta": 10,
+     "importo": 11.0,
+     "lotto": "Z-55821",
+     "scadenza": "2028-01-31"
+    },
+    {
+     "id": "r2",
+     "articoloId": "a-uova",
+     "qta": 90,
+     "importo": 22.5,
+     "lotto": "3IT078CS012",
+     "scadenza": "2026-12-10"
+    },
+    {
+     "id": "r3",
+     "articoloId": "a-nocciole",
+     "qta": 2,
+     "importo": 36.0,
+     "lotto": "NC-0927",
+     "scadenza": "2027-03-15"
+    },
+    {
+     "id": "r4",
+     "articoloId": "a-amido",
+     "qta": 1,
+     "importo": 3.2,
+     "lotto": "AM-112",
+     "scadenza": "2027-08-30"
+    },
+    {
+     "id": "r5",
+     "articoloId": "a-acqua",
+     "qta": 24,
+     "importo": 6.0,
+     "lotto": "L6213",
+     "scadenza": "2027-10-01"
+    },
+    {
+     "id": "r6",
+     "articoloId": "a-sacchetti",
+     "qta": 500,
+     "importo": 12.0,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  },
+  "d-ddt452": {
+   "tipo": "ddt",
+   "numero": "452",
+   "data": "2026-11-21",
+   "fornitoreId": "f-latteria",
+   "note": "",
+   "allegati": [],
+   "creato": 1795248000000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-burro",
+     "qta": 5,
+     "importo": 45.0,
+     "lotto": "LV-3211",
+     "scadenza": "2026-12-12"
+    },
+    {
+     "id": "r2",
+     "articoloId": "a-latte",
+     "qta": 6,
+     "importo": 7.8,
+     "lotto": "LV-3240",
+     "scadenza": "2026-11-26"
+    }
+   ],
+   "esempio": true
+  },
+  "d-h0612": {
+   "tipo": "fattura",
+   "numero": "512",
+   "data": "2026-06-12",
+   "fornitoreId": "f-latteria",
+   "note": "",
+   "allegati": [],
+   "soloPrezzi": true,
+   "creato": 1781251200000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-burro",
+     "qta": 5,
+     "importo": 39.5,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r2",
+     "articoloId": "a-latte",
+     "qta": 6,
+     "importo": 7.2,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  },
+  "d-h0702": {
+   "tipo": "fattura",
+   "numero": "640",
+   "data": "2026-07-02",
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "allegati": [],
+   "soloPrezzi": true,
+   "creato": 1782979200000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-zucchero",
+     "qta": 10,
+     "importo": 12.5,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r2",
+     "articoloId": "a-uova",
+     "qta": 90,
+     "importo": 18.9,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r3",
+     "articoloId": "a-nocciole",
+     "qta": 2,
+     "importo": 31.0,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  },
+  "d-h0805": {
+   "tipo": "fattura",
+   "numero": "731",
+   "data": "2026-08-05",
+   "fornitoreId": "f-molino",
+   "note": "",
+   "allegati": [],
+   "soloPrezzi": true,
+   "creato": 1785916800000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-farina",
+     "qta": 25,
+     "importo": 21.5,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  },
+  "d-h0818": {
+   "tipo": "fattura",
+   "numero": "755",
+   "data": "2026-08-18",
+   "fornitoreId": "f-latteria",
+   "note": "",
+   "allegati": [],
+   "soloPrezzi": true,
+   "creato": 1787040000000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-burro",
+     "qta": 5,
+     "importo": 41.5,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r2",
+     "articoloId": "a-latte",
+     "qta": 6,
+     "importo": 7.5,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  },
+  "d-h0910": {
+   "tipo": "fattura",
+   "numero": "803",
+   "data": "2026-09-10",
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "allegati": [],
+   "soloPrezzi": true,
+   "creato": 1789027200000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-zucchero",
+     "qta": 10,
+     "importo": 11.8,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r2",
+     "articoloId": "a-uova",
+     "qta": 90,
+     "importo": 19.8,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r3",
+     "articoloId": "a-nocciole",
+     "qta": 2,
+     "importo": 32.0,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r4",
+     "articoloId": "a-acqua",
+     "qta": 24,
+     "importo": 6.0,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r5",
+     "articoloId": "a-burro",
+     "qta": 2,
+     "importo": 16.2,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  },
+  "d-h0922": {
+   "tipo": "fattura",
+   "numero": "890",
+   "data": "2026-09-22",
+   "fornitoreId": "f-molino",
+   "note": "",
+   "allegati": [],
+   "soloPrezzi": true,
+   "creato": 1790064000000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-farina",
+     "qta": 25,
+     "importo": 21.5,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  },
+  "d-h1015": {
+   "tipo": "fattura",
+   "numero": "912",
+   "data": "2026-10-15",
+   "fornitoreId": "f-latteria",
+   "note": "",
+   "allegati": [],
+   "soloPrezzi": true,
+   "creato": 1792051200000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-burro",
+     "qta": 5,
+     "importo": 43.5,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r2",
+     "articoloId": "a-latte",
+     "qta": 6,
+     "importo": 7.68,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  },
+  "d-h1020": {
+   "tipo": "fattura",
+   "numero": "851",
+   "data": "2026-10-20",
+   "fornitoreId": "f-ingrosso",
+   "note": "",
+   "allegati": [],
+   "soloPrezzi": true,
+   "creato": 1792483200000,
+   "righe": [
+    {
+     "id": "r1",
+     "articoloId": "a-uova",
+     "qta": 90,
+     "importo": 20.7,
+     "lotto": "",
+     "scadenza": ""
+    },
+    {
+     "id": "r2",
+     "articoloId": "a-nocciole",
+     "qta": 2,
+     "importo": 32.8,
+     "lotto": "",
+     "scadenza": ""
+    }
+   ],
+   "esempio": true
+  }
+ },
+ "ricette": {
+  "r-biscotti": {
+   "nome": "Biscotti al burro",
+   "sigla": "BIS",
+   "categoria": "Dolci",
+   "semilavorato": false,
+   "resaQta": 60,
+   "resaUnita": "pz",
+   "pesoPz": 16,
+   "ingredienti": [
+    {
+     "tipo": "art",
+     "refId": "a-farina",
+     "qta": 500,
+     "unita": "g"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-burro",
+     "qta": 250,
+     "unita": "g"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-zucchero",
+     "qta": 200,
+     "unita": "g"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-uova",
+     "qta": 2,
+     "unita": "pz"
+    }
+   ],
+   "shelfLife": 15,
+   "tipoScadenza": "preferibilmente",
+   "conservazione": "In luogo fresco e asciutto, in contenitore chiuso",
+   "procedimento": "Lavorare il burro morbido con lo zucchero. Unire le uova una alla volta, poi la farina setacciata.\nRiposo dell'impasto 1 ora in frigorifero, stendere a 5 mm e coppare.\nCuocere a 170 °C per 12–14 minuti e lasciar raffreddare su griglia prima di confezionare.",
+   "tracce": [
+    "frutta_guscio"
+   ],
+   "prezzoVendita": 0.6,
+   "note": "Nello stesso laboratorio si lavorano le nocciole.",
+   "archiviato": false,
+   "creato": 1793530800000,
+   "esempio": true
+  },
+  "r-crema": {
+   "nome": "Crema pasticcera",
+   "sigla": "CRE",
+   "categoria": "Semilavorati",
+   "semilavorato": true,
+   "resaQta": 1.2,
+   "resaUnita": "kg",
+   "pesoPz": null,
+   "ingredienti": [
+    {
+     "tipo": "art",
+     "refId": "a-latte",
+     "qta": 1,
+     "unita": "l"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-zucchero",
+     "qta": 250,
+     "unita": "g"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-uova",
+     "qta": 4,
+     "unita": "pz"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-amido",
+     "qta": 80,
+     "unita": "g"
+    }
+   ],
+   "shelfLife": 3,
+   "tipoScadenza": "entro",
+   "conservazione": "In frigorifero a 0–4 °C, coperta con pellicola a contatto",
+   "procedimento": "Scaldare il latte. Sbattere uova e zucchero, unire l'amido.\nVersare il latte caldo a filo, riportare sul fuoco e cuocere mescolando fino al bollore.\nAbbattere subito la temperatura e conservare in frigorifero.",
+   "tracce": [],
+   "prezzoVendita": null,
+   "note": "",
+   "archiviato": false,
+   "creato": 1793531400000,
+   "esempio": true
+  },
+  "r-tartellette": {
+   "nome": "Tartellette crema e nocciole",
+   "sigla": "TAR",
+   "categoria": "Dolci",
+   "semilavorato": false,
+   "resaQta": 20,
+   "resaUnita": "pz",
+   "pesoPz": 75,
+   "ingredienti": [
+    {
+     "tipo": "art",
+     "refId": "a-farina",
+     "qta": 300,
+     "unita": "g"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-burro",
+     "qta": 150,
+     "unita": "g"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-zucchero",
+     "qta": 100,
+     "unita": "g"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-uova",
+     "qta": 1,
+     "unita": "pz"
+    },
+    {
+     "tipo": "ric",
+     "refId": "r-crema",
+     "qta": 600,
+     "unita": "g"
+    },
+    {
+     "tipo": "art",
+     "refId": "a-nocciole",
+     "qta": 50,
+     "unita": "g"
+    }
+   ],
+   "shelfLife": 2,
+   "tipoScadenza": "entro",
+   "conservazione": "In frigorifero a 0–4 °C",
+   "procedimento": "Preparare la frolla con farina, burro, zucchero e uovo; riposo 1 ora.\nFoderare gli stampini e cuocere in bianco a 175 °C per 15 minuti.\nA freddo farcire con la crema pasticcera e completare con nocciole tritate.",
+   "tracce": [],
+   "prezzoVendita": 1.8,
+   "note": "",
+   "archiviato": false,
+   "creato": 1793532000000,
+   "esempio": true
+  }
+ },
+ "produzioni": {
+  "p-bis211126": {
+   "lotto": "BIS-211126-1",
+   "ricettaId": "r-biscotti",
+   "ricettaNome": "Biscotti al burro",
+   "data": "2026-11-21",
+   "qta": 60,
+   "unita": "pz",
+   "scadenza": "2026-12-06",
+   "tipoScadenza": "preferibilmente",
+   "operatore": "Giulia",
+   "note": "",
+   "allergeni": [
+    "glutine",
+    "uova",
+    "latte"
+   ],
+   "tracce": [
+    "frutta_guscio"
+   ],
+   "creato": 1795240800000,
+   "consumi": [
+    {
+     "tipo": "art",
+     "refId": "a-farina",
+     "nome": "Farina 00",
+     "lotId": "d-fatt1187:r1",
+     "qta": 0.5
+    },
+    {
+     "tipo": "art",
+     "refId": "a-burro",
+     "nome": "Burro",
+     "lotId": "d-ddt401:r1",
+     "qta": 0.25
+    },
+    {
+     "tipo": "art",
+     "refId": "a-zucchero",
+     "nome": "Zucchero semolato",
+     "lotId": "d-fatt889:r1",
+     "qta": 0.2
+    },
+    {
+     "tipo": "art",
+     "refId": "a-uova",
+     "nome": "Uova fresche cat. A",
+     "lotId": "d-fatt889:r2",
+     "qta": 2
+    }
+   ],
+   "esempio": true
+  },
+  "p-cre231126": {
+   "lotto": "CRE-231126-1",
+   "ricettaId": "r-crema",
+   "ricettaNome": "Crema pasticcera",
+   "data": "2026-11-23",
+   "qta": 1.2,
+   "unita": "kg",
+   "scadenza": "2026-11-26",
+   "tipoScadenza": "entro",
+   "operatore": "Marco",
+   "note": "",
+   "allergeni": [
+    "uova",
+    "latte"
+   ],
+   "tracce": [],
+   "creato": 1795413600000,
+   "consumi": [
+    {
+     "tipo": "art",
+     "refId": "a-latte",
+     "nome": "Latte intero fresco",
+     "lotId": "d-ddt452:r2",
+     "qta": 1
+    },
+    {
+     "tipo": "art",
+     "refId": "a-zucchero",
+     "nome": "Zucchero semolato",
+     "lotId": "d-fatt889:r1",
+     "qta": 0.25
+    },
+    {
+     "tipo": "art",
+     "refId": "a-uova",
+     "nome": "Uova fresche cat. A",
+     "lotId": "d-fatt889:r2",
+     "qta": 4
+    },
+    {
+     "tipo": "art",
+     "refId": "a-amido",
+     "nome": "Amido di mais",
+     "lotId": "d-fatt889:r4",
+     "qta": 0.08
+    }
+   ],
+   "esempio": true
+  },
+  "p-tar241126": {
+   "lotto": "TAR-241126-1",
+   "ricettaId": "r-tartellette",
+   "ricettaNome": "Tartellette crema e nocciole",
+   "data": "2026-11-24",
+   "qta": 20,
+   "unita": "pz",
+   "scadenza": "2026-11-26",
+   "tipoScadenza": "entro",
+   "operatore": "Giulia",
+   "note": "",
+   "allergeni": [
+    "glutine",
+    "uova",
+    "latte",
+    "frutta_guscio"
+   ],
+   "tracce": [],
+   "creato": 1795500000000,
+   "consumi": [
+    {
+     "tipo": "art",
+     "refId": "a-farina",
+     "nome": "Farina 00",
+     "lotId": "d-fatt1187:r1",
+     "qta": 0.3
+    },
+    {
+     "tipo": "art",
+     "refId": "a-burro",
+     "nome": "Burro",
+     "lotId": "d-ddt452:r1",
+     "qta": 0.15
+    },
+    {
+     "tipo": "art",
+     "refId": "a-zucchero",
+     "nome": "Zucchero semolato",
+     "lotId": "d-fatt889:r1",
+     "qta": 0.1
+    },
+    {
+     "tipo": "art",
+     "refId": "a-uova",
+     "nome": "Uova fresche cat. A",
+     "lotId": "d-fatt889:r2",
+     "qta": 1
+    },
+    {
+     "tipo": "ric",
+     "refId": "r-crema",
+     "nome": "Crema pasticcera",
+     "lotId": "p-cre231126",
+     "qta": 0.6
+    },
+    {
+     "tipo": "art",
+     "refId": "a-nocciole",
+     "nome": "Nocciole tostate",
+     "lotId": "d-fatt889:r3",
+     "qta": 0.05
+    }
+   ],
+   "esempio": true
+  }
+ },
+ "movimenti": {
+  "m-acqua1": {
+   "data": "2026-11-22",
+   "tipo": "vendita",
+   "lotKind": "acq",
+   "lotId": "d-fatt889:r5",
+   "delta": -10,
+   "nota": "",
+   "creato": 1795374000000,
+   "esempio": true
+  },
+  "m-bis1": {
+   "data": "2026-11-23",
+   "tipo": "vendita",
+   "lotKind": "prod",
+   "lotId": "p-bis211126",
+   "delta": -40,
+   "nota": "Vendite al banco",
+   "creato": 1795460400000,
+   "esempio": true
+  },
+  "m-tar1": {
+   "data": "2026-11-24",
+   "tipo": "vendita",
+   "lotKind": "prod",
+   "lotId": "p-tar241126",
+   "delta": -6,
+   "nota": "",
+   "creato": 1795546800000,
+   "esempio": true
+  }
+ }
+}

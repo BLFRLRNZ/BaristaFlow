@@ -55,12 +55,12 @@ with sync_playwright() as p:
     page.on("console", lambda m: errors.append(f"console.{m.type}: {m.text}") if m.type in ("error", "warning") else None)
     page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
     page.goto(URL)
-    page.wait_for_selector("text=La giornata al banco", timeout=8000)
+    page.wait_for_selector("#v-oggi", timeout=8000)
     page.wait_for_timeout(400)
 
     # --- Oggi
     tiles = page.locator(".tile b").all_inner_texts()
-    check(tiles == ["1", "3", "1", "1"], f"indicatori Oggi {tiles}")
+    check(tiles == ["1", "3", "1", "2"], f"indicatori Oggi {tiles}")
     labs = page.locator(".lab .lab-lot").all_inner_texts()
     check(labs == ["CRE-231126-1", "TAR-241126-1", "BIS-211126-1"], f"etichette in vetrina {labs}")
     res = page.locator(".lab").nth(0).locator(".lab-grid b").all_inner_texts()
@@ -92,7 +92,7 @@ with sync_playwright() as p:
     check(page.locator(".sheet-wrap").count() == 0, "Esc chiude i fogli")
 
     # --- schede tecniche
-    page.goto(URL + "#schede"); page.wait_for_selector("text=Schede tecniche")
+    page.goto(URL + "#schede"); page.wait_for_selector("#v-schede")
     cards = page.locator(".rc").all_inner_texts()
     check(len(cards) == 3, f"3 schede ({len(cards)})")
     bis = [c for c in cards if "Biscotti" in c][0].replace(" ", " ")
@@ -114,7 +114,7 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
 
     # --- nuova produzione biscotti (FEFO, lotto scaduto escluso)
-    page.goto(URL + "#produzione"); page.wait_for_selector("text=Produzione")
+    page.goto(URL + "#produzione"); page.wait_for_selector("#v-produzione")
     page.locator("main .btn.pri", has_text="Nuova produzione").click()
     page.wait_for_selector(".sheet select[data-k=ricettaId]")
     page.select_option(".sheet select[data-k=ricettaId]", "r-biscotti")
@@ -154,7 +154,7 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
 
     # --- magazzino: farina 25 - 0,5 - 0,3 - 0,5 = 23,7
-    page.goto(URL + "#magazzino"); page.wait_for_selector("text=Magazzino")
+    page.goto(URL + "#magazzino"); page.wait_for_selector("#v-magazzino")
     far = page.locator(".row", has_text="Farina 00").inner_text().replace(" ", " ")
     check("23,7 kg" in far, f"giacenza farina {far!r}")
     bur = page.locator(".row", has_text="Burro").inner_text().replace(" ", " ")
@@ -176,17 +176,15 @@ with sync_playwright() as p:
     check("TAR-241126-1" in rec and "BIS-241126-1" in rec, "lotto burro LV-3211: usato in TAR e BIS")
     page.keyboard.press("Escape"); page.keyboard.press("Escape")
     # smaltimento burro scaduto dalla home
-    page.goto(URL + "#oggi"); page.wait_for_selector("text=La giornata al banco")
-    page.locator("#da-controllare + .list .row", has_text="Burro").click()
-    page.locator(".sheet .btn.pri", has_text="Smaltisci").click()
-    page.locator(".sheet-wrap").nth(1).locator(".btn.dan", has_text="Smaltisci").click()
+    page.goto(URL + "#oggi"); page.wait_for_selector("#v-oggi")
+    page.locator("#da-controllare + .list .row", has_text="Burro").locator(".btn", has_text="Smaltisci").click()
     page.wait_for_timeout(300)
-    page.keyboard.press("Escape")
+    check("Annulla" in page.locator("#toast").inner_text(), "smaltimento immediato con Annulla")
     tiles = page.locator(".tile b").all_inner_texts()
-    check(tiles[0] == "0" and tiles[3] == "2", f"dopo smaltimento e nuova produzione: {tiles}")
+    check(tiles[0] == "0", f"dopo lo smaltimento nessun lotto scaduto: {tiles}")
 
     # --- registra un acquisto con articolo nuovo creato al volo
-    page.goto(URL + "#acquisti"); page.wait_for_selector("text=Acquisti")
+    page.goto(URL + "#acquisti"); page.wait_for_selector("#v-acquisti")
     page.locator("main .btn.pri", has_text="Registra documento").click()
     page.wait_for_selector(".sheet [data-k=numero]")
     page.locator(".sheet .btn.pri", has_text="Registra documento").click()
@@ -225,7 +223,7 @@ with sync_playwright() as p:
     check(len(docs) == 1 and docs[0]["righe"][0]["qta"] == 2.5 and docs[0]["righe"][0]["importo"] == 27.5 and docs[0]["allegati"][0]["nome"] == "fattura77.jpg", f"documento salvato correttamente {docs[0]['righe'][0] if docs else None}")
 
     # --- nuova scheda tecnica con il cioccolato e la crema
-    page.goto(URL + "#schede"); page.wait_for_selector("text=Schede tecniche")
+    page.goto(URL + "#schede"); page.wait_for_selector("#v-schede")
     page.locator("main .btn.pri", has_text="Nuova scheda").click()
     page.wait_for_selector(".sheet [data-k=nome]")
     page.fill(".sheet [data-k=nome]", "Bignè al cioccolato")
@@ -251,11 +249,11 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
 
     # --- downloads
-    page.goto(URL + "#magazzino"); page.wait_for_selector("text=Magazzino")
+    page.goto(URL + "#magazzino"); page.wait_for_selector("#v-magazzino")
     page.locator("main .btn", has_text="Esporta CSV").click()
-    page.goto(URL + "#impostazioni"); page.wait_for_selector("text=Backup ed esportazioni")
+    page.goto(URL + "#impostazioni"); page.wait_for_selector("#v-impostazioni")
     page.locator("main .btn", has_text="Esporta backup").click()
-    page.goto(URL + "#schede"); page.wait_for_selector("text=Schede tecniche")
+    page.goto(URL + "#schede"); page.wait_for_selector("#v-schede")
     page.locator("main .btn", has_text="Libro ingredienti").click()
     page.wait_for_timeout(200)
     dls = page.evaluate("window.__downloads")
@@ -269,19 +267,19 @@ with sync_playwright() as p:
     check(bk["app"] == "barista-flow" and len(bk["dati"]["produzioni"]) == 4, "backup completo")
 
     # --- impostazioni
-    page.goto(URL + "#impostazioni"); page.wait_for_selector("text=Backup ed esportazioni")
+    page.goto(URL + "#impostazioni"); page.wait_for_selector("#v-impostazioni")
     page.fill("#cfg-nome", "Bar Aurora")
     page.fill("#cfg-gg", "1")
     page.locator("main .btn.pri", has_text="Salva impostazioni").click()
     page.wait_for_timeout(300)
     check(text(page, "#bizName") == "Bar Aurora", "nome attività nell'intestazione")
-    page.goto(URL + "#oggi"); page.wait_for_selector("text=La giornata al banco")
+    page.goto(URL + "#oggi"); page.wait_for_selector("#v-oggi")
     tiles = page.locator(".tile").all_inner_texts()
     check("In scadenza entro domani" in tiles[1], f"preavviso 1 giorno: {tiles[1]!r}")
 
     # --- desktop e tema scuro
     page.set_viewport_size({"width": 1280, "height": 860})
-    page.goto(URL + "#oggi"); page.wait_for_selector("text=La giornata al banco"); page.wait_for_timeout(200)
+    page.goto(URL + "#oggi"); page.wait_for_selector("#v-oggi"); page.wait_for_timeout(200)
     page.screenshot(path=str(SHOTS / "d_oggi.png"), full_page=False)
     page.locator(".lab", has_text="TAR-241126-1").click(); page.wait_for_timeout(250)
     page.screenshot(path=str(SHOTS / "d_lotto.png"), full_page=False)
@@ -289,24 +287,24 @@ with sync_playwright() as p:
     page.evaluate("document.documentElement.dataset.theme = 'dark'")
     page.wait_for_timeout(100)
     page.screenshot(path=str(SHOTS / "d_oggi_dark.png"), full_page=False)
-    page.goto(URL + "#schede"); page.wait_for_selector("text=Schede tecniche"); page.evaluate("document.documentElement.dataset.theme = 'dark'")
+    page.goto(URL + "#schede"); page.wait_for_selector("#v-schede"); page.evaluate("document.documentElement.dataset.theme = 'dark'")
     page.locator(".rc", has_text="Tartellette").click(); page.wait_for_timeout(250)
     page.screenshot(path=str(SHOTS / "d_scheda_dark.png"), full_page=False)
     page.keyboard.press("Escape")
     page.set_viewport_size({"width": 360, "height": 780})
-    page.goto(URL + "#produzione"); page.wait_for_selector("text=Produzione"); page.evaluate("document.documentElement.dataset.theme = 'dark'"); page.wait_for_timeout(150)
+    page.goto(URL + "#produzione"); page.wait_for_selector("#v-produzione"); page.evaluate("document.documentElement.dataset.theme = 'dark'"); page.wait_for_timeout(150)
     page.screenshot(path=str(SHOTS / "m360_produzione_dark.png"), full_page=True)
     over = page.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1")
     check(not over, "nessuno scorrimento orizzontale a 360px")
 
     # --- elimina dati di esempio
-    page.goto(URL + "#impostazioni"); page.wait_for_selector("text=Dati di esempio")
+    page.goto(URL + "#impostazioni"); page.wait_for_selector("#v-impostazioni")
     page.locator("main .btn.dan", has_text="Elimina dati di esempio").click()
     page.locator(".sheet .btn.dan", has_text="Elimina esempi").click()
     page.wait_for_timeout(1500)
     left = page.evaluate("Object.fromEntries(Object.entries(window.__store).map(([c, v]) => [c, Object.values(v).filter(x => x.esempio).length]))")
     check(all(v == 0 for v in left.values()), f"esempi eliminati {left}")
-    page.goto(URL + "#oggi"); page.wait_for_selector("text=La giornata al banco"); page.wait_for_timeout(200)
+    page.goto(URL + "#oggi"); page.wait_for_selector("#v-oggi"); page.wait_for_timeout(200)
     page.screenshot(path=str(SHOTS / "m_oggi_dopo_esempi.png"), full_page=True)
     br.close()
 

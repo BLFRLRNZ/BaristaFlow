@@ -129,7 +129,14 @@ const ACT = {
   'open-doc': b => sheetDocumento(b.dataset.id),
   'open-forn': b => formFornitore(b.dataset.id),
   'open-prezzi': b => sheetPrezzi(b.dataset.id),
-  acqseg: b => { const v = b.dataset.v; if (v === 'prezzi') { if (route() !== 'prezzi') location.hash = 'prezzi'; return; } UI.acqSeg = v; if (route() !== 'acquisti') location.hash = 'acquisti'; else renderMain(); },
+  nav: b => { if (route() !== b.dataset.to) location.hash = b.dataset.to; },
+  quick: () => sheetQuick(),
+  qgo: b => { const a = b.dataset.go; closeSheet(); if (a === 'scarico') sheetScarico(); else ACT[a]?.(b); },
+  'scarico-go': b => { const t = {item: true, tipo: b.dataset.tipo, id: b.dataset.id}; closeSheet(); formMov(t); },
+  search: () => sheetSearch(),
+  car: b => scrollLabels(+b.dataset.dir),
+  riordina: b => { if (!guard()) return; const a = S.data.articoli.get(b.dataset.id); if (a) formDocumento(null, {fornitoreId: a.fornitoreId, articoloId: a.id}); },
+  step: b => { const o = sheetOf(b); if (!o) return; const v = pnum(o.st.qta), nv = Math.max(1, Math.round((isNaN(v) ? 0 : v) + +b.dataset.d)); o.st.qta = String(nv); const i = $('[data-k=qta]', o.el); if (i) i.value = o.st.qta; o.dirty = true; o.onField?.('qta', o, 'input', i); },
   'dl-prezzi': () => saveFile(`Storico prezzi ${today()}.csv`, csvPrezzi()),
   'add-riga': b => { const o = sheetOf(b); o.st.righe.push({id: uid(), articoloId: '', qta: '', unita: '', importo: '', lotto: '', scadenza: ''}); o.dirty = true; paintSheet(o); const s = $$('.card', o.el).pop(); s?.scrollIntoView({block: 'nearest'}); $('select', s)?.focus({preventScroll: true}); },
   'del-riga': b => { const o = sheetOf(b); o.st.righe.splice(+b.dataset.i, 1); o.dirty = true; paintSheet(o); },
@@ -139,17 +146,15 @@ const ACT = {
   'mov-all': b => { const o = sheetOf(b); o.st.qta = fmtIn(o.totRes); const i = $('[data-k=qta]', o.el); if (i) i.value = o.st.qta; o.dirty = true; },
   mov: b => { if (guard()) formMov({kind: b.dataset.kind, id: b.dataset.id}); },
   'mov-item': b => { if (guard()) formMov({item: true, tipo: b.dataset.tipo, id: b.dataset.id}); },
-  esaurito: async b => {
+  esaurito: b => {
     if (!guard()) return;
     const l = drv().prod.get(b.dataset.id); if (!l || l.res <= EPS) return;
-    if (!(await ask(`Segno il lotto ${l.p.lotto} come esaurito? I ${fmtQ(l.res, lotUnit(l)).replace(/ /g, ' ')} rimasti vengono registrati come venduti.`, 'Segna esaurito'))) return;
-    if (await put('movimenti', uid(), {data: today(), tipo: 'vendita', lotKind: 'prod', lotId: l.key, delta: -l.res, nota: 'Lotto esaurito', creato: Date.now()})) toast(`Lotto ${l.p.lotto} esaurito`);
+    movWithUndo({data: today(), tipo: 'vendita', lotKind: 'prod', lotId: l.key, delta: -l.res, nota: 'Lotto esaurito', creato: Date.now()}, `Lotto ${l.p.lotto} esaurito: ${nb(fmtQ(l.res, lotUnit(l)))} venduti`);
   },
-  smaltisci: async b => {
+  smaltisci: b => {
     if (!guard()) return;
     const l = drv()[b.dataset.kind === 'prod' ? 'prod' : 'acq'].get(b.dataset.id); if (!l || l.res <= EPS) return;
-    if (!(await ask(`Registro lo smaltimento di ${fmtQ(l.res, lotUnit(l)).replace(/ /g, ' ')} di ${lotName(l)} (${st(l).t.toLowerCase()})?`, 'Smaltisci', true))) return;
-    if (await put('movimenti', uid(), {data: today(), tipo: 'scarto', lotKind: l.kind, lotId: l.key, delta: -l.res, nota: 'Smaltito perché scaduto', creato: Date.now()})) toast('Smaltimento registrato');
+    movWithUndo({data: today(), tipo: 'scarto', lotKind: l.kind, lotId: l.key, delta: -l.res, nota: 'Smaltito perché scaduto', creato: Date.now()}, `Smaltiti ${nb(fmtQ(l.res, lotUnit(l)))} di ${lotName(l)}`);
   },
   'del-mov': async b => {
     if (!guard()) return;
@@ -225,6 +230,12 @@ const ACT = {
   'del-sample': () => { if (guard()) delSample(); }
 };
 
+const nb = t => String(t).replace(/\u00a0/g, ' ');
+async function movWithUndo(m, msg) {
+  const id = uid();
+  if (await put('movimenti', id, m)) toast(msg, false, {label: 'Annulla', fn: async () => { if (await del('movimenti', id)) toast('Operazione annullata'); }});
+}
+
 /* ---------- eventi ---------- */
 function onClick(e) {
   const b = e.target.closest('[data-act]');
@@ -236,6 +247,14 @@ function onClick(e) {
 function onFieldEvent(e, kind) {
   const t = e.target;
   if (t.dataset && t.dataset.q !== undefined) { if (kind === 'input') { UI.q[t.dataset.q] = t.value; renderMain(); } return; }
+  if (t.dataset && (t.dataset.gq || t.dataset.sq)) {
+    if (kind !== 'input') return;
+    const o = sheetOf(t); if (!o) return;
+    o.q = t.value; const sel = [t.selectionStart, t.selectionEnd], id = t.id;
+    clearTimeout(o.qt);
+    o.qt = setTimeout(() => { if (!stack.includes(o)) return; paintSheet(o); const i = document.getElementById(id); if (i) { i.focus({preventScroll: true}); try { i.setSelectionRange(sel[0], sel[1]); } catch { /* nessuna selezione */ } } }, 120);
+    return;
+  }
   if (t.type === 'file') { if (kind === 'change') onFile(t); return; }
   const k = t.dataset?.k; if (!k) return;
   const o = sheetOf(t); if (!o || !o.st) return;
@@ -266,8 +285,15 @@ function wire() {
   document.addEventListener('input', e => onFieldEvent(e, 'input'));
   document.addEventListener('change', e => onFieldEvent(e, 'change'));
   document.addEventListener('submit', e => { e.preventDefault(); if (e.target.id === 'cfgForm') saveCfg(e.target); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && stack.length) { e.preventDefault(); requestClose(); } });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && stack.length) { e.preventDefault(); requestClose(); return; }
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+    if (((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) && !stack.length) { e.preventDefault(); sheetSearch(); return; }
+    if (document.activeElement?.id === 'labels' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); scrollLabels(e.key === 'ArrowRight' ? 1 : -1); }
+  });
   window.addEventListener('hashchange', () => { while (stack.length) closeSheet(); paint(); window.scrollTo(0, 0); });
+  const tb = $('#topbar'); let ticking = false;
+  window.addEventListener('scroll', () => { if (ticking) return; ticking = true; requestAnimationFrame(() => { tb.classList.toggle('scrolled', window.scrollY > 36); ticking = false; }); }, {passive: true});
 }
 
 /* ---------- avvio ---------- */
@@ -303,6 +329,7 @@ async function init() {
     get('assets').then(a => { S.assets = a; bump(); });
   }
   document.body.classList.toggle('ro', S.ro);
+  setupPWA();
   subscribe();
   paint();
 }

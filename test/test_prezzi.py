@@ -24,13 +24,13 @@ with sync_playwright() as p:
     pg.on("console", lambda m: errors.append(f"console.{m.type}: {m.text}") if m.type in ("error", "warning") else None)
 
     # --- Oggi: avvisi di rincaro
-    pg.goto(URL); pg.wait_for_selector("text=La giornata al banco"); pg.wait_for_timeout(300)
+    pg.goto(URL); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(300)
     da = [T(x) for x in pg.locator("#da-controllare + .list .row").all_inner_texts()]
     rin = [x for x in da if "Rincaro" in x]
     check(len(rin) == 2 and "Nocciole tostate" in rin[0] and "+9,8%" in rin[0] and "Uova" in rin[1] and "+8,7%" in rin[1], f"avvisi rincaro in Oggi {rin}")
 
     # --- Prezzi: riepilogo 3 mesi
-    pg.goto(URL + "#prezzi"); pg.wait_for_selector("text=Prezzi d'acquisto"); pg.wait_for_timeout(200)
+    pg.goto(URL + "#prezzi"); pg.wait_for_selector("#v-prezzi"); pg.wait_for_timeout(200)
     check(pg.locator('#tabs a[data-tab=acquisti][aria-current=page]').count() == 1, "scheda Acquisti evidenziata")
     fnd = T(pg.locator(".finding").inner_text())
     check(fnd == "Negli ultimi 3 mesi hai speso 19,18 € in più rispetto ai prezzi di inizio periodo: il rincaro che pesa di più è Nocciole tostate (+7,80 €).", f"frase riassuntiva: {fnd!r}")
@@ -41,7 +41,7 @@ with sync_playwright() as p:
     check(rows[-1].startswith("Zucchero") and "2,20 € risparmiati" in rows[-1] and "▼ −12%" in rows[-1], f"ultima riga zucchero: {rows[-1]!r}")
     check(pg.locator("main .row .spark").count() >= 6, "minigrafici nelle righe")
     imp = [T(x) for x in pg.locator("main h2:has-text('Costo delle schede') + p + .list .row").all_inner_texts()]
-    check(len(imp) == 3 and imp[0].startswith("Tartellette") and "+9%" in imp[0] and imp[1].startswith("Biscotti") and "+7,7%" in imp[1] and "Food cost 9,7% → 10,5%" in imp[1] and imp[2].startswith("Crema") and "+6,5%" in imp[2], f"impatto schede {imp}")
+    check(len(imp) == 3 and "Tartellette" in imp[0] and "+9%" in imp[0] and "Biscotti" in imp[1] and "+7,7%" in imp[1] and "Food cost 9,7% → 10,5%" in imp[1] and "Crema" in imp[2] and "+6,5%" in imp[2], f"impatto schede {imp}")
     pg.screenshot(path=str(SHOTS / "m_prezzi.png"), full_page=True)
     # periodo 12 mesi
     pg.locator("main .seg button", has_text="12 mesi").click(); pg.wait_for_timeout(150)
@@ -78,7 +78,7 @@ with sync_playwright() as p:
     pg.keyboard.press("Escape"); pg.wait_for_timeout(100)
 
     # --- articolo: riga prezzi
-    pg.goto(URL + "#magazzino"); pg.wait_for_selector("text=Magazzino"); pg.wait_for_timeout(200)
+    pg.goto(URL + "#magazzino"); pg.wait_for_selector("#v-magazzino"); pg.wait_for_timeout(200)
     bur = T(pg.locator("main .row", has_text="Burro").inner_text())
     check("2 lotti in giacenza" in bur, f"le fatture solo prezzi non creano lotti: {bur!r}")
     pg.locator("main .row", has_text="Nocciole").click(); pg.wait_for_timeout(300)
@@ -87,7 +87,7 @@ with sync_playwright() as p:
     pg.keyboard.press("Escape")
 
     # --- fattura vecchia solo per lo storico
-    pg.goto(URL + "#acquisti"); pg.wait_for_selector("text=Acquisti"); pg.wait_for_timeout(150)
+    pg.goto(URL + "#acquisti"); pg.wait_for_selector("#v-acquisti"); pg.wait_for_timeout(150)
     pg.locator("main .btn.pri", has_text="Registra documento").click(); pg.wait_for_timeout(200)
     pg.fill(".sheet [data-k=numero]", "455")
     pg.fill(".sheet [data-k=data]", "2026-05-15")
@@ -102,12 +102,12 @@ with sync_playwright() as p:
     pg.locator(".sheet .btn.pri").click(); pg.wait_for_timeout(300)
     check(pg.locator(".sheet-wrap").count() == 0, "fattura storica salvata")
     check(pg.locator("main .row", has_text="Fattura n. 455").locator(".chip", has_text="Solo storico prezzi").count() == 1, "etichetta solo storico prezzi")
-    pg.goto(URL + "#magazzino"); pg.wait_for_selector("text=Magazzino"); pg.wait_for_timeout(150)
+    pg.goto(URL + "#magazzino"); pg.wait_for_selector("#v-magazzino"); pg.wait_for_timeout(150)
     far = T(pg.locator("main .row", has_text="Farina 00").inner_text())
     check("24,2 kg" in far and "1 lotto" in far, f"giacenza farina invariata: {far!r}")
 
     # --- DDT con fattura collegata
-    pg.goto(URL + "#acquisti"); pg.wait_for_selector("text=Acquisti"); pg.wait_for_timeout(150)
+    pg.goto(URL + "#acquisti"); pg.wait_for_selector("#v-acquisti"); pg.wait_for_timeout(150)
     pg.locator("main .row", has_text="DDT n. 452").click(); pg.wait_for_timeout(250)
     pg.locator(".sheet .btn.pri", has_text="Modifica documento").click(); pg.wait_for_timeout(200)
     f = pg.locator(".sheet-wrap").last
@@ -115,28 +115,28 @@ with sync_playwright() as p:
     f.locator(".btn.pri").click(); pg.wait_for_timeout(300)
     check("Fattura collegata: n. 1203 del 30/11" in pg.locator(".sheet").inner_text(), "fattura collegata nel DDT")
     pg.keyboard.press("Escape")
-    pg.goto(URL + "#oggi"); pg.wait_for_selector("text=La giornata al banco"); pg.wait_for_timeout(200)
+    pg.goto(URL + "#oggi"); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(200)
     pg.locator(".lab", has_text="TAR-241126-1").click(); pg.wait_for_timeout(300)
     check("fattura n. 1203 del 30/11" in pg.locator(".sheet").inner_text(), "fattura collegata visibile nella tracciabilità")
     pg.keyboard.press("Escape")
 
     # --- soglia rincari
-    pg.goto(URL + "#impostazioni"); pg.wait_for_selector("text=Backup ed esportazioni")
+    pg.goto(URL + "#impostazioni"); pg.wait_for_selector("#v-impostazioni")
     pg.fill("#cfg-sr", "9")
     pg.locator("main .btn.pri", has_text="Salva impostazioni").click(); pg.wait_for_timeout(250)
-    pg.goto(URL + "#oggi"); pg.wait_for_selector("text=La giornata al banco"); pg.wait_for_timeout(200)
+    pg.goto(URL + "#oggi"); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(200)
     rin = [x for x in pg.locator("#da-controllare + .list .row").all_inner_texts() if "Rincaro" in x]
     check(len(rin) == 1 and "Nocciole" in rin[0], f"con soglia 9% resta solo nocciole {len(rin)}")
 
     # --- CSV dello storico
-    pg.goto(URL + "#prezzi"); pg.wait_for_selector("text=Prezzi d'acquisto"); pg.wait_for_timeout(150)
+    pg.goto(URL + "#prezzi"); pg.wait_for_selector("#v-prezzi"); pg.wait_for_timeout(150)
     pg.locator("main .btn", has_text="Esporta CSV").click(); pg.wait_for_timeout(150)
     csv = [d for d in pg.evaluate("window.__downloads") if d["filename"].startswith("Storico prezzi")][0]["data"]
     check("Burro;12/06/2026;Latteria Val Verde;Fattura n. 512 del 12/06/2026;5;kg;39,5;7,9" in csv, "CSV storico prezzi")
 
     # --- desktop e scuro
     pg.set_viewport_size({"width": 1280, "height": 900})
-    pg.goto(URL + "#prezzi"); pg.wait_for_selector("text=Prezzi d'acquisto"); pg.wait_for_timeout(250)
+    pg.goto(URL + "#prezzi"); pg.wait_for_selector("#v-prezzi"); pg.wait_for_timeout(250)
     pg.screenshot(path=str(SHOTS / "d_prezzi.png"), full_page=False)
     pg.locator("main .row", has_text="Uova").first.click(); pg.wait_for_timeout(400)
     sh = pg.locator(".sheet-wrap").last
@@ -149,7 +149,7 @@ with sync_playwright() as p:
     pg.screenshot(path=str(SHOTS / "d_prezzi_burro_dark.png"), full_page=False)
     pg.keyboard.press("Escape")
     pg.set_viewport_size({"width": 360, "height": 780})
-    pg.goto(URL + "#prezzi"); pg.wait_for_selector("text=Prezzi d'acquisto"); pg.evaluate("document.documentElement.dataset.theme = 'dark'"); pg.wait_for_timeout(200)
+    pg.goto(URL + "#prezzi"); pg.wait_for_selector("#v-prezzi"); pg.evaluate("document.documentElement.dataset.theme = 'dark'"); pg.wait_for_timeout(200)
     check(not pg.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1"), "nessuno scorrimento orizzontale a 360px")
     pg.locator("main .row", has_text="Burro").first.click(); pg.wait_for_timeout(400)
     over = pg.evaluate("(() => { const b = document.querySelector('.sheet .sh-body'); return b.scrollWidth > b.clientWidth + 1; })()")

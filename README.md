@@ -12,6 +12,24 @@ Web app per gestire banco e laboratorio di un bar: schede tecniche dei prodotti,
 - **Pagina «Oggi»**: lotti scaduti da smaltire, prodotti in scadenza, articoli sotto scorta e rincari.
 - **Esportazioni**: scheda tecnica e scheda lotto stampabili, libro ingredienti, giacenze e storico prezzi in CSV, backup completo in JSON.
 
+## Pensata per l'uso al banco
+
+- Il pulsante **+** al centro della barra in basso apre le registrazioni rapide: produzione, acquisto, scarico, scheda, articolo e fornitore.
+- La **ricerca** in alto (o il tasto `/` sul computer) trova lotti, anche del fornitore, prodotti, articoli, fatture e fornitori.
+- Le azioni si fanno direttamente dalle righe: **Smaltisci** su un lotto scaduto, **Riordina** su un articolo sotto scorta (apre l'acquisto già compilato con fornitore e articolo).
+- Le operazioni veloci, come segnare un lotto esaurito o smaltire, partono subito e si possono **annullare** dall'avviso in basso.
+- Le schede si aprono dal basso e si chiudono trascinandole giù. Nella produzione c'è il contapezzi e l'anteprima del codice lotto.
+- Tema chiaro e scuro automatici, layout per telefono e barra laterale da computer.
+
+## Installarla sul telefono
+
+Quando l'app è pubblicata su un sito, per esempio con GitHub Pages, si può installare:
+
+- **iPhone (Safari)**: Condividi → Aggiungi alla schermata Home.
+- **Android (Chrome)**: menu ⋮ → Installa app.
+
+Si apre a tutto schermo con la sua icona e funziona anche senza rete, grazie a `sw.js`. Prima prova la rete, quindi mostra sempre l'ultima versione pubblicata.
+
 ## Dove salva i dati
 
 - **Pagina aperta da claude.ai** (artifact): i dati stanno nell'archivio della pagina e si vedono da ogni dispositivo. Chi ha il permesso di modifica può registrare produzioni e scarichi.
@@ -31,7 +49,11 @@ src/
   views.js            pagine: Oggi, Produzione, Schede, Magazzino, Acquisti, Prezzi, Impostazioni
   details.js          dettagli: lotto, lotto del fornitore, articolo, scheda, documento, storico prezzi con grafico
   forms.js            moduli: articolo, fornitore, documento d'acquisto, scheda tecnica, produzione, scarichi
+  quick.js            pulsante +, scarico rapido, ricerca globale, installazione sul telefono
   main.js             azioni, esportazioni, avvio e collegamento all'archivio
+manifest.webmanifest  nome, colori e icone per installare l'app
+sw.js                 funzionamento senza rete
+icone/                icona dell'app (SVG e PNG)
 esempi/
   genera_esempi.py    crea dati-esempio.json
   dati-esempio.json   dati di esempio (biscotti, crema, tartellette, acquisti e storico prezzi)
@@ -67,6 +89,7 @@ python3 esempi/genera_esempi.py
 python3 test/test_app.py
 python3 test/test_modes.py
 python3 test/test_prezzi.py
+python3 test/test_comodita.py
 ```
 
 ## Nota sulle etichette

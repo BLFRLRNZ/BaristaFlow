@@ -5,8 +5,9 @@ function openSheet(o) {
   o.prevFocus = document.activeElement;
   const wrap = document.createElement('div');
   wrap.className = 'sheet-wrap';
-  wrap.innerHTML = `<div class="sheet${o.small ? ' small' : ''}" role="dialog" aria-modal="true"><div class="sh-head"><h2></h2><button type="button" class="btn icon" data-act="close" aria-label="Chiudi">${IC.x}</button></div><div class="sh-body"></div><div class="sh-foot"></div></div>`;
+  wrap.innerHTML = `<div class="sheet${o.small ? ' small' : ''}${o.form ? ' form' : ''}" role="dialog" aria-modal="true"><div class="grab" aria-hidden="true"></div><div class="sh-head"><h2></h2><button type="button" class="btn icon" data-act="close" aria-label="Chiudi">${IC.x}</button></div><div class="sh-body"></div><div class="sh-foot"></div></div>`;
   wrap.addEventListener('click', e => { if (e.target === wrap) requestClose(); });
+  dragToClose(wrap);
   o.el = wrap; stack.push(o);
   $('#sheets').append(wrap);
   document.documentElement.style.overflow = 'hidden';
@@ -26,6 +27,20 @@ function paintSheet(o) {
   f.hidden = !ft.trim();
   drawCharts(o.el);
   o.after?.(o);
+}
+/* trascina in basso la testata per chiudere il foglio (telefono) */
+function dragToClose(wrap) {
+  const sheet = $('.sheet', wrap), zones = [$('.grab', wrap), $('.sh-head', wrap)];
+  let y0 = null, dy = 0, t0 = 0;
+  const down = e => { if (e.target.closest('button') || matchMedia('(min-width: 760px)').matches) return; y0 = e.clientY; dy = 0; t0 = Date.now(); sheet.style.transition = 'none'; e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const move = e => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); sheet.style.transform = dy ? `translateY(${dy}px)` : ''; };
+  const up = () => {
+    if (y0 == null) return; y0 = null;
+    const fast = dy > 60 && dy / Math.max(1, Date.now() - t0) > 0.6;
+    sheet.style.transition = 'transform .22s ease-out'; sheet.style.transform = '';
+    if (dy > 140 || fast) requestClose();
+  };
+  for (const z of zones) { z.addEventListener('pointerdown', down); z.addEventListener('pointermove', move); z.addEventListener('pointerup', up); z.addEventListener('pointercancel', up); }
 }
 function closeSheet() {
   const o = stack.pop(); if (!o) return;
@@ -47,12 +62,18 @@ function ask(msg, okLabel = 'Conferma', danger = false) {
     o.onClose = () => { if (!done) { done = true; res(false); } };
   });
 }
-function toast(msg, bad) {
+function toast(msg, bad, action) {
   const box = $('#toast'), t = document.createElement('div');
-  t.className = 'toast' + (bad ? ' bad' : ''); t.textContent = msg;
+  t.className = 'toast' + (bad ? ' bad' : '');
+  const sp = document.createElement('span'); sp.textContent = msg; t.append(sp);
+  if (action) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = action.label;
+    b.addEventListener('click', () => { t.remove(); action.fn(); });
+    t.append(b);
+  }
   box.append(t);
   while (box.children.length > 2) box.firstElementChild.remove();
-  setTimeout(() => t.remove(), bad ? 6500 : 2800);
+  setTimeout(() => t.remove(), action ? 7000 : bad ? 6500 : 2800);
 }
 const ferr = (o, msg) => { const e = $('#ferr', o.el); if (e) { e.textContent = msg; e.scrollIntoView({block: 'nearest'}); } else toast(msg, true); return false; };
 
@@ -68,7 +89,8 @@ function allegatiHTML(doc) {
 function movList(l) {
   if (!l.mov.length) return empty('Nessuno scarico o rettifica registrati.');
   const u = lotUnit(l);
-  return `<div class="list">${[...l.mov].sort((a, b) => String(b.data).localeCompare(String(a.data)) || (b.creato || 0) - (a.creato || 0)).map(m => `<div class="row" style="cursor:default"><span class="m"><b>${esc(MOV[m.tipo] || 'Movimento')} · ${fmtQ(Math.abs(+m.delta || 0), u)}${+m.delta > 0 ? ' in più' : ''}</b><span>${fmtD(m.data)}${m.nota ? ' · ' + esc(m.nota) : ''}</span></span><span class="s"><button type="button" class="btn w" data-act="del-mov" data-id="${esc(m.id)}">Elimina</button></span></div>`).join('')}</div>`;
+  const ic = {vendita: IC.sell, scarto: IC.trash, uso: IC.chef, rettifica: IC.box};
+  return `<div class="list">${[...l.mov].sort((a, b) => String(b.data).localeCompare(String(a.data)) || (b.creato || 0) - (a.creato || 0)).map(m => `<div class="row">${av(ic[m.tipo] || IC.box, m.tipo === 'scarto' ? 'red' : '')}<span class="m"><b>${esc(MOV[m.tipo] || 'Movimento')} · ${fmtQ(Math.abs(+m.delta || 0), u)}${+m.delta > 0 ? ' in più' : ''}</b><span>${fmtD(m.data)}${m.nota ? ' · ' + esc(m.nota) : ''}</span></span><span class="s"><button type="button" class="btn sm w" data-act="del-mov" data-id="${esc(m.id)}">Elimina</button></span></div>`).join('')}</div>`;
 }
 function consumoItem(c, path) {
   const Dd = drv(), it = itemOf(c.tipo, c.refId), nome = it?.nome || c.nome || 'Ingrediente eliminato';
@@ -163,8 +185,8 @@ function artBody(id) {
     <div class="kv"><div><small>Giacenza utilizzabile</small><b>${fmtQ(s.usable, a.unita)}</b></div><div><small>Scaduto da smaltire</small><b>${fmtQ(s.expired, a.unita)}</b></div><div><small>Scorta minima</small><b>${+a.scortaMin > 0 ? fmtQ(+a.scortaMin, a.unita) : '—'}</b></div><div><small>Ultimo costo</small><b>${cost != null ? EUR(cost) : '—'}</b><small>${a.unita === 'pz' ? 'al pezzo' : 'al ' + esc(unitOk(a.unita))}</small></div></div>
     <h3>Prezzi d'acquisto</h3>${priceRow(id)}
     <h3>Allergeni e nome in etichetta</h3>${algChips(al, [])}<p style="margin-top:10px" class="labeltext">${emph(esc(artLabel(a)))}</p>
-    <h3>Lotti in giacenza</h3>${inUse.length ? `<div class="list">${inUse.map(lotRow).join('')}</div>` : empty('Nessun lotto in giacenza. Carica la merce registrando un acquisto.')}
-    ${done.length ? `<details style="margin-top:12px"><summary class="lnk">Lotti esauriti (${done.length})</summary><div class="list" style="margin-top:10px">${done.map(lotRow).join('')}</div></details>` : ''}
+    <h3>Lotti in giacenza</h3>${inUse.length ? `<div class="list">${inUse.map(l => lotRow(l)).join('')}</div>` : empty('Nessun lotto in giacenza. Carica la merce registrando un acquisto.')}
+    ${done.length ? `<details style="margin-top:12px"><summary class="lnk">Lotti esauriti (${done.length})</summary><div class="list" style="margin-top:10px">${done.map(l => lotRow(l)).join('')}</div></details>` : ''}
     <h3>Usato nelle schede</h3>${recs.length ? `<div class="chips">${recs.map(r => `<button type="button" class="btn" data-act="open-ric" data-id="${esc(r.id)}">${esc(r.nome)}</button>`).join('')}</div>` : '<p class="muted">Non è ancora in nessuna scheda tecnica.</p>'}
     ${a.fornitoreId && fornName(a.fornitoreId) ? `<p class="muted" style="margin-top:14px">Fornitore abituale: ${esc(fornName(a.fornitoreId))}</p>` : ''}
     ${a.note ? `<h3>Note</h3><div class="prose">${esc(a.note)}</div>` : ''}
@@ -179,7 +201,7 @@ function artFoot(id) {
 function priceRow(id) {
   const a = S.data.articoli.get(id), ps = priceStats(id, periodStart(UI.prezziP));
   if (!a || !ps) return '<p class="muted">Nessun prezzo registrato: inserisci gli importi nelle righe di fatture e DDT.</p>';
-  return `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(id)}"><span class="m"><b>Ultimo ${EUR(ps.last.p)} ${perU(a.unita)}</b><span>${fmtD(ps.last.date)}${ps.prev ? ` · prima ${EUR(ps.prev.p)}` : ''} · ${ps.s.length === 1 ? '1 acquisto' : ps.s.length + ' acquisti'}</span><span>Apri lo storico con il grafico</span></span><span class="s">${spark(ps.s)}${ps.prev ? delta(ps.chgPrev, 'sul precedente') : ''}</span></button>`;
+  return `<div class="list"><button type="button" class="row" data-act="open-prezzi" data-id="${esc(id)}">${av(IC.tag, ps.prev ? (dcls(ps.chgPrev) === 'up' ? 'red' : dcls(ps.chgPrev) === 'down' ? 'good' : '') : '')}<span class="m"><b>Ultimo ${EUR(ps.last.p)} ${perU(a.unita)}</b><span>${fmtD(ps.last.date)}${ps.prev ? ` · prima ${EUR(ps.prev.p)}` : ''} · ${ps.s.length === 1 ? '1 acquisto' : ps.s.length + ' acquisti'}</span><span class="mc">${ps.prev ? delta(ps.chgPrev, 'sul precedente') : ''}</span></span><span class="s">${spark(ps.s)}</span></button></div>`;
 }
 
 /* ---------- storico prezzi di un articolo ---------- */
@@ -215,7 +237,7 @@ function prezziBody(id) {
       <div class="fig" data-chart="prezzi" data-id="${esc(id)}" tabindex="0" role="img" aria-label="${esc(label)}"></div>
       <p class="hint" style="margin:4px 6px 4px">Tocca o passa sopra il grafico per leggere ogni acquisto.</p>
     </div>
-    ${cheapest ? `<h3>Per fornitore</h3><div class="list">${bySup.map(x => `<div class="row" style="cursor:default"><span class="m"><b><i class="k c${x.i}" aria-hidden="true"></i> ${esc(x.name)}</b><span>Ultimo ${EUR(x.last.p)} il ${fmtD(x.last.date)} · media ${EUR(x.avg)} su ${x.n === 1 ? '1 acquisto' : x.n + ' acquisti'}</span></span>${x === cheapest ? '<span class="s"><span class="chip down">Il più conveniente</span></span>' : ''}</div>`).join('')}</div>` : ''}
+    ${cheapest ? `<h3>Per fornitore</h3><div class="list">${bySup.map(x => `<div class="row">${av(initials(x.name))}<span class="m"><b><i class="k c${x.i}" aria-hidden="true"></i> ${esc(x.name)}</b><span>Ultimo ${EUR(x.last.p)} il ${fmtD(x.last.date)} · media ${EUR(x.avg)} su ${x.n === 1 ? '1 acquisto' : x.n + ' acquisti'}</span></span>${x === cheapest ? '<span class="s"><span class="chip down">Il più conveniente</span></span>' : ''}</div>`).join('')}</div>` : ''}
     <h3>Tutti gli acquisti</h3>
     <div class="tw"><table class="tbl stack"><thead><tr><th>Data</th><th>Fornitore</th><th class="n">Quantità</th><th class="n">Importo</th><th class="n">Prezzo ${esc(perU(u))}</th><th class="n">Variazione</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="morebar"><button type="button" class="btn" data-act="open-art" data-id="${esc(id)}">Giacenze e lotti di ${esc(a.nome)}</button></div>`;
@@ -367,11 +389,11 @@ function docBody(id) {
   const righe = (d.righe || []).map(r => {
     if (d.soloPrezzi) {
       const a = S.data.articoli.get(r.articoloId), u = unitOk(a?.unita), pu = +r.qta > 0 && r.importo != null && r.importo !== '' ? +r.importo / +r.qta : null;
-      return `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(r.articoloId)}"><span class="m"><b>${esc(a?.nome || 'Articolo eliminato')}</b><span>${fmtQ(+r.qta, u)} · ${EUR(r.importo == null || r.importo === '' ? null : +r.importo)}</span></span><span class="s"><span class="q">${EUR(pu)} <small>${perU(u)}</small></span></span></button>`;
+      return `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(r.articoloId)}">${av(catIc(a?.categoria))}<span class="m"><b>${esc(a?.nome || 'Articolo eliminato')}</b><span>${fmtQ(+r.qta, u)} · ${EUR(r.importo == null || r.importo === '' ? null : +r.importo)}</span></span><span class="s"><span class="q">${EUR(pu)} <small>${perU(u)}</small></span></span></button>`;
     }
     const l = Dd.acq.get(`${id}:${r.id}`); if (!l) return '';
     const s = st(l), u = lotUnit(l);
-    return `<button type="button" class="row" data-act="open-acq" data-id="${esc(l.key)}"><span class="m"><b>${esc(lotName(l))}</b><span>${fmtQ(l.qta, u)}${r.importo != null && r.importo !== '' ? ' · ' + EUR(+r.importo) : ''} · lotto ${esc(l.lottoF || 'non indicato')} · scad. ${fmtD(l.scad)}</span><span>${l.used.length ? `Usato in ${l.used.length === 1 ? '1 produzione' : l.used.length + ' produzioni'}` : 'Non ancora usato'}</span></span><span class="s"><span class="q">${fmtQ(l.res, u)} <small>residuo</small></span><span class="chip ${s.c}">${esc(s.t)}</span></span></button>`;
+    return `<button type="button" class="row" data-act="open-acq" data-id="${esc(l.key)}">${av(catIc(l.item?.categoria), s.c)}<span class="m"><b>${esc(lotName(l))}</b><span>${fmtQ(l.qta, u)}${r.importo != null && r.importo !== '' ? ' · ' + EUR(+r.importo) : ''} · lotto ${esc(l.lottoF || 'non indicato')} · scad. ${fmtD(l.scad)}</span><span>${l.used.length ? `Usato in ${l.used.length === 1 ? '1 produzione' : l.used.length + ' produzioni'}` : 'Non ancora usato'}</span><span class="mc"><span class="chip ${s.c}">${esc(s.t)}</span></span></span><span class="s"><span class="q">${fmtQ(l.res, u)}</span><small class="muted">residuo</small></span></button>`;
   }).join('');
   const f = S.data.fornitori.get(d.fornitoreId);
   return `<div class="kv"><div><small>Documento</small><b>${esc(TIPI[d.tipo] || 'Documento')}${d.numero ? ' ' + esc(d.numero) : ''}</b></div><div><small>Data</small><b>${fmtD(d.data)}</b></div><div><small>Fornitore</small><b style="font-stretch:90%;font-size:18px">${f ? esc(f.nome) : '—'}</b></div><div><small>Totale senza IVA</small><b>${EUR(docTot(d))}</b></div></div>

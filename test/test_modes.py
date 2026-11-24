@@ -25,7 +25,7 @@ with sync_playwright() as p:
 
     # 1. sola lettura
     ctx, pg = newpage(br, MOCK_TEMPLATE.replace("__SEEDS__", json.dumps(SEEDS)).replace("__CAN__", "false").replace("__DBNULL__", "false"))
-    pg.goto(URL); pg.wait_for_selector("text=La giornata al banco"); pg.wait_for_timeout(300)
+    pg.goto(URL); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(300)
     check(pg.locator("main .btn.pri:visible").count() == 0, "sola lettura: nessun pulsante di creazione")
     check(pg.locator("#sync").inner_text() == "Sola lettura", "sola lettura indicata in alto")
     pg.locator(".lab", has_text="CRE-231126-1").click(); pg.wait_for_timeout(300)
@@ -35,26 +35,26 @@ with sync_playwright() as p:
 
     # 2. archivio non disponibile (prova)
     ctx, pg = newpage(br, MOCK_TEMPLATE.replace("__SEEDS__", json.dumps(SEEDS)).replace("__CAN__", "true").replace("__DBNULL__", "true"))
-    pg.goto(URL); pg.wait_for_selector("text=La giornata al banco"); pg.wait_for_timeout(300)
+    pg.goto(URL); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(300)
     check("non viene salvato" in pg.locator("main").inner_text(), "prova: avviso dati non salvati")
     check(pg.locator("#sync").inner_text() == "Prova: non salva", "prova: stato in alto")
     ctx.close()
 
     # 3. fuori da claude.ai: dati nel browser, persistono al ricaricamento
     ctx, pg = newpage(br, None)
-    pg.goto(URL); pg.wait_for_selector("text=La giornata al banco"); pg.wait_for_timeout(300)
+    pg.goto(URL); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(300)
     check("solo in questo browser" in pg.locator("main").inner_text(), "locale: avviso dati nel browser")
-    pg.goto(URL + "#acquisti"); pg.wait_for_selector("text=Acquisti")
+    pg.goto(URL + "#acquisti"); pg.wait_for_selector("#v-acquisti")
     pg.locator("main .btn", has_text="Nuovo fornitore").click()
     pg.fill(".sheet [data-k=nome]", "Forno Rossi")
     pg.locator(".sheet .btn.pri").click(); pg.wait_for_timeout(200)
-    pg.reload(); pg.wait_for_selector("text=Acquisti"); pg.locator("main .seg button", has_text="Fornitori").click()
+    pg.reload(); pg.wait_for_selector("#v-acquisti"); pg.locator("main .seg button", has_text="Fornitori").click(); pg.wait_for_selector("#v-fornitori")
     check(pg.locator("main .row", has_text="Forno Rossi").count() == 1, "locale: fornitore salvato dopo il ricaricamento")
     ctx.close()
 
     # 4. casi limite con dati di esempio
     ctx, pg = newpage(br, MOCK_TEMPLATE.replace("__SEEDS__", json.dumps(SEEDS)).replace("__CAN__", "true").replace("__DBNULL__", "false"))
-    pg.goto(URL + "#acquisti"); pg.wait_for_selector("text=Acquisti"); pg.wait_for_timeout(300)
+    pg.goto(URL + "#acquisti"); pg.wait_for_selector("#v-acquisti"); pg.wait_for_timeout(300)
     pg.locator("main .row", has_text="Fattura n. 889").click(); pg.wait_for_timeout(250)
     pg.locator(".sheet .btn.dan", has_text="Elimina documento").click(); pg.wait_for_timeout(200)
     check("già stati usati" in pg.locator("#toast").inner_text(), "non si elimina un documento con lotti usati")
@@ -69,7 +69,7 @@ with sync_playwright() as p:
     check(uova == 100, f"modifica quantità salvata ({uova})")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(100)
     # crema usata come ingrediente: non eliminabile
-    pg.goto(URL + "#produzione"); pg.wait_for_selector("text=Produzione"); pg.wait_for_timeout(200)
+    pg.goto(URL + "#produzione"); pg.wait_for_selector("#v-produzione"); pg.wait_for_timeout(200)
     pg.locator("main .row", has_text="CRE-231126-1").click(); pg.wait_for_timeout(250)
     pg.locator(".sheet .btn.dan", has_text="Elimina lotto").click(); pg.wait_for_timeout(200)
     check("ingrediente di" in pg.locator("#toast").inner_text(), "lotto semilavorato usato non eliminabile")
@@ -95,7 +95,7 @@ with sync_playwright() as p:
     check(abs(crema_res) < 1e-9, f"crema esaurita dopo la produzione ({crema_res})")
     pg.keyboard.press("Escape")
     # scarico per articolo su più lotti (FEFO) e rettifica di un lotto
-    pg.goto(URL + "#magazzino"); pg.wait_for_selector("text=Magazzino"); pg.wait_for_timeout(200)
+    pg.goto(URL + "#magazzino"); pg.wait_for_selector("#v-magazzino"); pg.wait_for_timeout(200)
     pg.locator("main .row", has_text="Burro").click(); pg.wait_for_timeout(250)
     pg.locator(".sheet .btn.pri", has_text="Registra scarico").click(); pg.wait_for_timeout(200)
     f = pg.locator(".sheet-wrap").nth(1)
@@ -118,7 +118,7 @@ with sync_playwright() as p:
     kv = pg.locator(".sheet-wrap").nth(1).locator(".kv").inner_text().replace(" ", " ")
     check("Residuo\n4,3 kg" in kv, f"movimento eliminato, residuo tornato: {kv!r}")
     # cicli: la crema non può contenere sé stessa
-    pg.goto(URL + "#schede"); pg.wait_for_selector("text=Schede tecniche"); pg.wait_for_timeout(200)
+    pg.goto(URL + "#schede"); pg.wait_for_selector("#v-schede"); pg.wait_for_timeout(200)
     pg.locator(".rc", has_text="Crema pasticcera").click(); pg.wait_for_timeout(250)
     pg.locator(".sheet .btn", has_text="Modifica scheda").click(); pg.wait_for_timeout(250)
     opts = pg.locator(".sheet-wrap").nth(1).locator("[data-k='ingredienti.0.ref'] option").evaluate_all("o => o.map(x => x.value)")

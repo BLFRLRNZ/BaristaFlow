@@ -58,7 +58,7 @@ function formFornitore(id, onSaved) {
       <label class="fld"><span>Telefono</span><input type="text" data-k="telefono" value="${esc(st.telefono)}" inputmode="tel" autocomplete="off" ${S.ro ? 'disabled' : ''}></label></div>
       <label class="fld"><span>Email</span><input type="text" data-k="email" value="${esc(st.email)}" inputmode="email" autocomplete="off" ${S.ro ? 'disabled' : ''}></label>
       <label class="fld"><span>Note</span><textarea data-k="note" rows="3" placeholder="Es. consegna martedì e venerdì" ${S.ro ? 'disabled' : ''}>${esc(st.note)}</textarea></label>
-      ${docs.length ? `<h3>Documenti di questo fornitore</h3><div class="list">${docs.map(d => `<button type="button" class="row" data-act="open-doc" data-id="${esc(d.id)}"><span class="m"><b>${esc(docName(d))}</b><span>${(d.righe || []).length} righe</span></span><span class="s"><span class="q">${EUR(docTot(d))}</span></span></button>`).join('')}</div>` : ''}
+      ${docs.length ? `<h3>Documenti di questo fornitore</h3><div class="list">${docs.map(d => `<button type="button" class="row" data-act="open-doc" data-id="${esc(d.id)}">${av(DOCAB[d.tipo] || 'DOC')}<span class="m"><b>${esc(docName(d))}</b><span>${(d.righe || []).length} righe</span></span><span class="s"><span class="q">${EUR(docTot(d))}</span></span></button>`).join('')}</div>` : ''}
       ${ex && !docs.length ? `<div class="morebar w"><button type="button" class="btn dan" data-act="del-forn" data-id="${esc(id)}">Elimina fornitore</button></div>` : ''}
       <p class="err" id="ferr" role="alert"></p>`,
     foot: () => S.ro ? '' : foot(ex ? 'Salva modifiche' : 'Crea fornitore'),
@@ -73,12 +73,12 @@ function formFornitore(id, onSaved) {
 }
 
 /* documento d'acquisto: ogni riga è un lotto */
-function formDocumento(id) {
+function formDocumento(id, pre) {
   const ex = id ? S.data.documenti.get(id) : null;
   const newRiga = () => ({id: uid(), articoloId: '', qta: '', unita: '', importo: '', lotto: '', scadenza: ''});
   const st = ex
     ? {tipo: TIPI[ex.tipo] ? ex.tipo : 'fattura', numero: ex.numero || '', data: ex.data || today(), fornitoreId: ex.fornitoreId || '', fatturaRif: ex.fatturaRif || '', soloPrezzi: !!ex.soloPrezzi, note: ex.note || '', allegati: clone(ex.allegati || []), righe: (ex.righe || []).map(r => ({id: r.id, articoloId: r.articoloId, qta: fmtIn(+r.qta), unita: unitOk(S.data.articoli.get(r.articoloId)?.unita) || 'kg', importo: r.importo == null || r.importo === '' ? '' : fmtIn(+r.importo), lotto: r.lotto || '', scadenza: r.scadenza || ''}))}
-    : {tipo: 'fattura', numero: '', data: today(), fornitoreId: '', fatturaRif: '', soloPrezzi: false, note: '', allegati: [], righe: [newRiga()]};
+    : {tipo: 'fattura', numero: '', data: today(), fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', fatturaRif: '', soloPrezzi: false, note: '', allegati: [], righe: pre?.articoloId ? [{...newRiga(), articoloId: pre.articoloId, unita: unitOk(S.data.articoli.get(pre.articoloId)?.unita) || 'kg'}] : [newRiga()]};
   if (!st.righe.length) st.righe.push(newRiga());
   const priceOnly = () => st.soloPrezzi && st.tipo !== 'inventario';
   const usedLot = rid => { if (!ex) return null; const l = drv().acq.get(`${id}:${rid}`); return l && (l.used.length || l.mov.length) ? l : null; };
@@ -316,9 +316,10 @@ function formProduzione(ricId) {
       const r = S.data.ricette.get(st.ricettaId), u = unitOk(r?.resaUnita);
       return `<label class="fld"><span>Prodotto da scheda tecnica</span><select data-k="ricettaId"><option value="">Scegli il prodotto…</option>${recs.map(x => opt(x.id, x.nome, st.ricettaId)).join('')}</select></label>
       ${r ? `<div class="g3"><label class="fld"><span>Data di produzione</span><input type="date" data-k="data" value="${esc(st.data)}"></label>
-        <label class="fld"><span>Quantità prodotta (${u === 'pz' ? 'pezzi' : u})</span><input type="text" inputmode="decimal" data-k="qta" value="${esc(st.qta)}" autocomplete="off"></label>
+        <label class="fld"><span>Quantità prodotta (${u === 'pz' ? 'pezzi' : u})</span>${u === 'pz' ? `<span class="stepper"><button type="button" class="btn" data-act="step" data-d="-1" aria-label="Un pezzo in meno">${IC.minus}</button><input type="text" inputmode="decimal" data-k="qta" value="${esc(st.qta)}" autocomplete="off"><button type="button" class="btn" data-act="step" data-d="1" aria-label="Un pezzo in più">${IC.plus}</button></span>` : `<input type="text" inputmode="decimal" data-k="qta" value="${esc(st.qta)}" autocomplete="off">`}</label>
         <label class="fld"><span>${esc(scadLabel(r.tipoScadenza))}</span><input type="date" data-k="scadenza" value="${esc(st.scadenza)}"></label></div>
         <p class="hint" style="margin:-6px 0 12px">Resa della scheda: ${fmtQ(+r.resaQta, u)}. Scadenza calcolata con la durata della scheda (${esc(shelfTxt(r))}): puoi cambiarla.</p>
+        ${validIso(st.data) ? `<div class="lotcode">${IC.tag}<span>Codice del lotto</span><b>${esc(lotCode(r.sigla || autoSigla(r.nome), st.data))}</b></div>` : ''}
         <p class="note" id="scadwarn" hidden></p>
         <h3>Ingredienti e lotti usati</h3>
         <p class="hint" style="margin:-4px 0 10px">Per ogni ingrediente sono proposti per primi i lotti che scadono prima. Correggi le quantità se hai usato lotti diversi.</p>

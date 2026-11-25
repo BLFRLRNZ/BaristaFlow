@@ -2,7 +2,7 @@ import json, pathlib, sys, re
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SEEDS = json.loads((ROOT / "esempi" / "dati-esempio.json").read_text(encoding="utf-8"))
+SEEDS = json.loads((ROOT / "test" / "dati-test.json").read_text(encoding="utf-8"))
 SHOTS = ROOT / "test" / "screenshot"; SHOTS.mkdir(exist_ok=True)
 URL = (ROOT / "index.html").as_uri()
 
@@ -297,15 +297,11 @@ with sync_playwright() as p:
     over = page.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1")
     check(not over, "nessuno scorrimento orizzontale a 360px")
 
-    # --- elimina dati di esempio
-    page.goto(URL + "#impostazioni"); page.wait_for_selector("#v-impostazioni")
-    page.locator("main .btn.dan", has_text="Elimina dati di esempio").click()
-    page.locator(".sheet .btn.dan", has_text="Elimina esempi").click()
-    page.wait_for_timeout(1500)
-    left = page.evaluate("Object.fromEntries(Object.entries(window.__store).map(([c, v]) => [c, Object.values(v).filter(x => x.esempio).length]))")
-    check(all(v == 0 for v in left.values()), f"esempi eliminati {left}")
+    # --- con dati propri niente avviso di prova né benvenuto
     page.goto(URL + "#oggi"); page.wait_for_selector("#v-oggi"); page.wait_for_timeout(200)
-    page.screenshot(path=str(SHOTS / "m_oggi_dopo_esempi.png"), full_page=True)
+    check(page.locator(".demo, .welcome").count() == 0 and page.locator("#demoPill").is_hidden(), "nessun avviso di prova con i propri dati")
+    marked = page.evaluate("Object.values(window.__store).flatMap(v => Object.values(v)).filter(x => x.esempio).length")
+    check(marked == 0, f"quello che si inserisce fuori dalla prova non è segnato come esempio ({marked})")
     br.close()
 
 print("\nERRORI CONSOLE:" if errors else "\nNessun errore in console")

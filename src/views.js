@@ -23,7 +23,9 @@ function renderChrome() {
     else if (S.slow) { t = 'Connessione lenta'; w = true; }
     else if (S.fresh.size < COLS.length) t = 'Aggiorno…';
   }
-  sy.textContent = t; sy.classList.toggle('warn', w);
+  const demo = S.mode !== 'loading' && countSample() > 0;
+  $('#demoPill').hidden = !demo;
+  sy.textContent = demo && !w ? '' : t; sy.classList.toggle('warn', w);
 }
 function renderMain() {
   const main = $('#main');
@@ -44,7 +46,7 @@ const search = (k, ph) => `<label class="srch">${IC.search}<input type="search" 
 const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button type="button" data-act="seg" data-k="${k}" data-v="${esc(v)}" aria-pressed="${UI[k] === v}">${esc(t)}</button>`).join('')}</div>`;
 const navSeg = (cur, opts) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button type="button" data-act="nav" data-to="${v}" aria-pressed="${cur === v}">${esc(t)}</button>`).join('')}</div>`;
 const algChips = (al, tr) => `<div class="chips">${al.length ? al.map(a => `<span class="chip al">${esc(ALGN[a])}</span>`).join('') : '<span class="chip">Nessuno dei 14 allergeni</span>'}${(tr || []).map(a => `<span class="chip">Tracce: ${esc(ALGN[a].toLowerCase())}</span>`).join('')}</div>`;
-const tile = (cls, n, label, to, ic) => `<button type="button" class="tile ${n ? cls : ''}" data-act="jump" data-to="${to}"><span class="ti">${ic}</span><b>${n}</b><span>${esc(label)}</span></button>`;
+const tile = (cls, n, label, to, ic, all) => `<button type="button" class="tile ${n ? cls : ''}" data-act="jump" data-to="${to}"${all ? ' data-all="1"' : ''}><span class="ti">${ic}</span><b>${n}</b><span>${esc(label)}</span></button>`;
 const av = (content, tone = '') => `<span class="av ${tone}" aria-hidden="true">${content}</span>`;
 const catIc = c => c === 'rivendita' ? IC.bottle : c === 'imballaggio' ? IC.bag : IC.wheat;
 const sigOf = l => esc(String(l.p?.lotto || '').split('-')[0].slice(0, 4) || 'LOT');
@@ -106,7 +108,37 @@ function rincariRecenti() {
     return l.date >= d30 && ch > 0.0001 && ch >= soglia ? {a, l, pv, ch} : null;
   }).filter(Boolean).sort((x, y) => y.ch - x.ch);
 }
+function vBenvenuto() {
+  return `<section id="v-oggi"><div class="welcome"><span class="logo" aria-hidden="true">${LOGO}</span>
+    <h1>Benvenuto in Barista Flow</h1>
+    <p>Schede tecniche, lotti con scadenze e fatture, giacenze e prezzi d'acquisto del tuo bar, sempre a portata di mano.</p></div>
+    ${modeNote()}
+    <div class="wl-opts">
+      <button type="button" class="qa main" data-act="load-sample"><span class="ti">${IC.chef}</span><span><b>Esplora con i dati di esempio</b><br><span>Un bar già avviato: quattro settimane di produzioni, acquisti e vendite, diciotto mesi di prezzi. Prova tutto liberamente.</span></span></button>
+      <button type="button" class="qa" data-act="register"><span class="ti">${IC.shop}</span><span><b>Registra il tuo bar</b><br><span>Parti subito con i tuoi dati: fornitori, merce in magazzino, schede tecniche.</span></span></button>
+    </div>
+    <p class="hint wl-hint">Quando registri il bar, i dati di esempio e le prove che hai fatto vengono cancellati.</p></section>`;
+}
+function demoBanner() {
+  const reg = registered();
+  return `<div class="demo"><span class="ti">${IC.info}</span><span class="m"><b>Stai provando l'app con dati di esempio</b><span>Produci, scarica e registra acquisti liberamente. ${reg ? 'Quando vuoi, cancelli gli esempi e resti con i tuoi dati.' : 'Quando registri il tuo bar, tutto quello che c’è adesso viene cancellato.'}</span></span>
+    <span class="demo-a w"><button type="button" class="btn sm" data-act="prova">Cosa contiene</button><button type="button" class="btn sm ${reg ? 'dan' : 'pri'}" data-act="register">${reg ? 'Cancella gli esempi' : 'Registra il tuo bar'}</button></span></div>`;
+}
+function primiPassi() {
+  if (S.ro || !registered() || countSample() || lsGet('bf-primi-passi') === 'no') return '';
+  const steps = [
+    [S.data.fornitori.size > 0, 'Aggiungi i fornitori', 'Chi ti rifornisce e in che giorni consegna.', 'new-forn', IC.truck],
+    [S.data.documenti.size > 0, 'Carica la merce che hai già', 'Un «Inventario iniziale» con lotti e scadenze di quello che c’è in magazzino.', 'inv-start', IC.box],
+    [S.data.ricette.size > 0, 'Crea la prima scheda tecnica', 'Ingredienti e grammature: allergeni e costi si calcolano da soli.', 'new-ric', IC.doc],
+    [S.data.produzioni.size > 0, 'Registra la prima produzione', 'Il lotto si porta dietro ingredienti, lotti dei fornitori e scadenza.', 'new-prod', IC.chef]
+  ];
+  const done = steps.filter(x => x[0]).length;
+  if (done === steps.length) return '';
+  return `<div class="steps"><div class="steps-h"><h2>Primi passi</h2><span class="chip">${done} di ${steps.length}</span><button type="button" class="lnk" data-act="primi-hide">Nascondi</button></div>
+    <div class="list">${steps.map(([ok, t, d, act, ic], i) => `<button type="button" class="row${ok ? ' done' : ''}" data-act="${act}">${av(ok ? IC.check : ic, ok ? 'good' : i === done ? 'pri' : '')}<span class="m"><b>${esc(t)}</b><span>${esc(d)}</span></span></button>`).join('')}</div></div>`;
+}
 function vOggi() {
+  if (showWelcome()) return vBenvenuto();
   const Dd = drv(), t = today(), w = cfg().giorniAvviso;
   const lots = [...Dd.acq.values(), ...Dd.prod.values()].filter(l => l.res > EPS && l.scad);
   const exp = lots.filter(l => l.scad < t).sort(byScad);
@@ -118,14 +150,18 @@ function vOggi() {
   const h = new Date().getHours(), greet = h < 13 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera';
   const dateStr = cap(new Date().toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long'}));
   const smal = l => `<button type="button" class="btn sm dan w" data-act="smaltisci" data-kind="${l.kind}" data-id="${esc(l.key)}">Smaltisci</button>`;
-  const todo = [...exp.map(l => lotRow(l, smal(l))), ...soon.map(l => lotRow(l)), ...under.map(underRow),
+  // con tanti prodotti freschi l'elenco delle scadenze diventa lungo: se ne vedono quattro, gli altri a richiesta
+  const more = !UI.todoAll && soon.length > 5 ? soon.length - 4 : 0;
+  const soonRows = (more ? soon.slice(0, 4) : soon).map(l => lotRow(l));
+  if (more) soonRows.push(`<button type="button" class="row" data-act="todo-all">${av(IC.clock, 'amb')}<span class="m"><b>Altri ${more} in scadenza</b><span>Mostra tutto l’elenco</span></span></button>`);
+  const todo = [...exp.map(l => lotRow(l, smal(l))), ...soonRows, ...under.map(underRow),
     ...rincari.map(x => `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(x.a.id)}">${av(IC.trend, 'red')}<span class="m"><b>${esc(x.a.nome)}</b><span>Rincaro: pagato ${EUR(x.l.p)} ${perU(x.a.unita)} il ${fmtD(x.l.date)}, prima ${EUR(x.pv.p)}</span><span class="mc">${delta(x.ch)}</span></span></button>`)];
   const sample = countSample();
   return `<section id="v-oggi"><div class="ph"><div><p class="kick">${esc(dateStr)}</p><h1>${greet}</h1></div>
     <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div></div>
-    ${modeNote()}
-    ${sample ? `<p class="note">${IC.info}<span>Stai guardando dati di esempio: quando vuoi li elimini da Impostazioni.</span></p>` : ''}
-    <div class="tiles">${tile('red', exp.length, 'Lotti scaduti da smaltire', 'da-controllare', IC.alert)}${tile('amb', soon.length, w === 1 ? 'In scadenza entro domani' : `In scadenza entro ${w} giorni`, 'da-controllare', IC.clock)}${tile('amb', under.length, 'Articoli sotto scorta', 'da-controllare', IC.box)}${tile('amb', rincari.length, 'Rincari recenti', 'da-controllare', IC.trend)}</div>
+    ${sample && S.mode === 'local' ? '' : modeNote()}
+    ${sample ? demoBanner() : primiPassi()}
+    <div class="tiles">${tile('red', exp.length, 'Lotti scaduti da smaltire', 'da-controllare', IC.alert)}${tile('amb', soon.length, w === 1 ? 'In scadenza entro domani' : `In scadenza entro ${w} giorni`, 'da-controllare', IC.clock, true)}${tile('amb', under.length, 'Articoli sotto scorta', 'da-controllare', IC.box)}${tile('amb', rincari.length, 'Rincari recenti', 'da-controllare', IC.trend)}</div>
     <h2 id="da-controllare">Da fare</h2>
     ${todo.length ? `<div class="list">${todo.join('')}</div>` : empty('Niente da fare: nessuna scadenza vicina, scorte a posto e nessun rincaro.', IC.check)}
     <h2 id="vetrina"><span>In vetrina e in frigo${active.length ? ` <span class="chip">${active.length}</span>` : ''}${nToday ? ` <span class="chip okk">${nToday === 1 ? '1 prodotto oggi' : nToday + ' prodotti oggi'}</span>` : ''}</span>${active.length > 1 ? `<span class="h2a carnav"><button type="button" class="btn icon" data-act="car" data-dir="-1" aria-label="Etichette precedenti">${IC.left}</button><button type="button" class="btn icon" data-act="car" data-dir="1" aria-label="Etichette successive">${IC.right}</button></span>` : ''}</h2>
@@ -299,21 +335,32 @@ function vPrezzi() {
 
 /* ---------- Impostazioni ---------- */
 function vImpostazioni() {
-  const c = cfg(), n = countSample();
+  const c = cfg(), n = countSample(), reg = registered();
   const where = S.mode === 'cloud' ? 'I dati sono salvati nell’archivio di questa pagina su claude.ai e si vedono da ogni dispositivo con cui la apri.' : S.mode === 'local' ? 'I dati sono salvati solo in questo browser: esporta spesso un backup.' : 'In questa vista i dati non vengono salvati.';
   const dis = S.ro ? 'disabled' : '';
+  const prova = n ? `<div class="setgrp"><h2>Prova con i dati di esempio</h2><div class="card"><p>Stai usando ${n} elementi di esempio: un bar con quattro settimane di produzioni, acquisti e vendite e diciotto mesi di prezzi. ${reg ? 'Quando vuoi, cancellali per lavorare solo con i tuoi dati.' : 'Quando registri il tuo bar vengono cancellati, insieme a quello che hai inserito durante la prova.'}</p>
+      <div class="acts">${reg ? '<button type="button" class="btn dan w" data-act="register">Cancella gli esempi</button>' : ''}<button type="button" class="btn w" data-act="reset-sample">Riporta gli esempi a oggi</button></div>
+      <p class="hint" style="margin-top:10px">«Riporta gli esempi a oggi» rimette tutto come all'inizio, con scadenze e consegne aggiornate alla data di oggi.</p></div></div>` : '';
+  const bar = n && !reg
+    ? `<div class="setgrp"><h2>Il tuo bar</h2><div class="card regbox"><p>Non hai ancora registrato il bar. Con la registrazione nome, indirizzo e partita IVA compaiono nell'app e sulle schede che stampi, e i dati di esempio vengono cancellati.</p><button type="button" class="btn pri w" data-act="register">Registra il tuo bar</button></div></div>`
+    : `<div class="setgrp"><h2>Il tuo bar</h2><div class="card">
+      <label class="fld"><span>Nome del bar</span><input type="text" id="cfg-nome" name="nome" value="${esc(c.nome)}" placeholder="Es. Bar Centrale" ${dis}></label>
+      <label class="fld"><span>Indirizzo</span><input type="text" id="cfg-ind" name="indirizzo" value="${esc(c.indirizzo)}" placeholder="Es. Via Roma 1, Cittanova" ${dis}></label>
+      <label class="fld"><span>Partita IVA</span><input type="text" id="cfg-piva" name="piva" value="${esc(c.piva)}" inputmode="numeric" ${dis}></label>
+      <p class="hint" style="margin:-4px 0 0">Compaiono in alto nell'app e sulle schede tecniche e sui documenti dei lotti che scarichi o stampi.</p></div></div>`;
   return `<section id="v-impostazioni"><div class="ph"><div><h1>Impostazioni</h1><p>${esc(where)}</p></div></div>
-    <div class="setgrp"><h2>Attività e avvisi</h2><form class="card" id="cfgForm">
-      <label class="fld"><span>Nome dell'attività</span><input type="text" id="cfg-nome" name="nome" value="${esc(c.nome)}" placeholder="Es. Bar Centrale" ${dis}></label>
+    ${prova}
+    <form id="cfgForm">${bar}
+    <div class="setgrp"><h2>Avvisi e calcoli</h2><div class="card">
       <div class="g2"><label class="fld"><span>Avviso scadenze (giorni prima)</span><input type="text" id="cfg-gg" name="giorniAvviso" inputmode="numeric" value="${esc(c.giorniAvviso)}" ${dis}></label>
       <label class="fld"><span>Segnala rincari oltre (%)</span><input type="text" id="cfg-sr" name="sogliaRincaro" inputmode="decimal" value="${esc(fmtIn(c.sogliaRincaro))}" ${dis}></label></div>
       <div class="g2"><label class="fld"><span>IVA sulle vendite (%)</span><input type="text" id="cfg-iva" name="iva" inputmode="decimal" value="${esc(fmtIn(c.iva))}" ${dis}></label></div>
       <p class="hint" style="margin:-4px 0 14px">L'IVA serve solo a calcolare il food cost sul prezzo di vendita. In «Oggi» compare un avviso quando un prodotto comprato negli ultimi 30 giorni costa più della soglia rispetto all'acquisto precedente.</p>
       <button type="submit" class="btn pri w">Salva impostazioni</button>
-    </form></div>
+    </div></div></form>
     <div class="setgrp"><h2>Backup ed esportazioni</h2><div class="card"><p class="muted">Il backup contiene tutto: schede, acquisti, lotti, movimenti. Serve anche per spostare i dati su un altro dispositivo o sistema.</p>
       <div class="acts"><button type="button" class="btn dl" data-act="dl-backup">${IC.down}Esporta backup</button><label class="btn w">Importa backup<input type="file" accept="application/json,.json" data-file="import"></label><button type="button" class="btn dl" data-act="dl-csv">${IC.down}Giacenze in CSV</button></div>
       ${S.mode !== 'local' && !S.downloads ? '<p class="hint" style="margin-top:10px">Il download dei file non è disponibile in questa vista.</p>' : ''}</div></div>
-    ${n ? `<div class="setgrp"><h2>Dati di esempio</h2><div class="card"><p>Ci sono ${n} elementi di esempio (biscotti, crema pasticcera, tartellette, i loro acquisti, lotti e storico prezzi). Le registrazioni fatte da te non vengono toccate.</p><button type="button" class="btn dan w" data-act="del-sample">Elimina dati di esempio</button></div></div>` : ''}
+    ${!n && !ownCount() && !S.ro ? `<div class="setgrp"><h2>Dati di esempio</h2><div class="card"><p>L'archivio è vuoto: puoi riempirlo con un bar di esempio per provare tutte le funzioni. ${reg ? 'Lo cancelli quando vuoi.' : 'Si cancella quando registri il tuo bar.'}</p><button type="button" class="btn w" data-act="load-sample">Carica i dati di esempio</button></div></div>` : ''}
     <div class="setgrp"><div class="about"><span class="logo">${LOGO}</span><span><b>Barista Flow</b><br>Schede tecniche, lotti, scadenze, giacenze e prezzi.</span></div></div></section>`;
 }

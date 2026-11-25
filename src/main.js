@@ -18,8 +18,9 @@ async function saveFile(filename, data) {
     else toast('Download non riuscito.', true);
   }
 }
+const bizLine = () => { const c = cfg(); return [c.nome, c.indirizzo, c.piva ? 'P.IVA ' + c.piva : ''].filter(Boolean).map(esc).join(' · '); };
 function printable(title, body) {
-  return `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><style>body{font:15px/1.5 Arial,Helvetica,sans-serif;color:#111;max-width:800px;margin:28px auto;padding:0 20px}h1{font-size:26px;margin:0 0 4px}h2{font-size:17px;margin:24px 0 8px;border-bottom:1.5px solid #333;padding-bottom:4px}table{width:100%;border-collapse:collapse;margin:4px 0}th,td{border-bottom:1px solid #bbb;padding:6px 6px;text-align:left;vertical-align:top}th{font-size:13px;color:#444}.n{text-align:right;white-space:nowrap}.muted{color:#555}.box{border:1.5px solid #111;padding:10px 14px;margin:8px 0}table.kv th{width:34%}.nw{white-space:nowrap}.sub td:first-child{padding-left:22px}section{page-break-inside:avoid;margin-bottom:22px}@media print{body{margin:0}}</style></head><body>${body}<p class="muted" style="margin-top:30px">${cfg().nome ? esc(cfg().nome) + ' · ' : ''}Barista Flow · documento generato il ${fmtD(today())}</p></body></html>`;
+  return `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><style>body{font:15px/1.5 Arial,Helvetica,sans-serif;color:#111;max-width:800px;margin:28px auto;padding:0 20px}h1{font-size:26px;margin:0 0 4px}h2{font-size:17px;margin:24px 0 8px;border-bottom:1.5px solid #333;padding-bottom:4px}table{width:100%;border-collapse:collapse;margin:4px 0}th,td{border-bottom:1px solid #bbb;padding:6px 6px;text-align:left;vertical-align:top}th{font-size:13px;color:#444}.n{text-align:right;white-space:nowrap}.muted{color:#555}.box{border:1.5px solid #111;padding:10px 14px;margin:8px 0}table.kv th{width:34%}.nw{white-space:nowrap}.sub td:first-child{padding-left:22px}section{page-break-inside:avoid;margin-bottom:22px}@media print{body{margin:0}}</style></head><body>${bizLine() ? `<p class="muted" style="margin:0 0 14px">${bizLine()}</p>` : ''}${body}<p class="muted" style="margin-top:30px">Barista Flow · documento generato il ${fmtD(today())}</p></body></html>`;
 }
 function schedaDoc(r) {
   const u = unitOk(r.resaUnita), info = labelInfo(r, [r.id]), c = recCostOf(r, [r.id]);
@@ -84,21 +85,14 @@ async function importBackup(file) {
     ops.push([c, v.id, strip(v)]);
   }
   if (!ops.length) { toast('Il backup non contiene dati.', true); return; }
-  if (!(await ask(`Importo ${ops.length} elementi dal backup. Quelli con lo stesso codice verranno sostituiti, gli altri restano. Continuo?`, 'Importa'))) return;
-  toast('Importazione in corso…');
-  let ok = 0;
-  await pool(ops, 4, async ([c, id, v]) => { if (await put(c, id, v, true)) ok++; });
+  const demo = sampleOps();
+  if (!(await ask(demo.length ? `Stai usando i dati di esempio: li cancello e importo ${ops.length} elementi dal backup. Continuo?` : `Importo ${ops.length} elementi dal backup. Quelli con lo stesso codice verranno sostituiti, gli altri restano. Continuo?`, demo.length ? 'Cancella esempi e importa' : 'Importa', !!demo.length))) return;
+  if (demo.length) {
+    const keep = new Set(ops.map(([c, id]) => c + '/' + id)), del0 = demo.filter(([c, id]) => !keep.has(c + '/' + id));
+    if (del0.length && (await runOps('Cancello i dati di prova', del0)) < del0.length) { toast('Non sono riuscito a cancellare tutti i dati di esempio: riprova.', true); return; }
+  }
+  const ok = await runOps('Importo il backup', ops);
   toast(ok === ops.length ? `Importati ${ok} elementi.` : `Importati ${ok} elementi su ${ops.length}: riprova per i mancanti.`, ok < ops.length);
-}
-async function delSample() {
-  const items = [];
-  for (const c of COLS) for (const v of S.data[c].values()) if (v.esempio) items.push([c, v.id]);
-  if (!items.length) return;
-  if (!(await ask(`Elimino ${items.length} elementi di esempio, comprese eventuali modifiche che ci hai fatto? Se hai usato quei lotti nelle tue produzioni, quei riferimenti resteranno senza origine.`, 'Elimina esempi', true))) return;
-  while (stack.length) closeSheet();
-  let ok = 0;
-  await pool(items, 4, async ([c, id]) => { if (await del(c, id, true)) ok++; });
-  toast(ok === items.length ? 'Dati di esempio eliminati.' : `Eliminati ${ok} elementi su ${items.length}: riprova per gli altri.`, ok < items.length);
 }
 
 /* ---------- azioni ---------- */
@@ -113,7 +107,8 @@ const ACT = {
     try { await o.onSave(o); } finally { o.saving = false; if (stack.includes(o)) $$('.sh-foot .btn', o.el).forEach(x => { x.disabled = false; }); }
   },
   seg: b => { UI[b.dataset.k] = b.dataset.v; renderMain(); },
-  jump: b => { const el = document.getElementById(b.dataset.to); if (el) el.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); },
+  'todo-all': () => { UI.todoAll = true; renderMain(); },
+  jump: b => { if (b.dataset.all && !UI.todoAll) { UI.todoAll = true; renderMain(); } const el = document.getElementById(b.dataset.to); if (el) el.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); },
   fseg: b => { const o = sheetOf(b); if (!o) return; setPath(o.st, b.dataset.k, b.dataset.v); o.dirty = true; $$(`[data-act=fseg][data-k="${b.dataset.k}"]`, o.el).forEach(x => x.setAttribute('aria-pressed', x === b)); o.onField?.(b.dataset.k, o, 'change', b); },
   altog: b => { const o = sheetOf(b); if (!o) return; const arr = o.st[b.dataset.k], v = b.dataset.v, i = arr.indexOf(v); if (i < 0) arr.push(v); else arr.splice(i, 1); o.dirty = true; b.setAttribute('aria-pressed', i < 0); o.onField?.(b.dataset.k, o, 'change', b); },
   'toggle-arch': () => { UI.schArch = !UI.schArch; renderMain(); },
@@ -227,7 +222,13 @@ const ACT = {
   'dl-libro': () => saveFile(`Libro ingredienti ${today()}.html`, libroDoc()),
   'dl-csv': () => saveFile(`Giacenze ${today()}.csv`, csvGiacenze()),
   'dl-backup': () => saveFile(`Backup Barista Flow ${today()}.json`, backupJSON()),
-  'del-sample': () => { if (guard()) delSample(); }
+  'del-sample': () => { if (guard()) clearSample(); },
+  'load-sample': () => loadSample(),
+  'reset-sample': () => { if (guard()) resetSample(); },
+  register: () => { if (!guard()) return; while (stack.length) closeSheet(); if (registered()) clearSample(); else formRegistra(); },
+  prova: () => sheetProva(),
+  'inv-start': () => { if (guard()) formDocumento(null, {tipo: 'inventario'}); },
+  'primi-hide': () => { lsSet('bf-primi-passi', 'no'); renderMain(); toast('Primi passi nascosti'); }
 };
 
 const nb = t => String(t).replace(/\u00a0/g, ' ');
@@ -272,13 +273,15 @@ function onFile(t) {
 }
 async function saveCfg(f) {
   if (!guard()) return;
-  const fd = new FormData(f);
-  const nome = String(fd.get('nome') || '').trim().slice(0, 80), g = Math.round(pnum(fd.get('giorniAvviso'))), iva = pnum(fd.get('iva')), sr = pnum(fd.get('sogliaRincaro'));
+  const fd = new FormData(f), prev = S.data.impostazioni.get('generale'), c = cfg();
+  const txt = (k, max, cur) => fd.has(k) ? String(fd.get(k) || '').trim().slice(0, max) : cur;
+  const nome = txt('nome', 80, c.nome), indirizzo = txt('indirizzo', 140, c.indirizzo), piva = txt('piva', 20, c.piva);
+  const g = Math.round(pnum(fd.get('giorniAvviso'))), iva = pnum(fd.get('iva')), sr = pnum(fd.get('sogliaRincaro'));
   if (!(g >= 0 && g <= 60)) { toast('Avviso scadenze: scrivi un numero di giorni da 0 a 60.', true); return; }
   if (!(iva >= 0 && iva <= 50)) { toast('Percentuale IVA non valida.', true); return; }
   if (!(sr >= 0 && sr <= 100)) { toast('Soglia dei rincari: scrivi una percentuale da 0 a 100.', true); return; }
-  const prev = S.data.impostazioni.get('generale');
-  if (await put('impostazioni', 'generale', {...(prev ? strip(prev) : {}), nome, giorniAvviso: g, iva, sogliaRincaro: sr})) toast('Impostazioni salvate');
+  const reg = prev?.registrato || (nome && !countSample() ? Date.now() : null);
+  if (await put('impostazioni', 'generale', {...(prev ? strip(prev) : {}), nome, indirizzo, piva, giorniAvviso: g, iva, sogliaRincaro: sr, ...(reg ? {registrato: reg} : {})})) toast('Impostazioni salvate');
 }
 function wire() {
   document.addEventListener('click', onClick);

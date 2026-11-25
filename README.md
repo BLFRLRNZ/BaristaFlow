@@ -12,11 +12,22 @@ Web app per gestire banco e laboratorio di un bar: schede tecniche dei prodotti,
 - **Pagina «Oggi»**: lotti scaduti da smaltire, prodotti in scadenza, articoli sotto scorta e rincari.
 - **Esportazioni**: scheda tecnica e scheda lotto stampabili, libro ingredienti, giacenze e storico prezzi in CSV, backup completo in JSON.
 
+## Primo avvio: dati di esempio e registrazione del bar
+
+Al primo avvio l'app propone due strade:
+
+- **Esplora con i dati di esempio**: riempie tutte le sezioni con un bar già avviato. Ci sono 9 fornitori, 34 articoli e 10 schede tecniche, comprese crema pasticcera e pasta frolla usate come semilavorati. Poi quattro settimane di consegne, produzioni, vendite, scarti e inventari, e diciotto mesi di fatture per i grafici dei prezzi, con burro, caffè e nocciole che rincarano, e zucchero e cacao che negli ultimi mesi calano. Le date sono sempre riferite al giorno in cui si caricano: in «Oggi» ci sono un lotto scaduto da smaltire, prodotti in scadenza, due articoli da riordinare e tre rincari recenti.
+- **Registra il tuo bar**: nome, indirizzo e partita IVA, che compaiono in alto nell'app e sulle schede tecniche e sui documenti dei lotti scaricati o stampati.
+
+Durante la prova si può fare tutto liberamente. Anche quello che si inserisce viene segnato come prova. Quando si registra il bar, i dati di esempio e le prove vengono cancellati e si parte da zero, con una lista di **primi passi**: fornitori, inventario iniziale, prima scheda, prima produzione. Da Impostazioni si possono anche riportare gli esempi alla data di oggi.
+
+Gli esempi si generano in `src/esempi.js` con una simulazione giorno per giorno. Gli acquisti seguono i consumi, si usano prima i lotti che scadono prima e quello che scade si smaltisce: così giacenze, lotti e fatture tornano sempre. `test/check_esempi.js` lo verifica su date diverse.
+
 ## Pensata per l'uso al banco
 
 - Il pulsante **+** al centro della barra in basso apre le registrazioni rapide: produzione, acquisto, scarico, scheda, articolo e fornitore.
 - La **ricerca** in alto (o il tasto `/` sul computer) trova lotti, anche del fornitore, prodotti, articoli, fatture e fornitori.
-- Le azioni si fanno direttamente dalle righe: **Smaltisci** su un lotto scaduto, **Riordina** su un articolo sotto scorta (apre l'acquisto già compilato con fornitore e articolo).
+- Le azioni si fanno direttamente dalle righe: **Smaltisci** su un lotto scaduto, **Riordina** su un articolo sotto scorta (apre l'acquisto già compilato con fornitore e articolo). Quando i prodotti in scadenza sono tanti, «Oggi» ne mostra quattro e raccoglie gli altri in una riga.
 - Le operazioni veloci, come segnare un lotto esaurito o smaltire, partono subito e si possono **annullare** dall'avviso in basso.
 - Le schede si aprono dal basso e si chiudono trascinandole giù. Nella produzione c'è il contapezzi e l'anteprima del codice lotto.
 - Tema chiaro e scuro automatici, layout per telefono e barra laterale da computer.
@@ -50,14 +61,14 @@ src/
   details.js          dettagli: lotto, lotto del fornitore, articolo, scheda, documento, storico prezzi con grafico
   forms.js            moduli: articolo, fornitore, documento d'acquisto, scheda tecnica, produzione, scarichi
   quick.js            pulsante +, scarico rapido, ricerca globale, installazione sul telefono
+  esempi.js           bar di esempio (simulazione con date riferite a oggi), prova e registrazione del bar
   main.js             azioni, esportazioni, avvio e collegamento all'archivio
 manifest.webmanifest  nome, colori e icone per installare l'app
 sw.js                 funzionamento senza rete
 icone/                icona dell'app (SVG e PNG)
-esempi/
-  genera_esempi.py    crea dati-esempio.json
-  dati-esempio.json   dati di esempio (biscotti, crema, tartellette, acquisti e storico prezzi)
 test/                 prove automatiche nel browser
+  dati-test.json      dati fissi su cui girano le prove (creati da genera_dati_test.py)
+  check_esempi.js     controlla la coerenza dei dati di esempio
 ```
 
 ## Modello dei dati
@@ -70,7 +81,9 @@ test/                 prove automatiche nel browser
 | `ricette` | schede tecniche: ingredienti (articoli o semilavorati), resa, durata, tracce, prezzo |
 | `produzioni` | lotti prodotti con i consumi: quale lotto di ogni ingrediente e quanto |
 | `movimenti` | vendite, scarti, uso interno, rettifiche (variazione con segno su un lotto) |
-| `impostazioni` | nome dell'attività, giorni di preavviso, IVA, soglia dei rincari |
+| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari |
+
+Gli elementi dei dati di esempio, e quelli inseriti durante la prova, hanno `esempio: true`.
 
 Le giacenze non vengono salvate ma calcolate: quantità caricata, meno i consumi delle produzioni, più i movimenti.
 
@@ -85,11 +98,13 @@ python3 build.py
 Le prove usano Python con Playwright e Google Chrome:
 
 ```
-python3 esempi/genera_esempi.py
+node test/check_esempi.js
+python3 test/genera_dati_test.py
 python3 test/test_app.py
 python3 test/test_modes.py
 python3 test/test_prezzi.py
 python3 test/test_comodita.py
+python3 test/test_esempi.py
 ```
 
 ## Nota sulle etichette

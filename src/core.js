@@ -33,7 +33,8 @@ const IC = {
   check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
   trash: svg('<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/>'),
   sell: svg('<path d="M4 7h16l-1.5 10.5h-13z"/><path d="M9 11v3M15 11v3"/>'),
-  info: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.2"/>')
+  info: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.2"/>'),
+  shop: svg('<path d="M4 9.5 5.5 4h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20"/>')
 };
 const LOGO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 11h12v3.5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5z"/><path d="M16.5 12.5h1.2a2.3 2.3 0 0 1 0 4.6h-1.6"/><path d="M8 3.5c1.2 1.1-1.2 2.4 0 3.6M11.5 3.5c1.2 1.1-1.2 2.4 0 3.6" stroke="#e0a25f"/></svg>`;
 
@@ -93,11 +94,11 @@ const buyUnits = base => base === 'kg' ? ['kg', 'g'] : base === 'l' ? ['l', 'ml'
 
 /* ---------- stato ---------- */
 const S = {db: null, mode: 'loading', ro: false, assets: null, downloads: null, user: null, got: new Set(), fresh: new Set(), slow: false, ver: 0, errShown: false, data: Object.fromEntries(COLS.map(c => [c, new Map()]))};
-const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m'};
+const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false};
 const cfg = () => {
   const c = S.data.impostazioni.get('generale') || {};
   const g = Math.round(pnum(c.giorniAvviso)), iva = pnum(c.iva), sr = pnum(c.sogliaRincaro);
-  return {nome: c.nome || '', giorniAvviso: g >= 0 ? g : 3, iva: iva >= 0 ? iva : 10, sogliaRincaro: sr >= 0 ? sr : 5};
+  return {nome: c.nome || '', indirizzo: c.indirizzo || '', piva: c.piva || '', giorniAvviso: g >= 0 ? g : 3, iva: iva >= 0 ? iva : 10, sogliaRincaro: sr >= 0 ? sr : 5};
 };
 
 /* archivio locale: usato fuori da claude.ai (dati nel browser) o in prova (dati in memoria) */
@@ -123,6 +124,11 @@ function localDB(key) {
           };
         }
       };
+    },
+    /* tante scritture insieme, salvate una volta sola */
+    async bulk(ops) {
+      for (const [c, id, v] of ops) { if (v == null) { if (store[c]) delete store[c][id]; } else (store[c] ||= {})[id] = clone(v); }
+      save(); [...new Set(ops.map(o => o[0]))].forEach(emit);
     }
   };
 }
@@ -130,6 +136,7 @@ function localDB(key) {
 /* ---------- scrittura ---------- */
 async function put(col, id, doc, quiet) {
   doc = clone(doc); delete doc.id;
+  if (col !== 'impostazioni' && !doc.esempio && !S.data[col].has(id) && countSample()) doc.esempio = true;   // durante la prova anche quello che crei è di prova
   S.data[col].set(id, {...doc, id}); bump();
   for (let tent = 0; tent < 2; tent++) {
     try { await S.db.collection(col).doc(id).set(doc); return true; }

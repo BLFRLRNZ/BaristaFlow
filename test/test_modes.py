@@ -4,7 +4,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from mock import MOCK_TEMPLATE
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SEEDS = json.loads((ROOT / "esempi" / "dati-esempio.json").read_text(encoding="utf-8"))
+SEEDS = json.loads((ROOT / "test" / "dati-test.json").read_text(encoding="utf-8"))
 URL = (ROOT / "index.html").as_uri()
 fails, errors = [], []
 def check(c, m):

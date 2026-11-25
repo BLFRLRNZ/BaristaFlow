@@ -1,10 +1,9 @@
-"""Genera esempi/dati-esempio.json: i dati di esempio di Barista Flow (usati dai test e caricati nell'archivio della pagina)."""
+"""Genera test/dati-test.json: i dati fissi su cui girano i test (al 24/11/2026). I dati di esempio dell'app sono in src/esempi.js."""
 import json, datetime, pathlib
 
 def ts(d, h=8, m=0):
     return int(datetime.datetime(*map(int, d.split("-")), h, m, tzinfo=datetime.timezone(datetime.timedelta(hours=1))).timestamp() * 1000)
 
-E = {"esempio": True}
 fornitori = {
     "f-molino": {"nome": "Molino del Borgo", "piva": "", "telefono": "", "email": "", "note": "Farine", "creato": ts("2026-11-01")},
     "f-latteria": {"nome": "Latteria Val Verde", "piva": "", "telefono": "", "email": "", "note": "Burro, latte e panna: consegna martedì e venerdì", "creato": ts("2026-11-01", 9)},
@@ -87,8 +86,5 @@ movimenti = {
     "m-tar1": {"data": "2026-11-24", "tipo": "vendita", "lotKind": "prod", "lotId": "p-tar241126", "delta": -6, "nota": "", "creato": ts("2026-11-24", 20)},
 }
 seeds = {"fornitori": fornitori, "articoli": articoli, "documenti": documenti, "ricette": ricette, "produzioni": produzioni, "movimenti": movimenti}
-for col in seeds.values():
-    for d in col.values():
-        d.update(E)
-pathlib.Path(__file__).with_name("dati-esempio.json").write_text(json.dumps(seeds, ensure_ascii=False, indent=1), encoding="utf-8")
-print(sum(len(c) for c in seeds.values()), "documenti di esempio")
+pathlib.Path(__file__).with_name("dati-test.json").write_text(json.dumps(seeds, ensure_ascii=False, indent=1), encoding="utf-8")
+print(sum(len(c) for c in seeds.values()), "elementi di prova")

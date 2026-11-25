@@ -78,7 +78,7 @@ function formDocumento(id, pre) {
   const newRiga = () => ({id: uid(), articoloId: '', qta: '', unita: '', importo: '', lotto: '', scadenza: ''});
   const st = ex
     ? {tipo: TIPI[ex.tipo] ? ex.tipo : 'fattura', numero: ex.numero || '', data: ex.data || today(), fornitoreId: ex.fornitoreId || '', fatturaRif: ex.fatturaRif || '', soloPrezzi: !!ex.soloPrezzi, note: ex.note || '', allegati: clone(ex.allegati || []), righe: (ex.righe || []).map(r => ({id: r.id, articoloId: r.articoloId, qta: fmtIn(+r.qta), unita: unitOk(S.data.articoli.get(r.articoloId)?.unita) || 'kg', importo: r.importo == null || r.importo === '' ? '' : fmtIn(+r.importo), lotto: r.lotto || '', scadenza: r.scadenza || ''}))}
-    : {tipo: 'fattura', numero: '', data: today(), fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', fatturaRif: '', soloPrezzi: false, note: '', allegati: [], righe: pre?.articoloId ? [{...newRiga(), articoloId: pre.articoloId, unita: unitOk(S.data.articoli.get(pre.articoloId)?.unita) || 'kg'}] : [newRiga()]};
+    : {tipo: TIPI[pre?.tipo] ? pre.tipo : 'fattura', numero: '', data: today(), fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', fatturaRif: '', soloPrezzi: false, note: '', allegati: [], righe: pre?.articoloId ? [{...newRiga(), articoloId: pre.articoloId, unita: unitOk(S.data.articoli.get(pre.articoloId)?.unita) || 'kg'}] : [newRiga()]};
   if (!st.righe.length) st.righe.push(newRiga());
   const priceOnly = () => st.soloPrezzi && st.tipo !== 'inventario';
   const usedLot = rid => { if (!ex) return null; const l = drv().acq.get(`${id}:${rid}`); return l && (l.used.length || l.mov.length) ? l : null; };

@@ -6,8 +6,7 @@
    "telefono": "",
    "email": "",
    "note": "Farine",
-   "creato": 1793516400000,
-   "esempio": true
+   "creato": 1793516400000
   },
   "f-latteria": {
    "nome": "Latteria Val Verde",
@@ -15,8 +14,7 @@
    "telefono": "",
    "email": "",
    "note": "Burro, latte e panna: consegna martedì e venerdì",
-   "creato": 1793520000000,
-   "esempio": true
+   "creato": 1793520000000
   },
   "f-ingrosso": {
    "nome": "Dolciaria Ingrosso",
@@ -24,8 +22,7 @@
    "telefono": "",
    "email": "",
    "note": "Zucchero, uova, frutta secca, bevande, imballaggi",
-   "creato": 1793523600000,
-   "esempio": true
+   "creato": 1793523600000
   }
  },
  "articoli": {
@@ -43,8 +40,7 @@
    "fornitoreId": "f-molino",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   },
   "a-burro": {
    "nome": "Burro",
@@ -60,8 +56,7 @@
    "fornitoreId": "f-latteria",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   },
   "a-zucchero": {
    "nome": "Zucchero semolato",
@@ -75,8 +70,7 @@
    "fornitoreId": "f-ingrosso",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   },
   "a-uova": {
    "nome": "Uova fresche cat. A",
@@ -92,8 +86,7 @@
    "fornitoreId": "f-ingrosso",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   },
   "a-latte": {
    "nome": "Latte intero fresco",
@@ -109,8 +102,7 @@
    "fornitoreId": "f-latteria",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   },
   "a-amido": {
    "nome": "Amido di mais",
@@ -124,8 +116,7 @@
    "fornitoreId": "f-ingrosso",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   },
   "a-nocciole": {
    "nome": "Nocciole tostate",
@@ -141,8 +132,7 @@
    "fornitoreId": "f-ingrosso",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   },
   "a-acqua": {
    "nome": "Acqua naturale 0,5 l",
@@ -156,8 +146,7 @@
    "fornitoreId": "f-ingrosso",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   },
   "a-sacchetti": {
    "nome": "Sacchetti carta per alimenti",
@@ -171,8 +160,7 @@
    "fornitoreId": "f-ingrosso",
    "note": "",
    "archiviato": false,
-   "creato": 1793527200000,
-   "esempio": true
+   "creato": 1793527200000
   }
  },
  "documenti": {
@@ -193,8 +181,7 @@
      "lotto": "LV-3150",
      "scadenza": "2026-11-23"
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-fatt1187": {
    "tipo": "fattura",
@@ -213,8 +200,7 @@
      "lotto": "MB2610-44",
      "scadenza": "2027-05-31"
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-fatt889": {
    "tipo": "fattura",
@@ -273,8 +259,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-ddt452": {
    "tipo": "ddt",
@@ -301,8 +286,7 @@
      "lotto": "LV-3240",
      "scadenza": "2026-11-26"
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-h0612": {
    "tipo": "fattura",
@@ -330,8 +314,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-h0702": {
    "tipo": "fattura",
@@ -367,8 +350,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-h0805": {
    "tipo": "fattura",
@@ -388,8 +370,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-h0818": {
    "tipo": "fattura",
@@ -417,8 +398,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-h0910": {
    "tipo": "fattura",
@@ -470,8 +450,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-h0922": {
    "tipo": "fattura",
@@ -491,8 +470,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-h1015": {
    "tipo": "fattura",
@@ -520,8 +498,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   },
   "d-h1020": {
    "tipo": "fattura",
@@ -549,8 +526,7 @@
      "lotto": "",
      "scadenza": ""
     }
-   ],
-   "esempio": true
+   ]
   }
  },
  "ricette": {
@@ -598,8 +574,7 @@
    "prezzoVendita": 0.6,
    "note": "Nello stesso laboratorio si lavorano le nocciole.",
    "archiviato": false,
-   "creato": 1793530800000,
-   "esempio": true
+   "creato": 1793530800000
   },
   "r-crema": {
    "nome": "Crema pasticcera",
@@ -643,8 +618,7 @@
    "prezzoVendita": null,
    "note": "",
    "archiviato": false,
-   "creato": 1793531400000,
-   "esempio": true
+   "creato": 1793531400000
   },
   "r-tartellette": {
    "nome": "Tartellette crema e nocciole",
@@ -700,8 +674,7 @@
    "prezzoVendita": 1.8,
    "note": "",
    "archiviato": false,
-   "creato": 1793532000000,
-   "esempio": true
+   "creato": 1793532000000
   }
  },
  "produzioni": {
@@ -754,8 +727,7 @@
      "lotId": "d-fatt889:r2",
      "qta": 2
     }
-   ],
-   "esempio": true
+   ]
   },
   "p-cre231126": {
    "lotto": "CRE-231126-1",
@@ -803,8 +775,7 @@
      "lotId": "d-fatt889:r4",
      "qta": 0.08
     }
-   ],
-   "esempio": true
+   ]
   },
   "p-tar241126": {
    "lotto": "TAR-241126-1",
@@ -868,8 +839,7 @@
      "lotId": "d-fatt889:r3",
      "qta": 0.05
     }
-   ],
-   "esempio": true
+   ]
   }
  },
  "movimenti": {
@@ -880,8 +850,7 @@
    "lotId": "d-fatt889:r5",
    "delta": -10,
    "nota": "",
-   "creato": 1795374000000,
-   "esempio": true
+   "creato": 1795374000000
   },
   "m-bis1": {
    "data": "2026-11-23",
@@ -890,8 +859,7 @@
    "lotId": "p-bis211126",
    "delta": -40,
    "nota": "Vendite al banco",
-   "creato": 1795460400000,
-   "esempio": true
+   "creato": 1795460400000
   },
   "m-tar1": {
    "data": "2026-11-24",
@@ -900,8 +868,7 @@
    "lotId": "p-tar241126",
    "delta": -6,
    "nota": "",
-   "creato": 1795546800000,
-   "esempio": true
+   "creato": 1795546800000
   }
  }
 }

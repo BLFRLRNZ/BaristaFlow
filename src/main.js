@@ -139,6 +139,14 @@ const ACT = {
     dchips(o.el, k, b.dataset.v); o.onField?.(k, o, 'change', i);
   },
   'scarico-go': b => { const t = {item: true, tipo: b.dataset.tipo, id: b.dataset.id}; closeSheet(); formMov(t); },
+  'banco-add': b => bancoAdd(b.dataset.k),
+  'banco-sub': b => bancoSub(b.dataset.k),
+  'banco-svuota': () => bancoSvuota(),
+  'banco-invio': () => bancoInvio(),
+  'banco-apri': () => sheetBanco(),
+  'banco-annulla': b => bancoAnnulla(b.dataset.id),
+  'banco-tutti': () => { BANCO.tutti = true; renderMain(); },
+  'banco-new-art': () => { if (guard()) formArticolo(null, null, {categoria: 'rivendita', unita: 'pz'}); },
   search: () => sheetSearch(),
   car: b => scrollLabels(+b.dataset.dir),
   riordina: b => { if (!guard()) return; const a = S.data.articoli.get(b.dataset.id); if (a) formDocumento(null, {fornitoreId: a.fornitoreId, articoloId: a.id}); },
@@ -300,6 +308,7 @@ function onFieldEvent(e, kind) {
   const t = e.target;
   if (t.dataset && t.dataset.notif !== undefined) { if (kind === 'change') notifImposta(t.dataset.notif, t.type === 'checkbox' ? t.checked : t.value); return; }
   if (t.dataset && t.dataset.q !== undefined) { if (kind === 'input') { UI.q[t.dataset.q] = t.value; renderMain(); } return; }
+  if (t.dataset && t.dataset.bq !== undefined) { if (kind === 'input') BANCO.draft = {k: t.dataset.bq, v: t.value}; else bancoSet(t.dataset.bq, t.value, true); return; }
   if (t.dataset && (t.dataset.gq || t.dataset.sq)) {
     if (kind !== 'input') return;
     const o = sheetOf(t); if (!o) return;
@@ -344,6 +353,7 @@ function wire() {
   document.addEventListener('submit', e => { e.preventDefault(); if (e.target.id === 'cfgForm') saveCfg(e.target); });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && stack.length) { e.preventDefault(); requestClose(); return; }
+    if (e.key === 'Enter' && bancoEnter(e)) return;
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
     if (((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) && !stack.length) { e.preventDefault(); sheetSearch(); return; }
     if (document.activeElement?.id === 'labels' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); scrollLabels(e.key === 'ArrowRight' ? 1 : -1); }
@@ -365,6 +375,7 @@ const scrollMem = {};
 let curRoute = null;
 function goRoute() {
   const prev = curRoute ?? route(), next = route();
+  bancoRicorda();
   if (prev !== next) scrollMem[prev] = window.scrollY;
   while (stack.length) closeSheet();
   let done = false;
@@ -395,8 +406,11 @@ function subscribe() {
     });
   }
 }
+/* chi lascia l'app sul Banco (il telefono o il tablet della cassa) la ritrova lì quando la riapre */
+const bancoRicorda = () => lsSet('bf-banco', route() === 'banco' ? '1' : '');
 async function init() {
-  wire(); paint(); curRoute = route();
+  if (!location.hash && lsGet('bf-banco') === '1') { try { history.replaceState(history.state, '', '#banco'); } catch { /* cronologia non disponibile */ } }
+  wire(); paint(); curRoute = route(); bancoRicorda();
   const w = window.claude;
   if (!w || typeof w.use !== 'function') { S.db = localDB('barista-flow-v1'); S.mode = 'local'; document.body.classList.remove('nodl'); }
   else {

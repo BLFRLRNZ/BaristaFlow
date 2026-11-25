@@ -7,6 +7,7 @@ Web app per gestire banco e laboratorio di un bar: schede tecniche dei prodotti,
 - **Schede tecniche**: ricetta e grammature, resa, durata, conservazione, procedimento e prezzo di vendita. I 14 allergeni si calcolano dagli ingredienti. L'elenco ingredienti per il cartello è in ordine di peso, con gli allergeni in maiuscolo. Costo e food cost si calcolano dalle fatture. Un semilavorato (per esempio la crema pasticcera) si può usare come ingrediente di altre schede.
 - **Produzione a lotti**: da ogni scheda si registra un lotto, con codice tipo `BIS-241126-1`. L'app propone per primi i lotti di ingredienti che scadono prima e scarta quelli scaduti. La scadenza del lotto si calcola dalla durata della scheda.
 - **Tracciabilità nei due sensi**: dal lotto prodotto risali a ogni ingrediente, con lotto del fornitore, scadenza e fattura o DDT (anche la foto o il PDF allegato). Da un lotto del fornitore vedi in quali prodotti è finito, utile in caso di richiamo.
+- **Banco, lo scontrino interno**: i prodotti in vendita a tasti grandi. Si toccano quelli venduti, si preme Invio e il magazzino si aggiorna subito (dettagli più sotto).
 - **Magazzino**: giacenze lotto per lotto di materie prime, prodotti da rivendere, imballaggi e prodotti propri. Si registrano vendite, scarti, uso interno e rettifiche d'inventario, e si impostano le scorte minime.
 - **Prezzi d'acquisto**: storico del prezzo al kg, al litro o al pezzo per ogni prodotto, con grafico e confronto fra fornitori. Mostra quanto si è speso in più nel periodo, quali prodotti sono rincarati o calati e quanto è cambiato il costo delle schede. In «Oggi» compare un avviso per i rincari recenti.
 - **Pagina «Oggi»**: le cose da fare divise per urgenza (da smaltire, scade oggi, fatture da importare, prossimi giorni, da ordinare, prezzi in aumento). I riquadri in alto filtrano l'elenco.
@@ -75,6 +76,20 @@ Le manda lo stesso script di Google, senza servizi di terze parti:
 
 Lo script conosce i dati dell'ultima volta che l'app è stata usata: per le scadenze va bene, perché le date si sanno in anticipo; per le scorte vale l'ultimo aggiornamento.
 
+## Banco: lo scontrino interno
+
+Alla cassa il bar batte solo il reparto, quindi l'app non può sapere cosa è stato venduto. Il Banco serve a questo: dopo lo scontrino fiscale si batte lo scontrino interno in Barista Flow e i prodotti venduti escono dal magazzino, senza dover contare la vetrina a fine giornata.
+
+- Ci sono tutti i prodotti in vendita: le schede tecniche (non i semilavorati) e gli articoli di rivendita, come bibite e cornetti. Sono tasti grandi, divisi per categoria e sempre nello stesso ordine, con giacenza e prezzo. In alto ci sono la ricerca e le categorie.
+- Ogni tocco aggiunge un pezzo (100 g o 100 ml per i prodotti a peso o a volume); il tasto **−** ne toglie uno. In basso c'è lo scontrino in corso con il totale: toccandolo si aprono le righe, dove le quantità si cambiano o si scrivono.
+- Con **Invio** si registra una vendita per ogni lotto, prima quelli che scadono prima. I lotti scaduti non si vendono e non si va mai oltre la giacenza. Lo scontrino si salva tutto o niente.
+- Subito dopo si può annullare dall'avviso. Più tardi lo si annulla dalla riga «Ultimo scontrino» in basso, oppure da «Scontrini di oggi» in fondo alla pagina, dove ci sono anche i pezzi e il totale della giornata. In questi due casi l'app chiede conferma.
+- Sul computer lo scontrino sta in un riquadro di lato e basta la tastiera: Invio nella ricerca aggiunge l'unico prodotto trovato, Invio su una quantità la conferma, poi Invio registra.
+- Sul telefono si entra dal pulsante **Banco** in «Oggi» (sul computer è nella barra laterale). Se l'app resta sul Banco, quando si riapre torna lì: comodo per il telefono o il tablet della cassa.
+- Il prezzo di vendita viene dalla scheda tecnica e, per la rivendita, dall'articolo (campo «Prezzo di vendita», IVA inclusa). Senza prezzo il prodotto si vende lo stesso, ma non entra nel totale.
+
+Nei movimenti le vendite del Banco hanno la nota «Banco, ore 10:42», il codice dello scontrino (`banco`) e il prezzo unitario del momento (`prezzo`).
+
 ## Pensata per l'uso al banco
 
 - Il pulsante **+** al centro della barra in basso apre le registrazioni rapide: produzione, acquisto, scarico, scheda, articolo e fornitore.
@@ -116,6 +131,7 @@ src/
   details.js          dettagli: lotto, lotto del fornitore, articolo, scheda, documento, storico prezzi con grafico
   forms.js            moduli: articolo, fornitore, documento d'acquisto, scheda tecnica, produzione, scarichi
   quick.js            pulsante +, scarico rapido, ricerca globale, installazione sul telefono
+  banco.js            Banco: tasti dei prodotti in vendita, scontrino interno, Invio, scontrini di oggi
   fatture.js          lettura delle fatture XML (anche .p7m e .zip) e PDF, abbinamento agli articoli
   posta.js            fatture dalla posta: collegamento allo script di Google, controllo della casella, fatture arrivate
   notifiche.js        notifiche sul telefono: iscrizione, ora e temi, riepilogo di scadenze e scorte per lo script
@@ -140,11 +156,11 @@ test/                 prove automatiche nel browser
 | Raccolta | Contenuto |
 |---|---|
 | `fornitori` | ragione sociale, P. IVA, contatti, abbinamenti fra le righe delle sue fatture e gli articoli |
-| `articoli` | materie prime, prodotti da rivendere, imballaggi: unità (kg, l, pz), allergeni, nome in etichetta, scorta minima |
+| `articoli` | materie prime, prodotti da rivendere, imballaggi: unità (kg, l, pz), allergeni, nome in etichetta, scorta minima; per la rivendita il prezzo di vendita |
 | `documenti` | fatture, DDT, scontrini, inventario iniziale. Ogni riga è un lotto: quantità, importo, lotto del fornitore, scadenza. Con `soloPrezzi` alimenta solo lo storico prezzi. |
 | `ricette` | schede tecniche: ingredienti (articoli o semilavorati), resa, durata, tracce, prezzo |
 | `produzioni` | lotti prodotti con i consumi: quale lotto di ogni ingrediente e quanto |
-| `movimenti` | vendite, scarti, uso interno, rettifiche (variazione con segno su un lotto) |
+| `movimenti` | vendite, scarti, uso interno, rettifiche (variazione con segno su un lotto); quelle del Banco hanno anche `banco` (lo scontrino) e `prezzo` |
 | `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari; nel documento `posta` il collegamento alla casella (URL dello script, chiave, mail già viste, fatture arrivate da importare) e le notifiche di questo dispositivo (ora, temi, ultimo riepilogo mandato) |
 
 Gli elementi dei dati di esempio, e quelli inseriti durante la prova, hanno `esempio: true`.
@@ -169,6 +185,7 @@ python3 test/test_modes.py
 python3 test/test_prezzi.py
 python3 test/test_comodita.py
 python3 test/test_uso.py
+python3 test/test_banco.py
 python3 test/test_esempi.py
 python3 test/test_fatture.py
 python3 test/test_fatture_pdf.py
@@ -177,7 +194,7 @@ python3 test/test_posta.py
 python3 test/test_notifiche.py
 ```
 
-`test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
+`test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
 
 ## Nota sulle etichette
 

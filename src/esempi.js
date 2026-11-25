@@ -108,6 +108,8 @@ const ES_RIC = {
 const ES_PIANO = [['biscotti', 7, 5, 60], ['cookies', 7, 2, 40], ['crostata', 3, 2, 10], ['tortamele', 4, 3, 12], ['tartellette', 2, 0, 18], ['tiramisu', 3, 0, 12], ['tramezzini', 2, 1, 12]];
 /* vendite medie al giorno */
 const ES_VENDITE = {biscotti: 7.5, cookies: 5, crostata: 3, tortamele: 3, tartellette: 8.5, tiramisu: 3.6, tramezzini: 5.5};
+/* prezzi al banco della rivendita, IVA inclusa */
+const ES_VENDITA = {cornetti: 1.3, acqua: 1, frizzante: 1, cola: 2.5, succo: 2, birra: 3.5};
 /* consumi al banco e vendite di rivendita al giorno, registrati la domenica */
 const ES_USO = [
   ['caffe', 'uso', .85, 'Caffè al banco'], ['decaf', 'uso', .07, 'Caffè al banco'], ['latte', 'uso', 3.2, 'Cappuccini e latte macchiato'],
@@ -340,7 +342,7 @@ function buildSample(T = today()) {
   const E = {esempio: true}, out = {fornitori: {}, articoli: {}, ricette: {}, documenti: {}, produzioni: {}, movimenti: {}};
   let c0 = ts(START, 9);
   for (const [k, F] of Object.entries(ES_FORN)) out.fornitori[fid(k)] = {nome: F.nome, piva: '', telefono: '', email: F.email, note: F.note, creato: c0 += 6e4, ...E};
-  for (const a of Object.values(A)) out.articoli[aid(a.k)] = {nome: a.nome, categoria: a.cat, unita: a.unita, pesoPz: a.pesoPz || null, etichetta: a.etichetta, allergeni: algSort(a.allergeni), conservazione: a.cons, scortaMin: a.min, fornitoreId: fid(a.forn), note: ES_NOTE_ART[a.k] || '', archiviato: false, creato: c0 += 6e4, ...E};
+  for (const a of Object.values(A)) out.articoli[aid(a.k)] = {nome: a.nome, categoria: a.cat, unita: a.unita, pesoPz: a.pesoPz || null, etichetta: a.etichetta, allergeni: algSort(a.allergeni), conservazione: a.cons, scortaMin: a.min, fornitoreId: fid(a.forn), ...(a.cat === 'rivendita' ? {prezzoVendita: ES_VENDITA[a.k] || null} : {}), note: ES_NOTE_ART[a.k] || '', archiviato: false, creato: c0 += 6e4, ...E};
   for (const [k, r] of Object.entries(ES_RIC)) out.ricette[rid(k)] = {nome: r.nome, sigla: r.sigla, categoria: r.cat, semilavorato: !!r.semi, resaQta: r.resa, resaUnita: r.u, pesoPz: r.pesoPz || null,
     ingredienti: r.ing.map(([ik, q, u]) => ik[0] === '@' ? {tipo: 'ric', refId: rid(ik.slice(1)), qta: q, unita: u} : {tipo: 'art', refId: aid(ik), qta: q, unita: u}),
     shelfLife: r.shelf, tipoScadenza: r.tipo, conservazione: r.cons, procedimento: r.proc, tracce: algSort(r.tracce || []), prezzoVendita: r.prezzo || null, note: r.note || '', archiviato: !!r.arch, creato: c0 += 6e4, ...E};

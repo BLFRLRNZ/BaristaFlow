@@ -3,8 +3,8 @@ let raf = 0;
 function bump() { S.ver++; schedule(); notifSoon(); }
 function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; paint(); }); }
 function paint() { renderChrome(); renderMain(); refreshSheets(); }
-const VIEWS = {oggi: vOggi, produzione: vProduzione, schede: vSchede, magazzino: vMagazzino, acquisti: vAcquisti, prezzi: vPrezzi, fornitori: vFornitori, impostazioni: vImpostazioni};
-const TITOLI = {oggi: 'Oggi', produzione: 'Produzione', schede: 'Schede tecniche', magazzino: 'Magazzino', acquisti: 'Acquisti', prezzi: "Prezzi d'acquisto", fornitori: 'Fornitori', impostazioni: 'Impostazioni'};
+const VIEWS = {oggi: vOggi, banco: vBanco, produzione: vProduzione, schede: vSchede, magazzino: vMagazzino, acquisti: vAcquisti, prezzi: vPrezzi, fornitori: vFornitori, impostazioni: vImpostazioni};
+const TITOLI = {oggi: 'Oggi', banco: 'Banco', produzione: 'Produzione', schede: 'Schede tecniche', magazzino: 'Magazzino', acquisti: 'Acquisti', prezzi: "Prezzi d'acquisto", fornitori: 'Fornitori', impostazioni: 'Impostazioni'};
 const TAB = {schede: 'produzione', prezzi: 'acquisti', fornitori: 'acquisti'};
 const route = () => { const h = location.hash.slice(1); return VIEWS[h] ? h : 'oggi'; };
 
@@ -175,7 +175,8 @@ function vOggi() {
     : `<div class="empty done"><span class="ei">${IC.check}</span><b>Tutto in ordine</b><span>Nessuna scadenza vicina, scorte a posto e nessun rincaro.</span></div>`;
   const sample = countSample();
   return `<section id="v-oggi"><div class="ph"><div><p class="kick">${esc(dateStr)}</p><h1>${greet}</h1></div>
-    <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div></div>
+    <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div>
+    <a class="btn bk-entry mobonly w" href="#banco">${IC.banco}Banco</a></div>
     ${sample && S.mode === 'local' ? '' : modeNote()}
     ${sample ? demoBanner() : primiPassi()}
     <div class="tiles">${tile('red', exp.length, 'Lotti scaduti da smaltire', 'scaduti', IC.alert)}${tile('amb', soon.length, w === 1 ? 'In scadenza entro domani' : `In scadenza entro ${w} giorni`, 'scadenza', IC.clock)}${tile('amb', under.length, 'Articoli sotto scorta', 'scorta', IC.box)}${tile('amb', rincari.length, 'Rincari recenti', 'rincari', IC.trend)}</div>

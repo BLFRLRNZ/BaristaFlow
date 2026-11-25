@@ -37,14 +37,15 @@ function artOptions(cur) {
 function formArticolo(id, onSaved, pre) {
   const ex = id ? S.data.articoli.get(id) : null;
   const st = ex
-    ? {nome: ex.nome || '', categoria: CAT[ex.categoria] ? ex.categoria : 'materia', unita: unitOk(ex.unita) || 'kg', pesoPz: +ex.pesoPz > 0 ? fmtIn(+ex.pesoPz) : '', etichetta: ex.etichetta || '', allergeni: algSort(ex.allergeni || []), conservazione: CONS[ex.conservazione] ? ex.conservazione : 'ambiente', scortaMin: +ex.scortaMin > 0 ? fmtIn(+ex.scortaMin) : '', fornitoreId: ex.fornitoreId || '', note: ex.note || ''}
-    : {nome: pre?.nome || '', categoria: CAT[pre?.categoria] ? pre.categoria : 'materia', unita: unitOk(pre?.unita) || 'kg', pesoPz: '', etichetta: '', allergeni: [], conservazione: 'ambiente', scortaMin: '', fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', note: ''};
+    ? {nome: ex.nome || '', categoria: CAT[ex.categoria] ? ex.categoria : 'materia', unita: unitOk(ex.unita) || 'kg', pesoPz: +ex.pesoPz > 0 ? fmtIn(+ex.pesoPz) : '', etichetta: ex.etichetta || '', allergeni: algSort(ex.allergeni || []), conservazione: CONS[ex.conservazione] ? ex.conservazione : 'ambiente', scortaMin: +ex.scortaMin > 0 ? fmtIn(+ex.scortaMin) : '', fornitoreId: ex.fornitoreId || '', prezzoVendita: +ex.prezzoVendita > 0 ? fmtIn(+ex.prezzoVendita) : '', note: ex.note || ''}
+    : {nome: pre?.nome || '', categoria: CAT[pre?.categoria] ? pre.categoria : 'materia', unita: unitOk(pre?.unita) || 'kg', pesoPz: '', etichetta: '', allergeni: [], conservazione: 'ambiente', scortaMin: '', fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', prezzoVendita: '', note: ''};
   const locked = !!ex && ((drv().artLots.get(id) || []).length > 0 || [...S.data.ricette.values()].some(r => (r.ingredienti || []).some(g => g.tipo !== 'ric' && g.refId === id)));
   openSheet({form: true, st, title: ex ? 'Modifica articolo' : 'Nuovo articolo',
     body: () => `<label class="fld"><span>Nome</span><input type="text" data-k="nome" value="${esc(st.nome)}" placeholder="Es. Farina 00" autocomplete="off"></label>
       <div class="fld"><span>Tipo di articolo</span>${fseg('categoria', st.categoria, [['materia', 'Materia prima'], ['rivendita', 'Rivendita'], ['imballaggio', 'Imballaggio']])}</div>
       <div class="g2"><label class="fld"><span>Unità di giacenza</span><select data-k="unita" ${locked ? 'disabled' : ''}>${opt('kg', 'Chili (kg)', st.unita)}${opt('l', 'Litri (l)', st.unita)}${opt('pz', 'Pezzi (pz)', st.unita)}</select>${locked ? '<small class="hint">Bloccata: l’articolo ha già lotti o è in una scheda.</small>' : ''}</label>
       <label class="fld" id="f-pz" ${st.unita === 'pz' ? '' : 'hidden'}><span>Peso di un pezzo (g)</span><input type="text" inputmode="decimal" data-k="pesoPz" value="${esc(st.pesoPz)}" placeholder="Es. 55"><small class="hint">Permette di usarlo in grammi nelle ricette.</small></label></div>
+      <label class="fld" id="f-pv" ${st.categoria === 'rivendita' ? '' : 'hidden'}><span>Prezzo di vendita € IVA inclusa, <span id="f-pv-u">${perU(st.unita)}</span></span><input type="text" inputmode="decimal" data-k="prezzoVendita" value="${esc(st.prezzoVendita)}" placeholder="Facoltativo" autocomplete="off"><small class="hint">Compare sul tasto del Banco e fa il totale dello scontrino.</small></label>
       <label class="fld"><span>Nome nell'elenco ingredienti</span><input type="text" data-k="etichetta" value="${esc(st.etichetta)}" placeholder="Es. farina di GRANO tenero tipo 00" autocomplete="off"><small class="hint">Scrivi in MAIUSCOLO la parola dell'allergene. Se lo lasci vuoto viene usato il nome, con l'allergene tra parentesi.</small></label>
       <div class="fld"><span>Allergeni contenuti</span>${algToggles('allergeni', st.allergeni)}</div>
       <div class="g2"><label class="fld"><span>Conservazione</span><select data-k="conservazione">${opt('ambiente', 'Ambiente', st.conservazione)}${opt('frigo', 'Frigorifero', st.conservazione)}${opt('freezer', 'Congelatore', st.conservazione)}</select></label>
@@ -53,7 +54,10 @@ function formArticolo(id, onSaved, pre) {
       <label class="fld"><span>Note</span><textarea data-k="note" rows="3">${esc(st.note)}</textarea></label>
       <p class="err" id="ferr" role="alert"></p>`,
     foot: () => foot(ex ? 'Salva modifiche' : 'Crea articolo'),
-    onField: (k, o) => { if (k === 'unita') { $('#f-pz', o.el).hidden = st.unita !== 'pz'; } },
+    onField: (k, o) => {
+      if (k === 'unita') { $('#f-pz', o.el).hidden = st.unita !== 'pz'; $('#f-pv-u', o.el).textContent = perU(st.unita); }
+      if (k === 'categoria') $('#f-pv', o.el).hidden = st.categoria !== 'rivendita';
+    },
     onSave: async o => {
       const nome = st.nome.trim();
       if (!nome) return ferr(o, "Scrivi il nome dell'articolo.");
@@ -62,7 +66,10 @@ function formArticolo(id, onSaved, pre) {
       if (st.unita === 'pz' && String(st.pesoPz).trim()) { pesoPz = pnum(st.pesoPz); if (!(pesoPz > 0)) return ferr(o, 'Peso del pezzo non valido.'); }
       let sm = 0;
       if (String(st.scortaMin).trim()) { sm = pnum(st.scortaMin); if (!(sm >= 0)) return ferr(o, 'Scorta minima non valida.'); }
-      const doc = {...(ex ? strip(ex) : {}), nome, categoria: st.categoria, unita: locked ? ex.unita : st.unita, pesoPz, etichetta: st.etichetta.trim(), allergeni: algSort(st.allergeni), conservazione: st.conservazione, scortaMin: sm, fornitoreId: st.fornitoreId, note: st.note.trim(), archiviato: !!ex?.archiviato, creato: ex?.creato || Date.now()};
+      // il prezzo di vendita serve solo a quello che si rivende al banco
+      let pv = null;
+      if (st.categoria === 'rivendita' && String(st.prezzoVendita).trim()) { pv = pnum(st.prezzoVendita); if (!(pv >= 0)) return ferr(o, 'Prezzo di vendita non valido.'); pv = pv > 0 ? r6(pv) : null; }
+      const doc = {...(ex ? strip(ex) : {}), nome, categoria: st.categoria, unita: locked ? ex.unita : st.unita, pesoPz, etichetta: st.etichetta.trim(), allergeni: algSort(st.allergeni), conservazione: st.conservazione, scortaMin: sm, fornitoreId: st.fornitoreId, prezzoVendita: pv, note: st.note.trim(), archiviato: !!ex?.archiviato, creato: ex?.creato || Date.now()};
       const nid = id || uid();
       if (await put('articoli', nid, doc)) { o.dirty = false; closeSheet(); toast(ex ? 'Articolo aggiornato' : `Articolo «${nome}» creato`); onSaved?.(nid); }
     }});

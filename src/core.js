@@ -35,7 +35,8 @@ const IC = {
   trash: svg('<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/>'),
   sell: svg('<path d="M4 7h16l-1.5 10.5h-13z"/><path d="M9 11v3M15 11v3"/>'),
   info: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.2"/>'),
-  shop: svg('<path d="M4 9.5 5.5 4h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20"/>')
+  shop: svg('<path d="M4 9.5 5.5 4h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20"/>'),
+  banco: svg('<path d="M3.5 12.5h17M5 12.5V20h14v-7.5M5 16.2h14"/><path d="M8.6 5.8h5.6v1.7a2.8 2.8 0 0 1-5.6 0z"/><path d="M14.2 6.4h.9a1.2 1.2 0 0 1 0 2.4h-1.1"/>')
 };
 const LOGO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.1 9.6l.55 4.3a4.3 4.3 0 0 0 4.27 3.8h1.16a4.3 4.3 0 0 0 4.27-3.8l.55-4.3M16.6 11.1h.9a1.85 1.85 0 0 1 0 3.7h-1.45M4.6 19.8c2.6.85 11.2.85 13.8 0"/><path d="M6.1 9.6h10.8M10 3.6c.95.85-.95 1.85 0 2.75M13 3.6c.95.85-.95 1.85 0 2.75" stroke="#d4b47c"/></svg>`;
 
@@ -95,7 +96,7 @@ const buyUnits = base => base === 'kg' ? ['kg', 'g'] : base === 'l' ? ['l', 'ml'
 
 /* ---------- stato ---------- */
 const S = {db: null, mode: 'loading', ro: false, assets: null, downloads: null, user: null, got: new Set(), fresh: new Set(), slow: false, ver: 0, errShown: false, data: Object.fromEntries(COLS.map(c => [c, new Map()]))};
-const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false, todoF: ''};
+const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: '', banco: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false, todoF: '', bancoCat: ''};
 const cfg = () => {
   const c = S.data.impostazioni.get('generale') || {};
   const g = Math.round(pnum(c.giorniAvviso)), iva = pnum(c.iva), sr = pnum(c.sogliaRincaro);

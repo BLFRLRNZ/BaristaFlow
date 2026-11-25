@@ -96,10 +96,10 @@ async function requestClose() {
   if (top() === o) closeSheet();
 }
 function refreshSheets() { for (const o of stack) if (o.live) { const b = $('.sh-body', o.el), y = b.scrollTop; paintSheet(o); b.scrollTop = y; } }
-function ask(msg, okLabel = 'Conferma', danger = false) {
+function ask(msg, okLabel = 'Conferma', danger = false, noLabel = 'Annulla') {
   return new Promise(res => {
     let done = false;
-    const o = openSheet({title: 'Conferma', small: true, body: () => `<p>${esc(msg)}</p>`, foot: () => `<button type="button" class="btn" data-act="ask" data-v="0">Annulla</button><button type="button" class="btn ${danger ? 'dan' : 'pri'}" data-act="ask" data-v="1">${esc(okLabel)}</button>`});
+    const o = openSheet({title: 'Conferma', small: true, body: () => `<p>${esc(msg)}</p>`, foot: () => `<button type="button" class="btn" data-act="ask" data-v="0">${esc(noLabel)}</button><button type="button" class="btn ${danger ? 'dan' : 'pri'}" data-act="ask" data-v="1">${esc(okLabel)}</button>`});
     o.resolve = v => { if (done) return; done = true; if (top() === o) closeSheet(); res(v); };
     o.onClose = () => { if (!done) { done = true; res(false); } };
   });
@@ -224,7 +224,7 @@ function artBody(id) {
   const recs = [...S.data.ricette.values()].filter(r => (r.ingredienti || []).some(g => g.tipo !== 'ric' && g.refId === id)).sort(byName);
   const al = algSort(a.allergeni || []);
   return `<div class="dh"><p class="muted">${esc(CAT[a.categoria] || CAT.materia)} · ${esc(CONS[a.conservazione] || 'Ambiente')}${a.archiviato ? ' · archiviato' : ''}</p><div class="big" style="font-stretch:85%">${esc(a.nome)}</div></div>
-    <div class="kv"><div><small>Giacenza utilizzabile</small><b>${fmtQ(s.usable, a.unita)}</b></div><div><small>Scaduto da smaltire</small><b>${fmtQ(s.expired, a.unita)}</b></div><div><small>Scorta minima</small><b>${+a.scortaMin > 0 ? fmtQ(+a.scortaMin, a.unita) : '—'}</b></div><div><small>Ultimo costo</small><b>${cost != null ? EUR(cost) : '—'}</b><small>${a.unita === 'pz' ? 'al pezzo' : 'al ' + esc(unitOk(a.unita))}</small></div></div>
+    <div class="kv"><div><small>Giacenza utilizzabile</small><b>${fmtQ(s.usable, a.unita)}</b></div><div><small>Scaduto da smaltire</small><b>${fmtQ(s.expired, a.unita)}</b></div><div><small>Scorta minima</small><b>${+a.scortaMin > 0 ? fmtQ(+a.scortaMin, a.unita) : '—'}</b></div><div><small>Ultimo costo</small><b>${cost != null ? EUR(cost) : '—'}</b><small>${a.unita === 'pz' ? 'al pezzo' : 'al ' + esc(unitOk(a.unita))}</small></div>${a.categoria === 'rivendita' ? `<div><small>Prezzo di vendita</small><b>${+a.prezzoVendita > 0 ? EUR(+a.prezzoVendita) : '—'}</b><small>${+a.prezzoVendita > 0 ? 'IVA inclusa, ' + perU(a.unita) : 'Da aggiungere con Modifica'}</small></div>` : ''}</div>
     <h3>Prezzi d'acquisto</h3>${priceRow(id)}
     <h3>Allergeni e nome in etichetta</h3>${algChips(al, [])}<p style="margin-top:10px" class="labeltext">${emph(esc(artLabel(a)))}</p>
     <h3>Lotti in giacenza</h3>${inUse.length ? `<div class="list">${inUse.map(l => lotRow(l)).join('')}</div>` : empty('Nessun lotto in giacenza. Carica la merce registrando un acquisto.')}

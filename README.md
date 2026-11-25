@@ -61,6 +61,20 @@ L'app controlla la casella quando si apre, quando si torna su di essa e ogni 15 
 
 Il collegamento funziona dall'app pubblicata su un sito, come GitHub Pages; la versione su claude.ai non può chiamare siti esterni.
 
+Per aggiornare uno script già pubblicato: si sostituisce il testo con quello copiato dall'app, poi Esegui il deployment → Gestisci deployment → modifica → Versione: Nuova versione. L'URL resta lo stesso; se Google chiede nuovi permessi si esegue di nuovo `prova`.
+
+### Notifiche sul telefono
+
+Ogni giorno, all'ora scelta, il telefono riceve una notifica di Barista Flow con i lotti scaduti da smaltire, quelli che scadono oggi o nei prossimi giorni e gli articoli da riordinare, anche con l'app chiusa. Se si vuole, arriva una notifica anche per ogni fattura nella casella. Funzionano con Chrome su Android e, su iPhone e iPad (iOS 16.4 o successivo), con l'app aggiunta alla schermata Home e aperta da lì. Si attivano da Impostazioni → Notifiche sul telefono, dove si sceglie l'ora e si può mandare una notifica di prova.
+
+Le manda lo stesso script di Google, senza servizi di terze parti:
+
+- l'app gli passa un riepilogo (lotti con scadenza nei prossimi 30 giorni o già scaduti, articoli sotto la scorta minima) ogni volta che i dati cambiano;
+- lo script controlla ogni 15 minuti e, dall'ora scelta, manda la notifica del giorno una volta sola;
+- le notifiche seguono lo standard Web Push: firma VAPID (ES256, con il numero della firma ricavato come nella RFC 6979) e messaggio cifrato per il dispositivo (RFC 8291: ECDH P-256, HKDF, AES-128-GCM), scritti nello script perché Apps Script non li offre. La chiave privata resta nelle proprietà dello script.
+
+Lo script conosce i dati dell'ultima volta che l'app è stata usata: per le scadenze va bene, perché le date si sanno in anticipo; per le scorte vale l'ultimo aggiornamento.
+
 ## Pensata per l'uso al banco
 
 - Il pulsante **+** al centro della barra in basso apre le registrazioni rapide: produzione, acquisto, scarico, scheda, articolo e fornitore.
@@ -101,17 +115,20 @@ src/
   quick.js            pulsante +, scarico rapido, ricerca globale, installazione sul telefono
   fatture.js          lettura delle fatture XML (anche .p7m e .zip) e PDF, abbinamento agli articoli
   posta.js            fatture dalla posta: collegamento allo script di Google, controllo della casella, fatture arrivate
+  notifiche.js        notifiche sul telefono: iscrizione, ora e temi, riepilogo di scadenze e scorte per lo script
   esempi.js           bar di esempio (simulazione con date riferite a oggi), prova e registrazione del bar
   main.js             azioni, esportazioni, avvio e collegamento all'archivio
 manifest.webmanifest  nome, colori e icone per installare l'app
-sw.js                 funzionamento senza rete
+sw.js                 funzionamento senza rete e notifiche
 icone/                icona dell'app (SVG e PNG)
 vendor/pdfjs/         pdf.js di Mozilla, per estrarre il testo dai PDF (licenza Apache 2.0)
-apps-script/          script di Google Apps Script che passa all'app gli allegati delle mail con le fatture
+apps-script/          script di Google Apps Script: allegati delle mail con le fatture e notifiche sul telefono
 test/                 prove automatiche nel browser
   dati-test.json      dati fissi su cui girano le prove (creati da genera_dati_test.py)
   check_esempi.js     controlla la coerenza dei dati di esempio
-  check_posta_gs.js   prova lo script di Google con una casella Gmail finta
+  check_posta_gs.js   prova lo script di Google: casella Gmail finta, crittografia contro Node e le RFC
+  gs_sandbox.js       ambiente Google finto in cui gira lo script
+  fake_google.js      Google finto per le prove nel browser: esegue lo script vero e fa da servizio push
 ```
 
 ## Modello dei dati
@@ -124,7 +141,7 @@ test/                 prove automatiche nel browser
 | `ricette` | schede tecniche: ingredienti (articoli o semilavorati), resa, durata, tracce, prezzo |
 | `produzioni` | lotti prodotti con i consumi: quale lotto di ogni ingrediente e quanto |
 | `movimenti` | vendite, scarti, uso interno, rettifiche (variazione con segno su un lotto) |
-| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari; nel documento `posta` il collegamento alla casella (URL dello script, chiave, mail già viste, fatture arrivate da importare) |
+| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari; nel documento `posta` il collegamento alla casella (URL dello script, chiave, mail già viste, fatture arrivate da importare) e le notifiche di questo dispositivo (ora, temi, ultimo riepilogo mandato) |
 
 Gli elementi dei dati di esempio, e quelli inseriti durante la prova, hanno `esempio: true`.
 
@@ -152,9 +169,10 @@ python3 test/test_fatture.py
 python3 test/test_fatture_pdf.py
 node test/check_posta_gs.js
 python3 test/test_posta.py
+python3 test/test_notifiche.py
 ```
 
-`test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app.
+`test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
 
 ## Nota sulle etichette
 

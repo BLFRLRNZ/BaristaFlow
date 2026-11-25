@@ -1,6 +1,6 @@
 /* ---------- disegno della pagina ---------- */
 let raf = 0;
-function bump() { S.ver++; schedule(); }
+function bump() { S.ver++; schedule(); notifSoon(); }
 function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; paint(); }); }
 function paint() { renderChrome(); renderMain(); refreshSheets(); }
 const VIEWS = {oggi: vOggi, produzione: vProduzione, schede: vSchede, magazzino: vMagazzino, acquisti: vAcquisti, prezzi: vPrezzi, fornitori: vFornitori, impostazioni: vImpostazioni};
@@ -359,6 +359,7 @@ function vImpostazioni() {
       <button type="submit" class="btn pri w">Salva impostazioni</button>
     </div></div></form>
     ${postaCard()}
+    ${notifCard()}
     <div class="setgrp"><h2>Backup ed esportazioni</h2><div class="card"><p class="muted">Il backup contiene tutto: schede, acquisti, lotti, movimenti. Serve anche per spostare i dati su un altro dispositivo o sistema.</p>
       <div class="acts"><button type="button" class="btn dl" data-act="dl-backup">${IC.down}Esporta backup</button><label class="btn w">Importa backup<input type="file" accept="application/json,.json" data-file="import"></label><button type="button" class="btn dl" data-act="dl-csv">${IC.down}Giacenze in CSV</button></div>
       ${S.mode !== 'local' && !S.downloads ? '<p class="hint" style="margin-top:10px">Il download dei file non è disponibile in questa vista.</p>' : ''}</div></div>

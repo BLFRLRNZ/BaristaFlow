@@ -13,3 +13,23 @@ self.addEventListener('fetch', e => {
     return res;
   }).catch(async () => (await caches.match(req)) || (req.mode === 'navigate' ? await caches.match('./index.html') : undefined) || Response.error()));
 });
+
+/* notifiche di Barista Flow, mandate dallo script di Google anche quando l'app è chiusa */
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = {body: e.data ? e.data.text() : ''}; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Barista Flow', {
+    body: d.body || 'Apri Barista Flow per vedere cosa c’è da fare oggi.',
+    tag: d.tag || 'barista-flow', icon: 'icone/icon-192.png', badge: 'icone/icon-192.png',
+    data: {url: d.url || './#oggi'}
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || './#oggi', self.registration.scope);
+  e.waitUntil(self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(list => {
+    const c = list.find(w => w.url.startsWith(self.registration.scope));
+    if (c) { c.postMessage({tipo: 'apri', hash: url.hash}); return c.focus(); }
+    return self.clients.openWindow(url.href);
+  }));
+});

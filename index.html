@@ -456,6 +456,8 @@ ol.steps .acts{display:flex;margin-top:8px}
 ol.steps a{color:var(--link);font-weight:700;text-decoration:none}
 .btn .chip{margin-left:4px;font-size:12px}
 .posta-link{white-space:pre-wrap;word-break:break-all;font-size:13px;background:var(--surf2,rgba(0,0,0,.04));padding:10px 12px;border-radius:12px;user-select:all}
+.notif-temi{margin:2px 0 12px}
+.notif-temi .chk{min-height:40px;margin:0}
 
 </style>
 </head>
@@ -885,7 +887,7 @@ const perU = u => u === 'pz' ? 'al pezzo' : u === 'l' ? 'al litro' : 'al kg';
 
 /* ---------- disegno della pagina ---------- */
 let raf = 0;
-function bump() { S.ver++; schedule(); }
+function bump() { S.ver++; schedule(); notifSoon(); }
 function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; paint(); }); }
 function paint() { renderChrome(); renderMain(); refreshSheets(); }
 const VIEWS = {oggi: vOggi, produzione: vProduzione, schede: vSchede, magazzino: vMagazzino, acquisti: vAcquisti, prezzi: vPrezzi, fornitori: vFornitori, impostazioni: vImpostazioni};
@@ -1244,6 +1246,7 @@ function vImpostazioni() {
       <button type="submit" class="btn pri w">Salva impostazioni</button>
     </div></div></form>
     ${postaCard()}
+    ${notifCard()}
     <div class="setgrp"><h2>Backup ed esportazioni</h2><div class="card"><p class="muted">Il backup contiene tutto: schede, acquisti, lotti, movimenti. Serve anche per spostare i dati su un altro dispositivo o sistema.</p>
       <div class="acts"><button type="button" class="btn dl" data-act="dl-backup">${IC.down}Esporta backup</button><label class="btn w">Importa backup<input type="file" accept="application/json,.json" data-file="import"></label><button type="button" class="btn dl" data-act="dl-csv">${IC.down}Giacenze in CSV</button></div>
       ${S.mode !== 'local' && !S.downloads ? '<p class="hint" style="margin-top:10px">Il download dei file non è disponibile in questa vista.</p>' : ''}</div></div>
@@ -2929,7 +2932,7 @@ function sheetFattura(e) {
 /* ---------- fatture dalla posta: una casella Gmail collegata con uno script di Google ----------
    Lo script (apps-script/fatture-dalla-posta.gs) elenca gli allegati XML, P7M, ZIP e PDF arrivati nella casella
    e li passa all'app. Le mail nuove finiscono in una coda; «Importa fatture» le scarica e le legge come i file scelti a mano. */
-const POSTA_GS = "/*\n * Barista Flow \u00b7 Fatture dalla posta\n *\n * Passa a Barista Flow le fatture che arrivano come allegato (XML, P7M, ZIP o PDF)\n * nella casella Gmail dell'account con cui crei questo script.\n * Come si installa: in Barista Flow, Impostazioni \u2192 Fatture dalla posta.\n */\n\n// La sceglie l'app: lo script copiato da Barista Flow la contiene gi\u00e0.\nvar CHIAVE = '__CHIAVE__';\n\n// Quali mail guardare, con la ricerca di Gmail. Con una casella usata solo per le fatture va bene cos\u00ec;\n// altrimenti limita al mittente, per esempio: 'from:fatture@servizio.it has:attachment'\nvar RICERCA = 'has:attachment';\n\nvar ALLEGATI = /\\.(xml|p7m|zip|pdf)$/i;\nvar GIORNI = 60;   // non si guarda pi\u00f9 indietro di cos\u00ec\n\n// La prima volta premi \u00abEsegui\u00bb con questa funzione: Google chiede il permesso di leggere Gmail\n// e nel registro compaiono gli allegati che lo script passerebbe all'app.\nfunction prova() {\n  var r = elenco(0);\n  Logger.log('Casella ' + r.casella + ': ' + r.file.length + ' allegati negli ultimi ' + GIORNI + ' giorni');\n  r.file.forEach(function (f) { Logger.log(new Date(f.data).toLocaleString() + '  ' + f.nome + '  da ' + f.da); });\n}\n\n// L'app chiama l'indirizzo dell'app web: ?k=chiave&dal=millisecondi per l'elenco, ?k=chiave&op=file&id=\u2026 per un allegato\nfunction doGet(e) {\n  var p = (e && e.parameter) || {};\n  if (String(CHIAVE).length < 16 || p.k !== CHIAVE) return risposta({ok: false, errore: 'chiave'});\n  try {\n    return risposta(p.op === 'file' ? file(p.id) : elenco(Number(p.dal) || 0));\n  } catch (err) {\n    return risposta({ok: false, errore: String((err && err.message) || err)});\n  }\n}\n\n// allegati delle mail arrivate dopo \u00abdal\u00bb, con un giorno di margine: i doppioni li scarta l'app\nfunction elenco(dal) {\n  var da = Math.max(dal - 864e5, Date.now() - GIORNI * 864e5);\n  var fili = GmailApp.search(RICERCA + ' after:' + Math.floor(da / 1000), 0, 200);\n  var out = [];\n  fili.forEach(function (filo) {\n    filo.getMessages().forEach(function (m) {\n      var t = m.getDate().getTime();\n      if (t < da) return;\n      m.getAttachments({includeInlineImages: false}).forEach(function (a, i) {\n        if (ALLEGATI.test(a.getName())) out.push({id: m.getId() + ':' + i, nome: a.getName(), data: t, da: m.getFrom(), oggetto: m.getSubject(), byte: a.getSize()});\n      });\n    });\n  });\n  out.sort(function (a, b) { return a.data - b.data; });\n  return {ok: true, casella: Session.getEffectiveUser().getEmail(), adesso: Date.now(), file: out.slice(0, 300)};\n}\n\nfunction file(id) {\n  var parti = String(id || '').split(':');\n  var m = parti[0] ? GmailApp.getMessageById(parti[0]) : null;\n  var a = m ? m.getAttachments({includeInlineImages: false})[Number(parti[1])] : null;\n  if (!a) return {ok: false, errore: 'allegato non trovato'};\n  return {ok: true, nome: a.getName(), b64: Utilities.base64Encode(a.getBytes())};\n}\n\nfunction risposta(o) {\n  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);\n}\n";
+const POSTA_GS = "/*\n * Barista Flow \u00b7 script di Google\n *\n * - passa a Barista Flow le fatture che arrivano come allegato (XML, P7M, ZIP o PDF)\n *   nella casella Gmail dell'account con cui crei questo script;\n * - manda sul telefono le notifiche di Barista Flow (scadenze, scorte, fatture arrivate),\n *   anche quando l'app \u00e8 chiusa.\n * Come si installa: in Barista Flow, Impostazioni \u2192 Fatture dalla posta.\n */\n\n// La sceglie l'app: lo script copiato da Barista Flow la contiene gi\u00e0.\nvar CHIAVE = '__CHIAVE__';\n\n// Quali mail guardare, con la ricerca di Gmail. Con una casella usata solo per le fatture va bene cos\u00ec;\n// altrimenti limita al mittente, per esempio: 'from:fatture@servizio.it has:attachment'\nvar RICERCA = 'has:attachment';\n\nvar ALLEGATI = /\\.(xml|p7m|zip|pdf)$/i;\nvar GIORNI = 60;   // non si guarda pi\u00f9 indietro di cos\u00ec\nvar VERSIONE = 2;\n\n// La prima volta premi \u00abEsegui\u00bb con questa funzione: Google chiede i permessi (Gmail, notifiche, controllo\n// ogni 15 minuti) e nel registro compaiono gli allegati che lo script passerebbe all'app.\nfunction prova() {\n  installa();\n  var r = elenco(0);\n  Logger.log('Casella ' + r.casella + ': ' + r.file.length + ' allegati negli ultimi ' + GIORNI + ' giorni');\n  r.file.forEach(function (f) { Logger.log(new Date(f.data).toLocaleString() + '  ' + f.nome + '  da ' + f.da); });\n  Logger.log('Dispositivi iscritti alle notifiche: ' + (leggi('iscrizioni') || []).length);\n}\n\n/* ---------- richieste dell'app ---------- */\n// GET ?k=chiave&dal=\u2026 elenca gli allegati; ?op=file&id=\u2026 ne scarica uno; ?op=vapid d\u00e0 la chiave pubblica delle notifiche.\n// POST (testo JSON con k e op): iscrivi, disiscrivi, stato (riepilogo di scadenze e scorte), prova-notifica.\nfunction doGet(e) { return rispondi((e && e.parameter) || {}); }\nfunction doPost(e) {\n  var p = {};\n  try { p = JSON.parse((e && e.postData && e.postData.contents) || '{}') || {}; } catch (err) { p = {}; }\n  if (!p.k && e && e.parameter && e.parameter.k) p.k = e.parameter.k;\n  return rispondi(p);\n}\nfunction rispondi(p) {\n  if (String(CHIAVE).length < 16 || p.k !== CHIAVE) return risposta({ok: false, errore: 'chiave', versione: VERSIONE});\n  var out;\n  try {\n    if (p.op === 'file') out = file(p.id);\n    else if (p.op === 'vapid') out = {ok: true, pub: vapid().pub};\n    else if (p.op === 'iscrivi') out = iscrivi(p);\n    else if (p.op === 'disiscrivi') out = disiscrivi(p);\n    else if (p.op === 'stato') out = salvaStato(p);\n    else if (p.op === 'prova-notifica') out = provaNotifica();\n    else out = elenco(Number(p.dal) || 0);\n  } catch (err) {\n    out = {ok: false, errore: String((err && err.message) || err)};\n  }\n  out.versione = VERSIONE;\n  return risposta(out);\n}\nfunction risposta(o) {\n  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);\n}\n\n/* ---------- fatture dalla posta ---------- */\n// allegati delle mail arrivate dopo \u00abdal\u00bb, con un giorno di margine: i doppioni li scarta l'app\nfunction elenco(dal) {\n  var da = Math.max(dal - 864e5, Date.now() - GIORNI * 864e5);\n  var fili = GmailApp.search(RICERCA + ' after:' + Math.floor(da / 1000), 0, 200);\n  var out = [];\n  fili.forEach(function (filo) {\n    filo.getMessages().forEach(function (m) {\n      var t = m.getDate().getTime();\n      if (t < da) return;\n      m.getAttachments({includeInlineImages: false}).forEach(function (a, i) {\n        if (ALLEGATI.test(a.getName())) out.push({id: m.getId() + ':' + i, nome: a.getName(), data: t, da: m.getFrom(), oggetto: m.getSubject(), byte: a.getSize()});\n      });\n    });\n  });\n  out.sort(function (a, b) { return a.data - b.data; });\n  return {ok: true, casella: Session.getEffectiveUser().getEmail(), adesso: Date.now(), file: out.slice(0, 300)};\n}\nfunction file(id) {\n  var parti = String(id || '').split(':');\n  var m = parti[0] ? GmailApp.getMessageById(parti[0]) : null;\n  var a = m ? m.getAttachments({includeInlineImages: false})[Number(parti[1])] : null;\n  if (!a) return {ok: false, errore: 'allegato non trovato'};\n  return {ok: true, nome: a.getName(), b64: Utilities.base64Encode(a.getBytes())};\n}\n\n/* ---------- notifiche: iscrizioni e riepilogo ---------- */\nfunction iscrivi(p) {\n  var s = p.sub || {}, k = s.keys || {}, ep = String(s.endpoint || '');\n  if (!/^https:\\/\\/\\S+$/.test(ep) && !/^http:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d+)?\\/\\S*$/.test(ep)) return {ok: false, errore: 'iscrizione non valida'};\n  if (deb64u(k.p256dh || '').length !== 65 || deb64u(k.auth || '').length !== 16) return {ok: false, errore: 'iscrizione non valida'};\n  return conLock(function () {\n    var subs = (leggi('iscrizioni') || []).filter(function (x) { return x.endpoint !== ep; });\n    subs.push({endpoint: ep, p256dh: k.p256dh, auth: k.auth, quando: Date.now(), da: String(p.da || '').slice(0, 80)});\n    scrivi('iscrizioni', subs.slice(-20));\n    var n = impostaNotifiche(leggi('notifiche') || {}, p);\n    if (!n.fattureDal) n.fattureDal = Date.now();   // le fatture gi\u00e0 arrivate non si notificano\n    scrivi('notifiche', n);\n    installa();\n    return {ok: true, dispositivi: subs.length};\n  });\n}\nfunction disiscrivi(p) {\n  return conLock(function () {\n    var subs = (leggi('iscrizioni') || []).filter(function (x) { return x.endpoint !== String(p.endpoint || ''); });\n    scrivi('iscrizioni', subs);\n    return {ok: true, dispositivi: subs.length};\n  });\n}\nfunction salvaStato(p) {\n  var st = p.stato || {};\n  return conLock(function () {\n    scrivi('stato', {lotti: (st.lotti || []).slice(0, 400), scorte: (st.scorte || []).slice(0, 200), giorni: Number(st.giorni) >= 0 ? Number(st.giorni) : 3, quando: Date.now()});\n    scrivi('notifiche', impostaNotifiche(leggi('notifiche') || {}, p));\n    return {ok: true};\n  });\n}\nfunction impostaNotifiche(n, p) {\n  if (/^\\d\\d:\\d\\d$/.test(String(p.ora || ''))) n.ora = p.ora;\n  if (p.fuso) n.fuso = String(p.fuso).slice(0, 60);\n  if (p.temi) n.temi = {scadenze: p.temi.scadenze !== false, scorte: p.temi.scorte !== false, fatture: p.temi.fatture !== false};\n  if (p.origine) n.origine = String(p.origine).slice(0, 200);\n  return n;\n}\nfunction provaNotifica() {\n  var esiti = inviaATutti({title: 'Barista Flow', body: 'Le notifiche funzionano: ogni giorno qui trovi scadenze e scorte da controllare.', tag: 'prova', url: './#impostazioni'});\n  if (!esiti.length) return {ok: false, errore: 'nessun dispositivo iscritto'};\n  return {ok: true, inviate: esiti.filter(function (c) { return c >= 200 && c < 300; }).length, esiti: esiti};\n}\n\n/* ---------- controllo ogni 15 minuti ---------- */\nfunction installa() {\n  var c = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'controllo'; });\n  if (!c) ScriptApp.newTrigger('controllo').timeBased().everyMinutes(15).create();\n}\nfunction controllo() {\n  if (!(leggi('iscrizioni') || []).length) return;\n  var n = leggi('notifiche') || {}, temi = n.temi || {}, fuso = n.fuso || 'Europe/Rome', ora = new Date();\n  var oggi = Utilities.formatDate(ora, fuso, 'yyyy-MM-dd'), hm = Utilities.formatDate(ora, fuso, 'HH:mm');\n  // fatture arrivate dall'ultimo controllo\n  if (temi.fatture !== false) {\n    var dal = n.fattureDal || Date.now(), nuove = {}, ultimo = dal;\n    if (n.fattureDal) elenco(dal).file.forEach(function (f) { if (f.data > dal) { nuove[f.id.split(':')[0]] = f.oggetto || f.nome; ultimo = Math.max(ultimo, f.data); } });\n    var ogg = Object.keys(nuove).map(function (k) { return nuove[k]; });\n    aggiorna(function (m) { m.fattureDal = ultimo; });\n    if (ogg.length) inviaATutti({title: 'Barista Flow', body: ogg.length === 1 ? '\u00c8 arrivata una fattura dalla posta: ' + String(ogg[0]).slice(0, 80) : 'Sono arrivate ' + ogg.length + ' fatture dalla posta.', tag: 'fatture', url: './#acquisti'});\n  }\n  // avvisi del giorno, una volta sola, dall'ora scelta in poi\n  if (n.inviata === oggi || hm < (n.ora || '08:00')) return;\n  aggiorna(function (m) { m.inviata = oggi; });\n  var msg = avvisi(leggi('stato'), oggi, temi);\n  if (msg) inviaATutti(msg);\n}\nfunction aggiorna(fn) { conLock(function () { var m = leggi('notifiche') || {}; fn(m); scrivi('notifiche', m); }); }\n\n// il testo della notifica: lotti scaduti, che scadono oggi o a breve, articoli da riordinare\nfunction avvisi(st, oggi, temi) {\n  if (!st) return null;\n  var righe = [], lotti = st.lotti || [], fine = piuGiorni(oggi, st.giorni >= 0 ? st.giorni : 3);\n  if (temi.scadenze !== false) {\n    var scaduti = lotti.filter(function (l) { return l.s < oggi; }), oggiL = lotti.filter(function (l) { return l.s === oggi; });\n    var presto = lotti.filter(function (l) { return l.s > oggi && l.s <= fine; });\n    if (scaduti.length) righe.push((scaduti.length === 1 ? '1 lotto scaduto' : scaduti.length + ' lotti scaduti') + ' da smaltire: ' + nomi(scaduti));\n    if (oggiL.length) righe.push('Scade oggi: ' + nomi(oggiL));\n    if (presto.length) righe.push('In scadenza: ' + nomi(presto, true));\n  }\n  if (temi.scorte !== false && (st.scorte || []).length) righe.push('Da riordinare: ' + nomi(st.scorte));\n  if (!righe.length) return null;\n  return {title: 'Barista Flow', body: righe.join('\\n'), tag: 'avvisi-' + oggi, url: './#oggi'};\n}\nfunction nomi(xs, conData) {\n  var u = [];\n  xs.forEach(function (x) { var t = String(x.n || '') + (conData && x.s ? ' (' + x.s.slice(8, 10) + '/' + x.s.slice(5, 7) + ')' : ''); if (t && u.indexOf(t) < 0) u.push(t); });\n  return u.slice(0, 3).join(', ') + (u.length > 3 ? ' e altri ' + (u.length - 3) : '');\n}\nfunction piuGiorni(iso, g) {\n  var d = new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + g));\n  return d.toISOString().slice(0, 10);\n}\n\n/* ---------- invio delle notifiche (Web Push: RFC 8030, 8291, 8292) ---------- */\nfunction inviaATutti(msg) {\n  var subs = leggi('iscrizioni') || [], esiti = [], via = [];\n  subs.forEach(function (s) {\n    var c;\n    try { c = inviaPush(s, msg); } catch (err) { c = 0; }\n    esiti.push(c);\n    if (c === 404 || c === 410) via.push(s.endpoint);   // il dispositivo ha tolto il permesso o reinstallato l'app\n  });\n  if (via.length) conLock(function () { scrivi('iscrizioni', (leggi('iscrizioni') || []).filter(function (x) { return via.indexOf(x.endpoint) < 0; })); });\n  aggiorna(function (m) { m.esito = {quando: Date.now(), codici: esiti}; });\n  return esiti;\n}\nfunction inviaPush(sub, msg) {\n  var v = vapid(), aud = sub.endpoint.match(/^https?:\\/\\/[^\\/]+/)[0];\n  var mail = Session.getEffectiveUser().getEmail(), n = leggi('notifiche') || {};\n  var claims = {aud: aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: mail ? 'mailto:' + mail : (n.origine || 'mailto:barista-flow@example.com')};\n  var r = UrlFetchApp.fetch(sub.endpoint, {method: 'post', contentType: 'application/octet-stream', payload: s8(cifra(JSON.stringify(msg), sub.p256dh, sub.auth)), muteHttpExceptions: true,\n    headers: {'TTL': '43200', 'Urgency': 'normal', 'Content-Encoding': 'aes128gcm', 'Authorization': 'vapid t=' + firmaJwt(claims, v) + ', k=' + v.pub}});\n  return r.getResponseCode();\n}\n// coppia di chiavi VAPID dello script: la privata resta qui, la pubblica va all'app\nfunction vapid() {\n  var v = leggi('vapid');\n  if (v && v.d && v.pub) return v;\n  return conLock(function () {\n    var w = leggi('vapid'); if (w && w.d && w.pub) return w;\n    var d = scalareCasuale();\n    w = {d: d.toString(16), pub: b64u(puntoBytes(ecMul(d, EC.G)))};\n    scrivi('vapid', w);\n    return w;\n  });\n}\nfunction firmaJwt(claims, v) {\n  var input = b64u(utf8(JSON.stringify({typ: 'JWT', alg: 'ES256'}))) + '.' + b64u(utf8(JSON.stringify(claims)));\n  return input + '.' + b64u(firmaES256(utf8(input), BigInt('0x' + v.d)));\n}\n// RFC 8291: cifratura del messaggio per il dispositivo (ECDH P-256, HKDF-SHA-256, AES-128-GCM)\nfunction cifra(testo, p256dh, auth, fissi) {   // fissi: chiave effimera e sale fissi, solo per le prove\n  var ua = deb64u(p256dh), sec = deb64u(auth), Q = puntoDa(ua);\n  var d = fissi ? fissi.d : scalareCasuale(), as = puntoBytes(ecMul(d, EC.G));\n  var ecdh = by(ecMul(d, Q)[0], 32);\n  var ikm = hkdf(sec, ecdh, cat(utf8('WebPush: info'), [0], ua, as), 32);\n  var sale = fissi ? fissi.sale : casuali(16);\n  var cek = hkdf(sale, ikm, cat(utf8('Content-Encoding: aes128gcm'), [0]), 16);\n  var nonce = hkdf(sale, ikm, cat(utf8('Content-Encoding: nonce'), [0]), 12);\n  return cat(sale, [0, 0, 16, 0], [65], as, gcm(cek, nonce, cat(utf8(testo), [2])));\n}\n\n/* ---------- archivio dello script ---------- */\nfunction conLock(fn) {\n  var l = LockService.getScriptLock(); l.waitLock(20000);\n  try { return fn(); } finally { l.releaseLock(); }\n}\n// le propriet\u00e0 dello script tengono al massimo 9 kB per voce: i valori lunghi si spezzano\nfunction leggi(nome) {\n  var P = PropertiesService.getScriptProperties(), n = Number(P.getProperty(nome + '#') || 0), s = '';\n  if (!n) s = P.getProperty(nome) || '';\n  for (var i = 0; i < n; i++) s += P.getProperty(nome + '#' + i) || '';\n  try { return s ? JSON.parse(s) : null; } catch (err) { return null; }\n}\nfunction scrivi(nome, val) {\n  var P = PropertiesService.getScriptProperties(), s = JSON.stringify(val), old = Number(P.getProperty(nome + '#') || 0);\n  for (var i = 0; i < old; i++) P.deleteProperty(nome + '#' + i);\n  P.deleteProperty(nome + '#'); P.deleteProperty(nome);\n  if (s.length <= 3000) { P.setProperty(nome, s); return; }\n  var parti = Math.ceil(s.length / 3000);\n  for (var j = 0; j < parti; j++) P.setProperty(nome + '#' + j, s.slice(j * 3000, (j + 1) * 3000));\n  P.setProperty(nome + '#', String(parti));\n}\n\n/* ---------- byte e codifiche ---------- */\nfunction u8(a) { var o = []; for (var i = 0; i < a.length; i++) o.push(a[i] & 255); return o; }   // byte di Google (con segno) \u2192 0-255\nfunction s8(a) { return a.map(function (b) { return b > 127 ? b - 256 : b; }); }\nfunction cat() { var o = []; for (var i = 0; i < arguments.length; i++) o = o.concat(arguments[i]); return o; }\nfunction zeri(n, v) { var o = []; for (var i = 0; i < n; i++) o.push(v || 0); return o; }\nfunction utf8(s) { var b = unescape(encodeURIComponent(s)), o = []; for (var i = 0; i < b.length; i++) o.push(b.charCodeAt(i)); return o; }\nfunction b64u(bytes) { return Utilities.base64EncodeWebSafe(s8(bytes)).replace(/=+$/, ''); }\nfunction deb64u(s) { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; try { return u8(Utilities.base64Decode(s)); } catch (err) { return []; } }\nfunction sha256(b) { return u8(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s8(b))); }\nfunction hmac(key, data) { return u8(Utilities.computeHmacSha256Signature(s8(data), s8(key))); }\nfunction hkdf(sale, ikm, info, len) { return hmac(hmac(sale, ikm), cat(info, [1])).slice(0, len); }\nfunction bi(b) { var x = 0n; for (var i = 0; i < b.length; i++) x = (x << 8n) | BigInt(b[i]); return x; }\nfunction by(x, len) { var o = zeri(len); for (var i = len - 1; i >= 0; i--) { o[i] = Number(x & 255n); x >>= 8n; } return o; }\nfunction casuali(n) {   // UUID casuali di Google passati per SHA-256\n  var o = [];\n  while (o.length < n) o = o.concat(sha256(utf8(Utilities.getUuid() + Utilities.getUuid() + Date.now() + Math.random())));\n  return o.slice(0, n);\n}\n\n/* ---------- curva P-256 ed ECDSA ---------- */\nvar EC = {\n  p: 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffffn,\n  n: 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n,\n  b: 0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604bn,\n  G: [0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296n, 0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5n]\n};\nfunction mod(a, m) { var r = a % m; return r < 0n ? r + m : r; }\nfunction inv(a, m) {   // inverso modulare, Euclide esteso\n  var r0 = mod(a, m), r1 = m, s0 = 1n, s1 = 0n, q, t;\n  while (r1) { q = r0 / r1; t = r0 - q * r1; r0 = r1; r1 = t; t = s0 - q * s1; s0 = s1; s1 = t; }\n  return mod(s0, m);\n}\nfunction ecAdd(P, Q) {   // punti in coordinate affini; null \u00e8 il punto all'infinito\n  if (!P) return Q; if (!Q) return P;\n  var p = EC.p, l;\n  if (P[0] === Q[0]) {\n    if (mod(P[1] + Q[1], p) === 0n) return null;\n    l = mod(3n * P[0] * P[0] - 3n, p) * inv(2n * P[1], p) % p;\n  } else l = mod(Q[1] - P[1], p) * inv(Q[0] - P[0], p) % p;\n  var x = mod(l * l - P[0] - Q[0], p);\n  return [x, mod(l * (P[0] - x) - P[1], p)];\n}\nfunction ecMul(k, P) { var R = null, A = P; while (k > 0n) { if (k & 1n) R = ecAdd(R, A); A = ecAdd(A, A); k >>= 1n; } return R; }\nfunction puntoBytes(Q) { return cat([4], by(Q[0], 32), by(Q[1], 32)); }\nfunction puntoDa(b) {\n  if (b.length !== 65 || b[0] !== 4) throw new Error('chiave del dispositivo non valida');\n  var x = bi(b.slice(1, 33)), y = bi(b.slice(33)), p = EC.p;\n  if (mod(y * y - (x * x * x - 3n * x + EC.b), p) !== 0n) throw new Error('chiave del dispositivo non valida');\n  return [x, y];\n}\nfunction scalareCasuale() { return mod(bi(casuali(32)), EC.n - 1n) + 1n; }\n// RFC 6979: il numero segreto di ogni firma si ricava dalla chiave e dal messaggio, senza bisogno di caso\nfunction kFirma(d, h1) {\n  var x = by(d, 32), h = by(mod(bi(h1), EC.n), 32), V = zeri(32, 1), K = zeri(32, 0);\n  K = hmac(K, cat(V, [0], x, h)); V = hmac(K, V);\n  K = hmac(K, cat(V, [1], x, h)); V = hmac(K, V);\n  for (var i = 0; i < 100; i++) {\n    V = hmac(K, V);\n    var k = bi(V);\n    if (k > 0n && k < EC.n) return k;\n    K = hmac(K, cat(V, [0])); V = hmac(K, V);\n  }\n  throw new Error('firma non riuscita');\n}\nfunction firmaES256(msg, d) {\n  var h = sha256(msg), e = bi(h), k = kFirma(d, h), r = mod(ecMul(k, EC.G)[0], EC.n);\n  var s = mod(inv(k, EC.n) * mod(e + r * d, EC.n), EC.n);\n  return cat(by(r, 32), by(s, 32));\n}\n\n/* ---------- AES-128-GCM ---------- */\nvar SBOX = (function () {\n  var s = zeri(256), p = 1, q = 1, r = function (x, k) { return ((x << k) | (x >> (8 - k))) & 255; };\n  do {\n    p = (p ^ (p << 1) ^ (p & 0x80 ? 0x1b : 0)) & 255;\n    q = (q ^ (q << 1)) & 255; q = (q ^ (q << 2)) & 255; q = (q ^ (q << 4)) & 255; if (q & 0x80) q ^= 0x09;\n    s[p] = q ^ r(q, 1) ^ r(q, 2) ^ r(q, 3) ^ r(q, 4) ^ 0x63;\n  } while (p !== 1);\n  s[0] = 0x63;\n  return s;\n})();\nfunction xt(a) { return ((a << 1) ^ (a & 0x80 ? 0x1b : 0)) & 255; }\nfunction aesChiavi(key) {\n  var w = key.slice(), rc = 1;\n  for (var i = 16; i < 176; i += 4) {\n    var t = w.slice(i - 4, i);\n    if (i % 16 === 0) { t = [SBOX[t[1]] ^ rc, SBOX[t[2]], SBOX[t[3]], SBOX[t[0]]]; rc = xt(rc); }\n    for (var j = 0; j < 4; j++) w.push(w[i - 16 + j] ^ t[j]);\n  }\n  return w;\n}\nfunction aesBlocco(w, input) {\n  var s = input.map(function (b, i) { return b ^ w[i]; });\n  for (var r = 1; r <= 10; r++) {\n    s = s.map(function (b) { return SBOX[b]; });\n    s = [s[0], s[5], s[10], s[15], s[4], s[9], s[14], s[3], s[8], s[13], s[2], s[7], s[12], s[1], s[6], s[11]];\n    if (r < 10) {\n      var m = [];\n      for (var c = 0; c < 4; c++) {\n        var a0 = s[4 * c], a1 = s[4 * c + 1], a2 = s[4 * c + 2], a3 = s[4 * c + 3], t = a0 ^ a1 ^ a2 ^ a3;\n        m.push(a0 ^ t ^ xt(a0 ^ a1), a1 ^ t ^ xt(a1 ^ a2), a2 ^ t ^ xt(a2 ^ a3), a3 ^ t ^ xt(a3 ^ a0));\n      }\n      s = m;\n    }\n    for (var i = 0; i < 16; i++) s[i] ^= w[16 * r + i];\n  }\n  return s;\n}\nfunction gcm(key, iv, testo) {   // senza dati aggiuntivi: testo cifrato seguito dall'etichetta di 16 byte\n  var w = aesChiavi(key), H = bi(aesBlocco(w, zeri(16))), R = 0xe1n << 120n, out = [], ctr = 2;\n  var mul = function (X, Y) { var Z = 0n, V = Y; for (var i = 127; i >= 0; i--) { if ((X >> BigInt(i)) & 1n) Z ^= V; V = (V & 1n) ? (V >> 1n) ^ R : V >> 1n; } return Z; };\n  for (var o = 0; o < testo.length; o += 16) {\n    var ks = aesBlocco(w, cat(iv, by(BigInt(ctr++), 4))), blk = testo.slice(o, o + 16);\n    for (var i = 0; i < blk.length; i++) out.push(blk[i] ^ ks[i]);\n  }\n  var Y = 0n;\n  for (var j = 0; j < out.length; j += 16) { var b = out.slice(j, j + 16); while (b.length < 16) b.push(0); Y = mul(Y ^ bi(b), H); }\n  Y = mul(Y ^ BigInt(out.length * 8), H);\n  return out.concat(by(bi(aesBlocco(w, cat(iv, [0, 0, 0, 1]))) ^ Y, 16));\n}\n";
 const POSTA = {busy: false, last: 0, timer: 0};
 const postaCfg = () => S.data.impostazioni.get('posta') || null;
 const postaOk = () => S.mode === 'local';   // su claude.ai la pagina non può chiamare siti esterni
@@ -2950,14 +2953,18 @@ function fmtWhen(ts) {
 }
 
 /* --- chiamate allo script --- */
-async function postaFetch(p, params) {
+const postaFetch = (p, params) => postaReq(p, params, null);
+// GET con i parametri nell'indirizzo, o POST con un testo JSON: in entrambi i casi richieste «semplici», che lo script accetta da un altro sito
+async function postaReq(p, params, body) {
   const u = new URL(p.url);
-  u.searchParams.set('k', p.chiave);
-  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, String(v));
+  if (!body) { u.searchParams.set('k', p.chiave); for (const [k, v] of Object.entries(params || {})) u.searchParams.set(k, String(v)); }
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
   let txt;
-  try { const r = await fetch(u.href, {signal: ctl.signal, cache: 'no-store'}); if (!r.ok) throw Object.assign(new Error('http'), {code: 'risposta'}); txt = await r.text(); }
-  finally { clearTimeout(t); }
+  try {
+    const r = await fetch(u.href, body ? {method: 'POST', body: JSON.stringify({...body, k: p.chiave}), signal: ctl.signal, cache: 'no-store'} : {signal: ctl.signal, cache: 'no-store'});
+    if (!r.ok) throw Object.assign(new Error('http'), {code: 'risposta'});
+    txt = await r.text();
+  } finally { clearTimeout(t); }
   let j; try { j = JSON.parse(txt); } catch { throw Object.assign(new Error('json'), {code: 'risposta'}); }
   if (!j || j.ok !== true) throw Object.assign(new Error('script'), {code: String(j?.errore || 'risposta')});
   return j;
@@ -3022,6 +3029,7 @@ async function postaRiparti() {   // finita la prova, le fatture importate con g
 async function postaOff() {
   if (!(await ask('Scollego la posta? Le fatture già importate restano; quelle arrivate e non ancora importate escono dall’elenco.', 'Scollega', true))) return;
   clearInterval(POSTA.timer); POSTA.timer = 0;
+  if (notifCfg().attive) await notifSpegni();
   if (await del('impostazioni', 'posta')) toast('Posta scollegata. Lo script resta nel tuo account Google: puoi eliminarlo da script.google.com.');
 }
 
@@ -3090,9 +3098,10 @@ function formPosta() {
       <ol class="steps">
         <li><b>La casella.</b> Meglio una casella Gmail solo per le fatture, per esempio fatture.nomedelbar@gmail.com. Nel servizio dove arrivano le fatture attiva l’invio di una copia via mail a quell’indirizzo, con il file allegato.</li>
         <li><b>Lo script.</b> Con l’account di quella casella apri <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a>: si apre un progetto nuovo. Cancella il testo che c’è e incolla lo script.<span class="acts"><button type="button" class="btn sm" data-act="posta-copia">${IC.copy}Copia lo script</button></span></li>
-        <li><b>Il permesso.</b> Premi Esegui con la funzione «prova». Google avvisa che l’app non è verificata: è il tuo script, quindi scegli Avanzate, poi Vai al progetto, e consenti la lettura di Gmail.</li>
+        <li><b>I permessi.</b> Premi Esegui con la funzione «prova». Google avvisa che l’app non è verificata: è il tuo script, quindi scegli Avanzate, poi Vai al progetto, e consenti tutto: lettura di Gmail, invio delle notifiche ed esecuzione ogni 15 minuti.</li>
         <li><b>La pubblicazione.</b> In alto a destra: Esegui il deployment, Nuovo deployment. Accanto a «Seleziona tipo» tocca l’ingranaggio e scegli App web. Esegui come: Io; Chi ha accesso: Chiunque (non «Chiunque abbia un Account Google»). Poi Esegui il deployment, copia l’URL dell’app web e incollalo qui sotto.</li>
       </ol>
+      <details class="fe-raw"><summary>Lo script c’è già? Come aggiornarlo</summary><p class="hint">Apri il progetto su script.google.com, sostituisci tutto il testo con lo script copiato da qui e salva. Poi Esegui il deployment, Gestisci deployment, la matita, Versione: Nuova versione, Esegui il deployment: l’URL resta lo stesso. Se Google chiede nuovi permessi, premi Esegui con «prova» e consenti.</p></details>
       <label class="fld"><span>URL dell’app web</span><input type="url" data-k="url" value="${esc(st.url)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false"></label>
       <p class="hint" style="margin-top:-6px">Se la posta è già collegata su un altro dispositivo, incolla qui il link copiato da lì (Impostazioni → Fatture dalla posta): lo script non va rifatto.</p>
       <details class="fe-raw posta-gs"><summary>Vedi lo script</summary><pre>${esc(postaScript(key))}</pre></details>
@@ -3134,6 +3143,129 @@ async function postaLinkCopia() {
     openSheet({title: 'Link per un altro dispositivo', small: true,
       body: () => `<p>Copia questo link e incollalo sull’altro dispositivo, in Impostazioni → Fatture dalla posta → Collega la posta. Contiene la chiave: mandalo solo a te stesso.</p><pre class="posta-link">${esc(postaLink(p))}</pre>`});
   }
+}
+
+/* ---------- notifiche sul telefono ----------
+   L'app manda allo script di Google un riepilogo (lotti con la scadenza, articoli da riordinare) quando i dati cambiano;
+   lo script, anche con l'app chiusa, ogni mattina all'ora scelta manda la notifica (Web Push) ai dispositivi iscritti. */
+const NOTIF = {busy: false, syncing: false, t: 0};
+const NOTIF_ORE = ['05:00', '05:30', '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '11:00', '12:00', '15:00', '18:00', '21:00'];
+const NOTIF_TEMI = [['scadenze', 'Lotti scaduti e in scadenza'], ['scorte', 'Articoli da riordinare'], ['fatture', 'Fatture arrivate dalla posta']];
+const notifCfg = () => postaCfg()?.notifiche || {};
+const notifTemi = () => ({scadenze: true, scorte: true, fatture: true, ...(notifCfg().temi || {})});
+const notifFuso = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome'; } catch { return 'Europe/Rome'; } };
+const notifIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const notifDispositivo = () => notifIos() ? 'iPhone o iPad' : /Android/i.test(navigator.userAgent) ? 'Android' : 'Computer';
+const nErr = msg => Object.assign(new Error(msg), {msg});
+function notifSupporto() {
+  const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  if (notifIos() && !standalone) return {ok: false, msg: 'Su iPhone le notifiche arrivano solo dall’app sulla schermata Home: in Safari tocca Condividi, poi «Aggiungi alla schermata Home», e apri Barista Flow da lì.'};
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return {ok: false, msg: 'Questo browser non riceve notifiche: usa Chrome su Android o l’app sulla schermata Home dell’iPhone.'};
+  if (Notification.permission === 'denied') return {ok: false, msg: 'Le notifiche sono bloccate per Barista Flow: riattivale nelle impostazioni del telefono, alla voce Notifiche.'};
+  return {ok: true};
+}
+async function notifSalva(patch) {
+  const p = postaCfg(); if (!p) return false;
+  return put('impostazioni', 'posta', {...strip(p), notifiche: {...(p.notifiche || {}), ...patch}}, true);
+}
+function notifHash(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); }
+async function swPronto() {
+  if (!('serviceWorker' in navigator)) throw nErr('Questo browser non riceve notifiche.');
+  return Promise.race([navigator.serviceWorker.ready, sleep(8000).then(() => { throw nErr('Il servizio dell’app non è ancora attivo: chiudi e riapri Barista Flow, poi riprova.'); })]);
+}
+const b64uBytes = s => Uint8Array.from(atob(String(s).replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(String(s).length / 4) * 4, '=')), c => c.charCodeAt(0));
+
+/* --- riepilogo per lo script: lotti con scadenza nei prossimi 30 giorni (o già scaduti) e articoli sotto scorta --- */
+function notifRiepilogo() {
+  const Dd = drv(), lim = addDays(today(), 30);
+  const lotti = [...Dd.acq.values(), ...Dd.prod.values()].filter(l => l.res > EPS && l.scad && l.scad <= lim)
+    .map(l => ({n: lotName(l), s: l.scad})).sort((a, b) => a.s.localeCompare(b.s) || a.n.localeCompare(b.n)).slice(0, 400);
+  const scorte = [...S.data.articoli.values()].filter(a => !a.archiviato && +a.scortaMin > 0 && artStock(a.id).usable < +a.scortaMin)
+    .map(a => ({n: a.nome})).sort((a, b) => a.n.localeCompare(b.n)).slice(0, 200);
+  return {lotti, scorte, giorni: cfg().giorniAvviso};
+}
+async function notifSync(force) {
+  const n = notifCfg(), p = postaCfg();
+  if (!postaOn() || !n.attive || !allLoaded() || NOTIF.syncing || S.ro) return false;
+  const stato = notifRiepilogo(), body = {op: 'stato', stato, ora: n.ora || '08:00', fuso: notifFuso(), temi: notifTemi(), origine: location.origin};
+  const hash = notifHash(JSON.stringify([stato, body.ora, body.fuso, body.temi]));
+  if (!force && hash === n.hash) return false;
+  NOTIF.syncing = true;
+  try { await postaReq(p, null, body); await notifSalva({hash, inviato: Date.now(), errore: ''}); return true; }
+  catch (e) { await notifSalva({errore: postaErr(e)}); return false; }
+  finally { NOTIF.syncing = false; }
+}
+function notifSoon() { clearTimeout(NOTIF.t); NOTIF.t = setTimeout(() => notifSync(), 4000); }   // dopo ogni modifica, a riposo
+
+/* --- attivare, provare, disattivare --- */
+async function notifAttiva() {
+  if (!guard() || NOTIF.busy) return;
+  const sup = notifSupporto();
+  if (!postaOn() || !sup.ok) { toast(sup.msg || 'Collega prima lo script di Google.', true); return; }
+  NOTIF.busy = true; renderMain();
+  try {
+    // il permesso va chiesto subito, dentro il tocco sul pulsante (iPhone)
+    if ((await Notification.requestPermission()) !== 'granted') throw nErr('Senza il permesso il telefono non mostra le notifiche: quando te lo chiede, tocca «Consenti».');
+    const p = postaCfg(), j = await postaFetch(p, {op: 'vapid'});
+    if (!j.pub) throw nErr('Lo script di Google è di una versione precedente: copia di nuovo lo script da «Fatture dalla posta», incollalo e pubblica una nuova versione.');
+    const reg = await swPronto(), key = b64uBytes(j.pub);
+    let sub = await reg.pushManager.getSubscription();
+    const old = sub?.options?.applicationServerKey;
+    if (sub && (!old || new Uint8Array(old).join() !== key.join())) { await sub.unsubscribe().catch(() => false); sub = null; }
+    sub = sub || await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: key});
+    const n = notifCfg(), ora = n.ora || '08:00';
+    await postaReq(p, null, {op: 'iscrivi', sub: sub.toJSON(), ora, fuso: notifFuso(), temi: notifTemi(), da: notifDispositivo(), origine: location.origin});
+    await notifSalva({attive: true, ora, endpoint: sub.endpoint, hash: '', errore: ''});
+    await notifSync(true);
+    toast(`Notifiche attive: ogni giorno dalle ${ora}. Prova a mandarne una.`);
+  } catch (e) { toast(e.msg || postaErr(e), true); }
+  finally { NOTIF.busy = false; bump(); }
+}
+async function notifProva() {
+  if (NOTIF.busy) return;
+  NOTIF.busy = true; renderMain();
+  try {
+    await notifSync();
+    const j = await postaReq(postaCfg(), null, {op: 'prova-notifica'});
+    if (j.inviate) toast(j.inviate === 1 ? 'Notifica di prova inviata: arriva tra pochi secondi.' : `Notifica di prova inviata a ${j.inviate} dispositivi.`);
+    else toast(`Il servizio delle notifiche l’ha rifiutata (codice ${(j.esiti || []).join(', ')}): disattiva e riattiva le notifiche.`, true);
+  } catch (e) { toast(e.code === 'nessun dispositivo iscritto' ? 'Nessun dispositivo iscritto: disattiva e riattiva le notifiche.' : postaErr(e), true); }
+  finally { NOTIF.busy = false; bump(); }
+}
+async function notifSpegni() {   // senza domande: anche quando si scollega lo script
+  const p = postaCfg(), n = notifCfg();
+  try { const reg = await swPronto(), sub = await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch { /* già spento */ }
+  try { if (p?.url && n.endpoint) await postaReq(p, null, {op: 'disiscrivi', endpoint: n.endpoint}); } catch { /* lo script lo toglie al primo invio fallito */ }
+  if (p) await notifSalva({attive: false, endpoint: '', hash: ''});
+}
+async function notifDisattiva() {
+  if (!(await ask('Disattivo le notifiche su questo dispositivo?', 'Disattiva', true))) return;
+  await notifSpegni(); toast('Notifiche disattivate su questo dispositivo.');
+}
+function notifImposta(k, v) {
+  const n = notifCfg();
+  if (k === 'ora' && NOTIF_ORE.includes(v)) notifSalva({ora: v}).then(() => notifSync(true));
+  else if (NOTIF_TEMI.some(t => t[0] === k)) notifSalva({temi: {...notifTemi(), [k]: !!v}}).then(() => notifSync(true));
+  if (n.attive) toast('Salvato: vale dalla prossima notifica.');
+}
+
+/* --- Impostazioni --- */
+function notifCard() {
+  if (S.ro) return '';
+  const head = '<div class="setgrp" id="notifiche"><h2>Notifiche sul telefono</h2><div class="card">', end = '</div></div>';
+  const cosa = 'Ogni giorno, all’ora che scegli, una notifica con i lotti scaduti o in scadenza e gli articoli da riordinare, anche quando l’app è chiusa. Se vuoi, anche quando arriva una fattura dalla posta.';
+  if (!postaOk()) return `${head}<p class="muted">${cosa} Funziona dall’app pubblicata sul tuo sito (GitHub Pages) e installata sulla schermata Home.</p>${end}`;
+  if (!postaOn()) return `${head}<p>${cosa}</p><p class="muted">Le notifiche partono dallo stesso script di Google delle fatture dalla posta: collegalo prima.</p><button type="button" class="btn w" data-act="posta-setup">${IC.mail}Collega lo script di Google</button>${end}`;
+  const n = notifCfg(), sup = notifSupporto(), on = !!n.attive && sup.ok, t = notifTemi();
+  if (!sup.ok) return `${head}<p>${cosa}</p><p class="note warn">${IC.info}<span>${esc(sup.msg)}</span></p>${end}`;
+  const scelte = `<div class="g2"><label class="fld"><span>Ogni giorno dalle</span><select data-notif="ora">${NOTIF_ORE.map(o => `<option ${o === (n.ora || '08:00') ? 'selected' : ''}>${o}</option>`).join('')}</select></label></div>
+    <div class="notif-temi">${NOTIF_TEMI.map(([k, l]) => `<label class="chk"><input type="checkbox" data-notif="${k}" ${t[k] ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
+  if (!on) return `${head}<p>${cosa}</p>${scelte}<button type="button" class="btn pri w" data-act="notif-on" ${NOTIF.busy ? 'disabled' : ''}>${NOTIF.busy ? 'Attivo…' : 'Attiva le notifiche'}</button>
+    <p class="hint" style="margin-top:10px">Il telefono ti chiede il permesso: tocca «Consenti».</p>${end}`;
+  return `${head}<p><b>Attive su questo dispositivo.</b> ${cosa}</p>${scelte}
+    ${n.errore ? `<p class="note warn">${IC.alert}<span>${esc(n.errore)}</span></p>` : ''}
+    <div class="acts"><button type="button" class="btn" data-act="notif-prova" ${NOTIF.busy ? 'disabled' : ''}>Manda una notifica di prova</button><button type="button" class="btn dan" data-act="notif-off">Disattiva</button></div>
+    <p class="hint" style="margin-top:10px">${n.inviato ? `Scadenze e scorte aggiornate nello script ${esc(fmtWhen(n.inviato))}: l’app le aggiorna da sola quando la usi.` : 'L’app aggiorna scadenze e scorte nello script da sola quando la usi.'}</p>${end}`;
 }
 
 /* ---------- dati di esempio: un bar già avviato, con le date riferite al giorno in cui si caricano ---------- */
@@ -3810,6 +3942,9 @@ const ACT = {
   'posta-off': () => postaOff(),
   'posta-copia': b => postaCopia(b),
   'posta-link': () => postaLinkCopia(),
+  'notif-on': () => notifAttiva(),
+  'notif-off': () => notifDisattiva(),
+  'notif-prova': () => notifProva(),
   'load-sample': () => loadSample(),
   'reset-sample': () => { if (guard()) resetSample(); },
   register: () => { if (!guard()) return; while (stack.length) closeSheet(); if (registered()) clearSample(); else formRegistra(); },
@@ -3834,6 +3969,7 @@ function onClick(e) {
 }
 function onFieldEvent(e, kind) {
   const t = e.target;
+  if (t.dataset && t.dataset.notif !== undefined) { if (kind === 'change') notifImposta(t.dataset.notif, t.type === 'checkbox' ? t.checked : t.value); return; }
   if (t.dataset && t.dataset.q !== undefined) { if (kind === 'input') { UI.q[t.dataset.q] = t.value; renderMain(); } return; }
   if (t.dataset && (t.dataset.gq || t.dataset.sq)) {
     if (kind !== 'input') return;
@@ -3924,6 +4060,8 @@ async function init() {
   subscribe();
   paint();
   if (S.mode === 'local') postaBoot();
+  // tocco su una notifica con l'app già aperta: il service worker dice quale pagina mostrare
+  navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.tipo === 'apri' && /^#[a-z-]*$/.test(e.data.hash || '')) location.hash = e.data.hash; });
 }
 init();
 

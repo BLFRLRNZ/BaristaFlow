@@ -232,6 +232,9 @@ const ACT = {
   'posta-off': () => postaOff(),
   'posta-copia': b => postaCopia(b),
   'posta-link': () => postaLinkCopia(),
+  'notif-on': () => notifAttiva(),
+  'notif-off': () => notifDisattiva(),
+  'notif-prova': () => notifProva(),
   'load-sample': () => loadSample(),
   'reset-sample': () => { if (guard()) resetSample(); },
   register: () => { if (!guard()) return; while (stack.length) closeSheet(); if (registered()) clearSample(); else formRegistra(); },
@@ -256,6 +259,7 @@ function onClick(e) {
 }
 function onFieldEvent(e, kind) {
   const t = e.target;
+  if (t.dataset && t.dataset.notif !== undefined) { if (kind === 'change') notifImposta(t.dataset.notif, t.type === 'checkbox' ? t.checked : t.value); return; }
   if (t.dataset && t.dataset.q !== undefined) { if (kind === 'input') { UI.q[t.dataset.q] = t.value; renderMain(); } return; }
   if (t.dataset && (t.dataset.gq || t.dataset.sq)) {
     if (kind !== 'input') return;
@@ -346,5 +350,7 @@ async function init() {
   subscribe();
   paint();
   if (S.mode === 'local') postaBoot();
+  // tocco su una notifica con l'app già aperta: il service worker dice quale pagina mostrare
+  navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.tipo === 'apri' && /^#[a-z-]*$/.test(e.data.hash || '')) location.hash = e.data.hash; });
 }
 init();

@@ -22,14 +22,18 @@ function fmtWhen(ts) {
 }
 
 /* --- chiamate allo script --- */
-async function postaFetch(p, params) {
+const postaFetch = (p, params) => postaReq(p, params, null);
+// GET con i parametri nell'indirizzo, o POST con un testo JSON: in entrambi i casi richieste «semplici», che lo script accetta da un altro sito
+async function postaReq(p, params, body) {
   const u = new URL(p.url);
-  u.searchParams.set('k', p.chiave);
-  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, String(v));
+  if (!body) { u.searchParams.set('k', p.chiave); for (const [k, v] of Object.entries(params || {})) u.searchParams.set(k, String(v)); }
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
   let txt;
-  try { const r = await fetch(u.href, {signal: ctl.signal, cache: 'no-store'}); if (!r.ok) throw Object.assign(new Error('http'), {code: 'risposta'}); txt = await r.text(); }
-  finally { clearTimeout(t); }
+  try {
+    const r = await fetch(u.href, body ? {method: 'POST', body: JSON.stringify({...body, k: p.chiave}), signal: ctl.signal, cache: 'no-store'} : {signal: ctl.signal, cache: 'no-store'});
+    if (!r.ok) throw Object.assign(new Error('http'), {code: 'risposta'});
+    txt = await r.text();
+  } finally { clearTimeout(t); }
   let j; try { j = JSON.parse(txt); } catch { throw Object.assign(new Error('json'), {code: 'risposta'}); }
   if (!j || j.ok !== true) throw Object.assign(new Error('script'), {code: String(j?.errore || 'risposta')});
   return j;
@@ -94,6 +98,7 @@ async function postaRiparti() {   // finita la prova, le fatture importate con g
 async function postaOff() {
   if (!(await ask('Scollego la posta? Le fatture già importate restano; quelle arrivate e non ancora importate escono dall’elenco.', 'Scollega', true))) return;
   clearInterval(POSTA.timer); POSTA.timer = 0;
+  if (notifCfg().attive) await notifSpegni();
   if (await del('impostazioni', 'posta')) toast('Posta scollegata. Lo script resta nel tuo account Google: puoi eliminarlo da script.google.com.');
 }
 
@@ -162,9 +167,10 @@ function formPosta() {
       <ol class="steps">
         <li><b>La casella.</b> Meglio una casella Gmail solo per le fatture, per esempio fatture.nomedelbar@gmail.com. Nel servizio dove arrivano le fatture attiva l’invio di una copia via mail a quell’indirizzo, con il file allegato.</li>
         <li><b>Lo script.</b> Con l’account di quella casella apri <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a>: si apre un progetto nuovo. Cancella il testo che c’è e incolla lo script.<span class="acts"><button type="button" class="btn sm" data-act="posta-copia">${IC.copy}Copia lo script</button></span></li>
-        <li><b>Il permesso.</b> Premi Esegui con la funzione «prova». Google avvisa che l’app non è verificata: è il tuo script, quindi scegli Avanzate, poi Vai al progetto, e consenti la lettura di Gmail.</li>
+        <li><b>I permessi.</b> Premi Esegui con la funzione «prova». Google avvisa che l’app non è verificata: è il tuo script, quindi scegli Avanzate, poi Vai al progetto, e consenti tutto: lettura di Gmail, invio delle notifiche ed esecuzione ogni 15 minuti.</li>
         <li><b>La pubblicazione.</b> In alto a destra: Esegui il deployment, Nuovo deployment. Accanto a «Seleziona tipo» tocca l’ingranaggio e scegli App web. Esegui come: Io; Chi ha accesso: Chiunque (non «Chiunque abbia un Account Google»). Poi Esegui il deployment, copia l’URL dell’app web e incollalo qui sotto.</li>
       </ol>
+      <details class="fe-raw"><summary>Lo script c’è già? Come aggiornarlo</summary><p class="hint">Apri il progetto su script.google.com, sostituisci tutto il testo con lo script copiato da qui e salva. Poi Esegui il deployment, Gestisci deployment, la matita, Versione: Nuova versione, Esegui il deployment: l’URL resta lo stesso. Se Google chiede nuovi permessi, premi Esegui con «prova» e consenti.</p></details>
       <label class="fld"><span>URL dell’app web</span><input type="url" data-k="url" value="${esc(st.url)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false"></label>
       <p class="hint" style="margin-top:-6px">Se la posta è già collegata su un altro dispositivo, incolla qui il link copiato da lì (Impostazioni → Fatture dalla posta): lo script non va rifatto.</p>
       <details class="fe-raw posta-gs"><summary>Vedi lo script</summary><pre>${esc(postaScript(key))}</pre></details>

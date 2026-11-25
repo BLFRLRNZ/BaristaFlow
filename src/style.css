@@ -438,3 +438,5 @@ ol.steps .acts{display:flex;margin-top:8px}
 ol.steps a{color:var(--link);font-weight:700;text-decoration:none}
 .btn .chip{margin-left:4px;font-size:12px}
 .posta-link{white-space:pre-wrap;word-break:break-all;font-size:13px;background:var(--surf2,rgba(0,0,0,.04));padding:10px 12px;border-radius:12px;user-select:all}
+.notif-temi{margin:2px 0 12px}
+.notif-temi .chk{min-height:40px;margin:0}

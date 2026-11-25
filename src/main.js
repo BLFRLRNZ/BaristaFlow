@@ -44,7 +44,7 @@ function lottoDoc(id) {
     return `<tr${cls}><td>${pre}${esc(it?.nome || c.nome)}</td><td class="n">${q}</td><td class="nw">${esc(la.lottoF || '—')}</td><td>${fmtD(la.scad)}</td><td>${esc(fornName(la.doc.fornitoreId) || '—')}</td><td>${esc(docName(la.doc))}</td></tr>`;
   }).join('');
   return printable(`Lotto ${p.lotto}`, `<h1>Lotto ${esc(p.lotto)}</h1><p class="muted">${esc(lotName(l))}</p>
-    <table class="kv"><tr><th>Prodotto il</th><td>${fmtD(p.data)}</td></tr><tr><th>${esc(scadLabel(p.tipoScadenza))}</th><td>${fmtD(l.scad)}</td></tr><tr><th>Quantità prodotta</th><td>${fmtQ(l.qta, u)}</td></tr><tr><th>Residuo</th><td>${fmtQ(l.res, u)}</td></tr>${p.operatore ? `<tr><th>Operatore</th><td>${esc(p.operatore)}</td></tr>` : ''}</table>
+    <table class="kv"><tr><th>Prodotto il</th><td>${fmtD(p.data)}</td></tr><tr><th>${esc(scadLabel(p.tipoScadenza))}</th><td>${fmtD(l.scad)}</td></tr><tr><th>Quantità prodotta</th><td>${fmtQ(l.qta, u)}</td></tr>${l.vetrina ? '' : `<tr><th>Residuo</th><td>${fmtQ(l.res, u)}</td></tr>`}${p.operatore ? `<tr><th>Operatore</th><td>${esc(p.operatore)}</td></tr>` : ''}</table>
     <h2>Allergeni</h2><p>${al.length ? esc(al.map(k => ALGN[k]).join(', ')) : 'Nessuno dei 14 allergeni principali'}${tr.length ? `<br>Può contenere tracce di: ${esc(tr.map(k => ALGN[k].toLowerCase()).join(', '))}` : ''}</p>
     <h2>Materie prime e lotti utilizzati</h2><table><tr><th>Ingrediente</th><th class="n">Quantità</th><th>Lotto</th><th>Scadenza</th><th>Fornitore</th><th>Documento</th></tr>${rows(p.consumi || [], 0, [id])}</table>
     ${p.note ? `<h2>Note</h2><p style="white-space:pre-wrap">${esc(p.note)}</p>` : ''}`);
@@ -58,7 +58,7 @@ const csvCell = v => { let s = String(v ?? '').replace(/ /g, ' '); if (/^[=+\-@
 function csvGiacenze() {
   const Dd = drv(), rows = [['Tipo', 'Nome', 'Lotto', 'Origine', 'Fornitore', 'Scadenza', 'Residuo', 'Unità', 'Stato']];
   for (const l of [...Dd.acq.values()].filter(l => l.res > EPS).sort((a, b) => lotName(a).localeCompare(lotName(b), 'it') || byScad(a, b))) rows.push([CAT[l.item?.categoria] || CAT.materia, lotName(l), l.lottoF, docName(l.doc), fornName(l.doc.fornitoreId), l.scad ? fmtD(l.scad) : '', String(l.res).replace('.', ','), lotUnit(l), st(l).t]);
-  for (const l of [...Dd.prod.values()].filter(l => l.res > EPS).sort((a, b) => lotName(a).localeCompare(lotName(b), 'it') || byScad(a, b))) rows.push(['Produzione', lotName(l), l.p.lotto, `Prodotto il ${fmtD(l.data)}`, '', fmtD(l.scad), String(l.res).replace('.', ','), lotUnit(l), st(l).t]);
+  for (const l of [...Dd.prod.values()].filter(l => l.res > EPS && !l.vetrina).sort((a, b) => lotName(a).localeCompare(lotName(b), 'it') || byScad(a, b))) rows.push(['Produzione', lotName(l), l.p.lotto, `Prodotto il ${fmtD(l.data)}`, '', fmtD(l.scad), String(l.res).replace('.', ','), lotUnit(l), st(l).t]);
   return '\ufeff' + rows.map(r => r.map(csvCell).join(';')).join('\r\n');
 }
 function csvPrezzi() {
@@ -310,6 +310,7 @@ function onFieldEvent(e, kind) {
   const t = e.target;
   if (t.dataset && t.dataset.notif !== undefined) { if (kind === 'change') notifImposta(t.dataset.notif, t.type === 'checkbox' ? t.checked : t.value); return; }
   if (t.dataset && t.dataset.q !== undefined) { if (kind === 'input') { UI.q[t.dataset.q] = t.value; renderMain(); } return; }
+  if (t.name === 'vendite' && t.closest?.('#cfgForm')) { const n = $('#cfg-ven-nota'); if (n) n.hidden = (t.value !== 'scadenze') === cfg().vendite; return; }
   if (t.dataset && t.dataset.bq !== undefined) { if (kind === 'input') BANCO.draft = {k: t.dataset.bq, v: t.value}; else bancoSet(t.dataset.bq, t.value, true); return; }
   if (t.dataset && (t.dataset.gq || t.dataset.sq)) {
     if (kind !== 'input') return;
@@ -346,7 +347,9 @@ async function saveCfg(f) {
   if (!(iva >= 0 && iva <= 50)) { toast('Percentuale IVA non valida.', true); return; }
   if (!(sr >= 0 && sr <= 100)) { toast('Soglia dei rincari: scrivi una percentuale da 0 a 100.', true); return; }
   const reg = prev?.registrato || (nome && !countSample() ? Date.now() : null);
-  if (await put('impostazioni', 'generale', {...(prev ? strip(prev) : {}), nome, indirizzo, piva, giorniAvviso: g, iva, sogliaRincaro: sr, ...(reg ? {registrato: reg} : {})})) toast('Impostazioni salvate');
+  const ven = fd.has('vendite') ? fd.get('vendite') !== 'scadenze' : c.vendite;
+  if (!(await put('impostazioni', 'generale', {...(prev ? strip(prev) : {}), nome, indirizzo, piva, giorniAvviso: g, iva, sogliaRincaro: sr, scaricoVendite: ven, ...(reg ? {registrato: reg} : {})}))) return;
+  toast(ven === c.vendite ? 'Impostazioni salvate' : ven ? 'Impostazioni salvate: il Banco è di nuovo acceso.' : 'Impostazioni salvate: il Banco è spento, dei prodotti si seguono solo le scadenze.');
 }
 function wire() {
   document.addEventListener('click', onClick);

@@ -45,7 +45,7 @@ function sheetScarico() {
       const items = [
         ...[...S.data.ricette.values()].map(r => ({tipo: 'ric', it: r, s: ricStock(r.id), u: unitOk(r.resaUnita)})),
         ...[...S.data.articoli.values()].filter(a => !a.archiviato).map(a => ({tipo: 'art', it: a, s: artStock(a.id), u: unitOk(a.unita)}))
-      ].filter(x => x.s.usable + x.s.expired > EPS && (!q || String(x.it.nome).toLowerCase().includes(q)))
+      ].filter(x => x.s.usable + x.s.expired > EPS && (x.tipo !== 'ric' || x.it.semilavorato || vendite()) && (!q || String(x.it.nome).toLowerCase().includes(q)))
         .sort((x, y) => (x.tipo === y.tipo ? 0 : x.tipo === 'ric' ? -1 : 1) || byName(x.it, y.it));
       const row = x => `<button type="button" class="row" data-act="scarico-go" data-tipo="${x.tipo}" data-id="${esc(x.it.id)}">${av(x.tipo === 'ric' ? esc(x.it.sigla || autoSigla(x.it.nome)) : catIc(x.it.categoria), x.s.expired > EPS ? 'red' : '')}<span class="m"><b>${esc(x.it.nome)}</b><span>${x.tipo === 'ric' ? 'Prodotto' : esc(CAT[x.it.categoria] || CAT.materia)} · ${x.s.n === 1 ? '1 lotto' : x.s.n + ' lotti'}</span></span><span class="s"><span class="q">${fmtQ(x.s.usable + x.s.expired, x.u)}</span></span></button>`;
       return `<div class="bar">${`<label class="srch">${IC.search}<input type="search" id="q-scarico" data-sq="1" value="${esc(o.q)}" placeholder="Cerca prodotto o articolo" aria-label="Cerca prodotto o articolo" autocomplete="off"></label>`}</div>

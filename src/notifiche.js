@@ -30,12 +30,15 @@ const b64uBytes = s => Uint8Array.from(atob(String(s).replace(/-/g, '+').replace
 
 /* --- riepilogo per lo script: lotti con scadenza nei prossimi 30 giorni (o già scaduti) e articoli sotto scorta --- */
 function notifRiepilogo() {
-  const Dd = drv(), lim = addDays(today(), 30);
-  const lotti = [...Dd.acq.values(), ...Dd.prod.values()].filter(l => l.res > EPS && l.scad && l.scad <= lim)
-    .map(l => ({n: lotName(l), s: l.scad})).sort((a, b) => a.s.localeCompare(b.s) || a.n.localeCompare(b.n)).slice(0, 400);
-  const scorte = [...S.data.articoli.values()].filter(a => !a.archiviato && +a.scortaMin > 0 && artStock(a.id).usable < +a.scortaMin)
+  const Dd = drv(), lim = addDays(today(), 30), ord = (a, b) => a.s.localeCompare(b.s) || a.n.localeCompare(b.n);
+  const tutti = [...Dd.acq.values(), ...Dd.prod.values()].filter(l => l.res > EPS && l.scad && l.scad <= lim);
+  const lotti = tutti.filter(l => !l.vetrina).map(l => ({n: lotName(l), s: l.scad})).sort(ord).slice(0, 400);
+  // scarico delle vendite spento: i lotti in vetrina a parte, perché dopo la scadenza vanno in archivio e non sono
+  // mai «da smaltire» (lo script li avvisa solo prima; uno script vecchio li ignora)
+  const vetrina = tutti.filter(l => l.vetrina).map(l => ({n: lotName(l), s: l.scad})).sort(ord).slice(0, 200);
+  const scorte = [...S.data.articoli.values()].filter(a => !a.archiviato && !soloAcquisti(a) && +a.scortaMin > 0 && artStock(a.id).usable < +a.scortaMin)
     .map(a => ({n: a.nome})).sort((a, b) => a.n.localeCompare(b.n)).slice(0, 200);
-  return {lotti, scorte, giorni: cfg().giorniAvviso};
+  return {lotti, scorte, giorni: cfg().giorniAvviso, ...(vetrina.length ? {vetrina} : {})};
 }
 async function notifSync(force) {
   const n = notifCfg(), p = postaCfg();
@@ -44,7 +47,7 @@ async function notifSync(force) {
   const hash = notifHash(JSON.stringify([stato, body.ora, body.fuso, body.temi]));
   if (!force && hash === n.hash) return false;
   NOTIF.syncing = true;
-  try { await postaReq(p, null, body); await notifSalva({hash, inviato: Date.now(), errore: ''}); return true; }
+  try { const j = await postaReq(p, null, body); await notifSalva({hash, inviato: Date.now(), errore: '', versione: +j.versione || 0}); return true; }
   catch (e) { await notifSalva({errore: postaErr(e)}); return false; }
   finally { NOTIF.syncing = false; }
 }
@@ -115,8 +118,11 @@ function notifCard() {
     <div class="notif-temi">${NOTIF_TEMI.map(([k, l]) => `<label class="chk"><input type="checkbox" data-notif="${k}" ${t[k] ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   if (!on) return `${head}<p>${cosa}</p>${scelte}<button type="button" class="btn pri w" data-act="notif-on" ${NOTIF.busy ? 'disabled' : ''}>${NOTIF.busy ? 'Attivo…' : 'Attiva le notifiche'}</button>
     <p class="hint" style="margin-top:10px">Il telefono ti chiede il permesso: tocca «Consenti».</p>${end}`;
+  // con lo scarico delle vendite spento, le scadenze dei lotti in vetrina servono allo script dalla versione 3
+  const vecchio = !vendite() && n.inviato && (+n.versione || 0) < 3;
   return `${head}<p><b>Attive su questo dispositivo.</b> ${cosa}</p>${scelte}
     ${n.errore ? `<p class="note warn">${IC.alert}<span>${esc(n.errore)}</span></p>` : ''}
+    ${vecchio ? `<p class="note warn">${IC.info}<span>Per avere nelle notifiche anche le scadenze dei lotti di produzione, aggiorna lo script di Google: copialo di nuovo da «Fatture dalla posta» (Lo script c’è già? Come aggiornarlo).</span></p>` : ''}
     <div class="acts"><button type="button" class="btn" data-act="notif-prova" ${NOTIF.busy ? 'disabled' : ''}>Manda una notifica di prova</button><button type="button" class="btn dan" data-act="notif-off">Disattiva</button></div>
     <p class="hint" style="margin-top:10px">${n.inviato ? `Scadenze e scorte aggiornate nello script ${esc(fmtWhen(n.inviato))}: l’app le aggiorna da sola quando la usi.` : 'L’app aggiorna scadenze e scorte nello script da sola quando la usi.'}</p>${end}`;
 }

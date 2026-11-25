@@ -11,6 +11,7 @@ const route = () => { const h = location.hash.slice(1); return VIEWS[h] ? h : 'o
 function renderChrome() {
   const r = route(), tab = TAB[r] || r;
   $$('#tabs a').forEach(a => a.dataset.tab === tab ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  $('#tabs a[data-tab=banco]').hidden = !vendite();
   const cl = $('#cfgLink'); if (r === 'impostazioni') cl.setAttribute('aria-current', 'page'); else cl.removeAttribute('aria-current');
   const sub = cfg().nome || 'Banco e laboratorio';
   $('#bizName').textContent = sub; $('#bizName2').textContent = sub;
@@ -71,13 +72,13 @@ function labelCard(l) {
   return `<button type="button" class="lab ${s.c}" data-act="open-lotto" data-id="${esc(l.key)}">
     <span class="lab-top"><span>${esc(s.t)}</span>${IC.clock}</span>
     <span class="lab-body"><span class="lab-name">${esc(lotName(l))}</span><span class="lab-lot">${esc(p.lotto)}</span>
-    <span class="lab-grid"><span><small>Prodotto</small><b>${fmtDs(p.data)}</b></span><span><small>${p.tipoScadenza === 'entro' ? 'Scade' : 'Pref. entro'}</small><b>${fmtDs(l.scad)}</b></span><span><small>Residuo</small><b>${fmtQ(l.res, u)}</b></span></span></span></button>`;
+    <span class="lab-grid"><span><small>Prodotto</small><b>${fmtDs(p.data)}</b></span><span><small>${p.tipoScadenza === 'entro' ? 'Scade' : 'Pref. entro'}</small><b>${fmtDs(l.scad)}</b></span><span><small>${l.vetrina ? 'Prodotti' : 'Residuo'}</small><b>${fmtQ(l.vetrina ? l.qta : l.res, u)}</b></span></span></span></button>`;
 }
 function lotInner(l) {
   const s = st(l);
   const sub = l.kind === 'prod' ? `Lotto ${l.p.lotto} · prodotto il ${fmtD(l.data)}` : `${l.lottoF ? 'Lotto ' + l.lottoF + ' · ' : ''}${docName(l.doc)}`;
   return `${av(l.kind === 'prod' ? sigOf(l) : catIc(l.item?.categoria), s.c)}<span class="m"><b>${esc(lotName(l))}</b><span>${esc(sub)}</span><span class="mc"><span class="chip ${s.c}">${esc(s.t)}</span></span></span>
-    <span class="s"><span class="q">${fmtQ(l.res, lotUnit(l))}</span></span>`;
+    <span class="s"><span class="q">${fmtQ(l.vetrina || l.fuori ? l.qta : l.res, lotUnit(l))}</span>${l.vetrina ? '<small class="muted">prodotti</small>' : l.fuori ? '<small class="muted">comprati</small>' : ''}</span>`;
 }
 function lotRow(l, action) {
   const act = l.kind === 'prod' ? 'open-lotto' : 'open-acq';
@@ -88,7 +89,7 @@ function prodRow(l) {
   const s = st(l), u = lotUnit(l);
   return `<button type="button" class="row" data-act="open-lotto" data-id="${esc(l.key)}">${av(sigOf(l), s.c)}
     <span class="m"><b>${esc(lotName(l))}</b><span>${esc(l.p.lotto)} · ${fmtD(l.data)}${l.p.operatore ? ' · ' + esc(l.p.operatore) : ''}</span><span class="mc"><span class="chip ${s.c}">${esc(s.t)}</span></span></span>
-    <span class="s"><span class="q">${fmtQ(l.res, u)}</span><small class="muted">su ${fmtQ(l.qta, u)}</small></span></button>`;
+    <span class="s"><span class="q">${fmtQ(l.vetrina ? l.qta : l.res, u)}</span><small class="muted">${l.vetrina ? 'prodotti' : 'su ' + fmtQ(l.qta, u)}</small></span></button>`;
 }
 function underRow(a) {
   const s = artStock(a.id);
@@ -154,7 +155,7 @@ function vOggi() {
   const exp = lots.filter(l => l.scad < t).sort(byScad);
   const soon = lots.filter(l => l.scad >= t && daysBetween(t, l.scad) <= w).sort(byScad);
   const dueToday = soon.filter(l => l.scad === t), later = soon.filter(l => l.scad > t);
-  const under = [...S.data.articoli.values()].filter(a => !a.archiviato && +a.scortaMin > 0 && artStock(a.id).usable < +a.scortaMin).sort(byName);
+  const under = [...S.data.articoli.values()].filter(a => !a.archiviato && !soloAcquisti(a) && +a.scortaMin > 0 && artStock(a.id).usable < +a.scortaMin).sort(byName);
   const rincari = rincariRecenti();
   const nToday = [...S.data.produzioni.values()].filter(p => p.data === t).length;
   const active = [...Dd.prod.values()].filter(l => l.res > EPS).sort(byScad);
@@ -184,7 +185,7 @@ function vOggi() {
   const sample = countSample();
   return `<section id="v-oggi"><div class="ph"><div><p class="kick">${esc(dateStr)}</p><h1>${greet}</h1></div>
     <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div>
-    <a class="btn bk-entry mobonly w" href="#banco">${IC.banco}Banco</a></div>
+    ${vendite() ? `<a class="btn bk-entry mobonly w" href="#banco">${IC.banco}Banco</a>` : ''}</div>
     ${sample && S.mode === 'local' ? '' : modeNote()}
     ${sample ? demoBanner() : primiPassi()}
     <div class="tiles">${tile('red', exp.length, 'Lotti scaduti da smaltire', 'scaduti', IC.alert)}${tile('amb', soon.length, w === 1 ? 'In scadenza entro domani' : `In scadenza entro ${w} giorni`, 'scadenza', IC.clock)}${tile('amb', under.length, 'Articoli sotto scorta', 'scorta', IC.box)}${tile('amb', rincari.length, 'Rincari recenti', 'rincari', IC.trend)}</div>
@@ -208,7 +209,7 @@ function vProduzione() {
     <div class="acts w"><button type="button" class="btn pri" data-act="new-prod" ${nRic ? '' : 'disabled'}>${IC.plus}Nuova produzione</button></div></div>
     ${prodNav('produzione')}
     ${nRic ? '' : `<p class="note w">${IC.info}<span>Per produrre serve almeno una scheda tecnica. <button type="button" class="lnk" data-act="new-ric">Crea la prima scheda</button></span></p>`}
-    <div class="bar">${search('prod', 'Cerca lotto, prodotto o operatore')}${seg('prodF', [['attivi', 'Con giacenza'], ['esauriti', 'Esauriti'], ['tutti', 'Tutti']])}</div>
+    <div class="bar">${search('prod', 'Cerca lotto, prodotto o operatore')}${seg('prodF', vendite() ? [['attivi', 'Con giacenza'], ['esauriti', 'Esauriti'], ['tutti', 'Tutti']] : [['attivi', 'Attivi'], ['esauriti', 'In archivio'], ['tutti', 'Tutti']])}</div>
     ${lots.length ? `<div class="list">${pagina('prod', lots, q + '|' + UI.prodF).map(prodRow).join('')}${altri('prod', lots, 'lotti', IC.chef)}</div>` : empty(q ? 'Nessun lotto corrisponde alla ricerca.' : 'Nessun lotto in questo elenco.', IC.chef)}</section>`;
 }
 function ricCard(r) {
@@ -218,7 +219,7 @@ function ricCard(r) {
     <span class="rc-h"><b>${esc(r.nome)}</b><span class="chip">${esc(r.sigla || '')}</span></span>
     <span class="rc-m">${esc(r.categoria || 'Senza categoria')}${r.semilavorato ? ' · semilavorato' : ''} · resa ${fmtQ(rq, u)} · ${esc(shelfTxt(r))}</span>
     ${algChips(al, [])}
-    <span class="rc-f"><span>Costo ${rq > 0 && !c.miss.length ? EUR(c.tot / rq) : '—'} ${u === 'pz' ? 'al pezzo' : 'al ' + u}</span><span>In giacenza ${fmtQ(s.usable, u)}</span></span></button>`;
+    <span class="rc-f"><span>Costo ${rq > 0 && !c.miss.length ? EUR(c.tot / rq) : '—'} ${u === 'pz' ? 'al pezzo' : 'al ' + u}</span><span>${vendite() || r.semilavorato ? `In giacenza ${fmtQ(s.usable, u)}` : s.n ? `In vetrina: ${s.n === 1 ? '1 lotto' : s.n + ' lotti'}` : 'Niente in vetrina'}</span></span></button>`;
 }
 function vSchede() {
   const q = UI.q.sch.trim().toLowerCase();
@@ -245,6 +246,12 @@ function vMagazzino() {
     ${UI.magSeg === 'acq' ? magAcq() : magProd()}</section>`;
 }
 function artRow(a) {
+  if (soloAcquisti(a)) {
+    const cost = drv().lastCost.get(a.id);
+    return `<button type="button" class="row" data-act="open-art" data-id="${esc(a.id)}">${av(catIc(a.categoria))}
+      <span class="m"><b>${esc(a.nome)}</b><span>${esc(CAT.rivendita)} · solo acquisti e prezzi</span></span>
+      <span class="s">${cost != null ? `<span class="q">${EUR(cost)}</span><small class="muted">${perU(a.unita)}</small>` : ''}</span></button>`;
+  }
   const s = artStock(a.id), chips = [];
   let tone = '';
   if (s.expired > EPS) { chips.push(`<span class="chip red">Scaduto ${fmtQ(s.expired, a.unita)}</span>`); tone = 'red'; }
@@ -272,9 +279,10 @@ function magProd() {
     const lots = (Dd.ricLots.get(r.id) || []).filter(l => l.res > EPS && (!q || `${r.nome} ${l.p.lotto}`.toLowerCase().includes(q)));
     if (!lots.length) return '';
     const s = stockOf(lots);
-    return `<div class="grp"><div class="grp-h"><button type="button" class="lnk" data-act="open-ric" data-id="${esc(r.id)}">${esc(r.nome)}</button><span class="q">${fmtQ(s.usable, r.resaUnita)}${s.expired > EPS ? ` <small>+ ${fmtQ(s.expired, r.resaUnita)} scaduti</small>` : ''}</span></div><div class="list">${lots.map(prodRow).join('')}</div></div>`;
+    const tot = lots[0].vetrina ? `${lots.length === 1 ? '1 lotto' : lots.length + ' lotti'} in vetrina` : `${fmtQ(s.usable, r.resaUnita)}${s.expired > EPS ? ` <small>+ ${fmtQ(s.expired, r.resaUnita)} scaduti</small>` : ''}`;
+    return `<div class="grp"><div class="grp-h"><button type="button" class="lnk" data-act="open-ric" data-id="${esc(r.id)}">${esc(r.nome)}</button><span class="q">${tot}</span></div><div class="list">${lots.map(prodRow).join('')}</div></div>`;
   }).join('');
-  return out || empty(q ? 'Nessun prodotto corrisponde alla ricerca.' : 'Nessun prodotto in giacenza.', IC.chef);
+  return out || empty(q ? 'Nessun prodotto corrisponde alla ricerca.' : vendite() ? 'Nessun prodotto in giacenza.' : 'Nessun prodotto in vetrina.', IC.chef);
 }
 
 /* ---------- Acquisti, fornitori ---------- */
@@ -392,6 +400,12 @@ function vImpostazioni() {
   return `<section id="v-impostazioni"><div class="ph"><div><h1>Impostazioni</h1><p>${esc(where)}</p></div></div>
     ${prova}
     <form id="cfgForm">${bar}
+    <div class="setgrp"><h2>Vendite</h2><div class="card">
+      <div class="opts" role="radiogroup" aria-label="Scarico delle vendite">
+        <label class="opt"><input type="radio" name="vendite" value="banco" ${c.vendite ? 'checked' : ''} ${dis}><span><b>Scarico al Banco</b><small>Dopo lo scontrino fiscale si batte lo scontrino interno al Banco e i prodotti venduti escono dal magazzino.</small></span></label>
+        <label class="opt"><input type="radio" name="vendite" value="scadenze" ${c.vendite ? '' : 'checked'} ${dis}><span><b>Solo scadenze</b><small>Il Banco si spegne. Dei lotti di produzione si seguono solo le scadenze: l’avviso prima, poi vanno in archivio. La rivendita resta negli acquisti e nei prezzi, senza giacenza. Le materie prime si scaricano sempre con le produzioni.</small></span></label>
+      </div>
+      <p class="hint" id="cfg-ven-nota" hidden>Premi «Salva impostazioni» qui sotto per applicare la scelta.</p></div></div>
     <div class="setgrp"><h2>Avvisi e calcoli</h2><div class="card">
       <div class="g2"><label class="fld"><span>Avviso scadenze (giorni prima)</span><input type="text" id="cfg-gg" name="giorniAvviso" inputmode="numeric" value="${esc(c.giorniAvviso)}" ${dis}></label>
       <label class="fld"><span>Segnala rincari oltre (%)</span><input type="text" id="cfg-sr" name="sogliaRincaro" inputmode="decimal" value="${esc(fmtIn(c.sogliaRincaro))}" ${dis}></label></div>

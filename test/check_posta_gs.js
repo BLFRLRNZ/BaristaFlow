@@ -27,7 +27,7 @@ check(get(s, {k: '__CHIAVE__'}).j.errore === 'chiave', 'senza la chiave dell\'ap
 s = sandbox(KEY);
 check(get(s, {k: 'sbagliata'}).j.errore === 'chiave' && get(s, {}).j.errore === 'chiave' && post(s, {op: 'stato', k: 'x'}).j.errore === 'chiave', 'chiave sbagliata o assente: rifiutata, anche in POST');
 let r = get(s, {k: KEY, dal: String(NOW - 7 * day)});
-check(r.mime === 'json' && r.j.ok === true && r.j.casella === 'fatture.bar@gmail.com' && r.j.versione === 2, 'risponde in JSON con la casella collegata e la versione');
+check(r.mime === 'json' && r.j.ok === true && r.j.casella === 'fatture.bar@gmail.com' && r.j.versione === 3, 'risponde in JSON con la casella collegata e la versione');
 check(JSON.stringify(r.j.file.map(f => f.id)) === JSON.stringify(['m1:0', 'm1:2', 'm3:0', 'm3:1']), `solo XML, PDF, ZIP e P7M, in ordine di arrivo: ${r.j.file.map(f => f.nome).join(', ')}`);
 check(s.queries.at(-1) === 'has:attachment after:' + Math.floor((NOW - 8 * day) / 1000), `ricerca con un giorno di margine: ${s.queries.at(-1)}`);
 r = get(s, {k: KEY, dal: '0'});
@@ -143,6 +143,17 @@ check(r.j.inviate === 1 && JSON.stringify(r.j.esiti) === '[410,201]' && JSON.par
 check(decifra(buf(s.fetches.at(-1).o.payload), tel2).tag === 'prova' && verificaJwt(/t=([^,]+)/.exec(s.fetches.at(-1).o.headers.Authorization)[1], pub).claims.aud === 'https://fcm.googleapis.com', 'anche Android (Chrome) riceve, con il suo indirizzo VAPID');
 post(s, {k: KEY, op: 'disiscrivi', endpoint: tel2.sub.endpoint});
 check(post(s, {k: KEY, op: 'prova-notifica'}).j.errore === 'nessun dispositivo iscritto', 'senza dispositivi la prova lo dice');
+
+// scarico delle vendite spento: i lotti in vetrina si avvisano prima della scadenza, poi vanno in archivio
+{
+  const s3 = sandbox(KEY), tel3 = nuovoTelefono('https://web.push.apple.com/QVETRINA');
+  post(s3, {k: KEY, op: 'iscrivi', sub: tel3.sub});
+  post(s3, {k: KEY, op: 'stato', ora: '08:00', stato: {giorni: 2, lotti: [{n: 'Burro', s: '2026-11-26'}], vetrina: [{n: 'Cornetti', s: '2026-11-26'}, {n: 'Biscotti', s: '2026-11-28'}, {n: 'Crostata', s: '2026-11-27'}], scorte: []}});
+  check(vm.runInContext('leggi("stato")', s3).vetrina.length === 3, 'lo script tiene i lotti in vetrina');
+  NOW = Date.UTC(2026, 10, 27, 7, 30); s3.fetches.length = 0; s3.controllo();
+  const n3 = s3.fetches[0] && decifra(buf(s3.fetches[0].o.payload), tel3);
+  check(n3 && n3.body === '1 lotto scaduto da smaltire: Burro\nScade oggi: Crostata\nIn scadenza: Biscotti (28/11)', `lotti in vetrina: avviso prima della scadenza, scaduti in archivio e mai «da smaltire» (${n3 && n3.body.replace(/\n/g, ' | ')})`);
+}
 
 // riepilogo grande: spezzato nelle proprietà e riletto uguale
 const tanti = {giorni: 3, lotti: Array.from({length: 400}, (_, i) => ({n: 'Prodotto con un nome piuttosto lungo àèì ' + i, s: '2026-12-' + String(1 + i % 28).padStart(2, '0')})), scorte: []};

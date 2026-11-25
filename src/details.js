@@ -157,7 +157,7 @@ function fwdTree(l, depth = 0) {
     const lp = Dd.prod.get(x.prodId); if (!lp) return '';
     const s = st(lp);
     return `<div class="tr"><div class="tr-h"><button type="button" class="lnk" data-act="open-lotto" data-id="${esc(lp.key)}">${esc(lp.p.lotto)}</button><span class="q">${fmtQ(x.qta, u)}</span></div>
-      <div class="tr-meta"><span>${esc(lotName(lp))}</span><span>prodotto il ${fmtD(lp.data)}</span><span>residuo ${fmtQ(lp.res, lotUnit(lp))}</span><span class="chip ${s.c}">${esc(s.t)}</span></div>${depth < 4 ? fwdTree(lp, depth + 1) : ''}</div>`;
+      <div class="tr-meta"><span>${esc(lotName(lp))}</span><span>prodotto il ${fmtD(lp.data)}</span>${lp.vetrina ? '' : `<span>residuo ${fmtQ(lp.res, lotUnit(lp))}</span>`}<span class="chip ${s.c}">${esc(s.t)}</span></div>${depth < 4 ? fwdTree(lp, depth + 1) : ''}</div>`;
   }).join('')}</div>`;
 }
 
@@ -171,7 +171,8 @@ function lottoBody(id) {
   const al = algSort(p.allergeni || []), tr = algSort((p.tracce || []).filter(x => !al.includes(x)));
   const r = l.item;
   return `<div class="dh"><p class="muted">${esc(lotName(l))}</p><div class="big">${esc(p.lotto)}</div><span class="chip ${s.c}">${esc(s.t)}</span></div>
-    <div class="kv"><div><small>Prodotto il</small><b>${fmtD(p.data)}</b></div><div><small>${esc(scadLabel(p.tipoScadenza))}</small><b>${fmtD(l.scad)}</b></div><div><small>Quantità prodotta</small><b>${fmtQ(l.qta, u)}</b></div><div><small>Residuo</small><b>${fmtQ(l.res, u)}</b></div></div>
+    <div class="kv"><div><small>Prodotto il</small><b>${fmtD(p.data)}</b></div><div><small>${esc(scadLabel(p.tipoScadenza))}</small><b>${fmtD(l.scad)}</b></div><div><small>Quantità prodotta</small><b>${fmtQ(l.qta, u)}</b></div>${l.vetrina ? `<div><small>Stato</small><b>${l.res > EPS ? 'In vetrina' : 'In archivio'}</b><small>${l.res > EPS ? 'fino alla scadenza' : 'scaduto, senza scarico'}</small></div>` : `<div><small>Residuo</small><b>${fmtQ(l.res, u)}</b></div>`}</div>
+    ${l.vetrina ? '<p class="hint">Lo scarico delle vendite è spento (Impostazioni): il lotto resta in vetrina fino alla scadenza e poi va in archivio.</p>' : ''}
     <p class="muted">${p.operatore ? `Operatore: ${esc(p.operatore)} · ` : ''}${r ? `Scheda: <button type="button" class="lnk" data-act="open-ric" data-id="${esc(r.id)}">${esc(r.nome)}</button>` : 'Scheda tecnica eliminata'}</p>
     <h3>Allergeni</h3>${algChips(al, tr)}
     <h3>Materie prime e lotti utilizzati</h3>
@@ -179,12 +180,12 @@ function lottoBody(id) {
     <h3>Costo del lotto</h3>
     <p>${EUR(cost.tot)} in totale, ${l.qta > 0 ? EUR(cost.tot / l.qta) : '—'} ${u === 'pz' ? 'al pezzo' : 'al ' + u}${cost.partial ? ' <span class="muted">(in parte stimato: manca il prezzo di qualche lotto)</span>' : ''}</p>
     ${l.used.length ? `<h3>Usato come ingrediente in</h3>${fwdTree(l)}` : ''}
-    <h3>Scarichi e rettifiche</h3>${movList(l)}
+    ${l.vetrina && !l.mov.length ? '' : `<h3>Scarichi e rettifiche</h3>${movList(l)}`}
     ${p.note ? `<h3>Note</h3><div class="prose">${esc(p.note)}</div>` : ''}
     <div class="morebar"><button type="button" class="btn dl" data-act="dl-lotto" data-id="${esc(id)}">${IC.down}Scarica scheda lotto</button><button type="button" class="btn w" data-act="edit-prod" data-id="${esc(id)}">Modifica</button><button type="button" class="btn dan w" data-act="del-prod" data-id="${esc(id)}">Elimina lotto</button></div>`;
 }
 function lottoFoot(id) {
-  const l = drv().prod.get(id); if (!l || S.ro) return '';
+  const l = drv().prod.get(id); if (!l || S.ro || l.vetrina) return '';
   const s = st(l);
   if (l.res <= EPS) return `<button type="button" class="btn" data-act="mov" data-kind="prod" data-id="${esc(id)}">Rettifica giacenza</button>`;
   return s.c === 'red'
@@ -200,14 +201,15 @@ function acqBody(key) {
   const l = drv().acq.get(key); if (!l) return empty('Questo lotto non esiste più.');
   const a = l.item, s = st(l), u = lotUnit(l);
   return `<div class="dh"><p class="muted">${esc(lotName(l))} · lotto del fornitore</p><div class="big">${esc(l.lottoF || 'Senza codice')}</div><span class="chip ${s.c}">${esc(s.t)}</span></div>
-    <div class="kv"><div><small>Caricato</small><b>${fmtQ(l.qta, u)}</b></div><div><small>Residuo</small><b>${fmtQ(l.res, u)}</b></div><div><small>Scadenza</small><b>${fmtD(l.scad)}</b></div><div><small>Costo</small><b>${l.costU != null ? EUR(l.costU) : '—'}</b><small>${l.costU != null ? (u === 'pz' ? 'al pezzo' : 'al ' + u) : 'importo non indicato'}</small></div></div>
+    <div class="kv"><div><small>${l.fuori ? 'Comprato' : 'Caricato'}</small><b>${fmtQ(l.qta, u)}</b></div>${l.fuori ? '' : `<div><small>Residuo</small><b>${fmtQ(l.res, u)}</b></div>`}<div><small>Scadenza</small><b>${fmtD(l.scad)}</b></div><div><small>Costo</small><b>${l.costU != null ? EUR(l.costU) : '—'}</b><small>${l.costU != null ? (u === 'pz' ? 'al pezzo' : 'al ' + u) : 'importo non indicato'}</small></div></div>
     <p>${fornName(l.doc.fornitoreId) ? `Da ${esc(fornName(l.doc.fornitoreId))} · ` : ''}<button type="button" class="lnk" data-act="open-doc" data-id="${esc(l.doc.id)}">${esc(docName(l.doc))}</button>${a ? ` · <button type="button" class="lnk" data-act="open-art" data-id="${esc(a.id)}">scheda articolo</button>` : ''}</p>
     ${allegatiHTML(l.doc)}
+    ${l.fuori ? '<p class="hint">Lo scarico delle vendite è spento (Impostazioni): della rivendita si tengono solo gli acquisti e i prezzi.</p>' : ''}
     <h3>Dove è stato usato</h3><p class="hint" style="margin-top:-4px">Se il fornitore richiama questo lotto, qui trovi i prodotti che lo contengono.</p>${fwdTree(l)}
-    <h3>Scarichi e rettifiche</h3>${movList(l)}`;
+    ${l.fuori && !l.mov.length ? '' : `<h3>Scarichi e rettifiche</h3>${movList(l)}`}`;
 }
 function acqFoot(key) {
-  const l = drv().acq.get(key); if (!l || S.ro) return '';
+  const l = drv().acq.get(key); if (!l || S.ro || l.fuori) return '';
   const k = esc(key);
   if (l.res > EPS && st(l).c === 'red') return `<button type="button" class="btn" data-act="mov" data-kind="acq" data-id="${k}">Scarico o rettifica</button><button type="button" class="btn pri" data-act="smaltisci" data-kind="acq" data-id="${k}">Smaltisci il residuo</button>`;
   return `<button type="button" class="btn pri" data-act="mov" data-kind="acq" data-id="${k}">${l.res > EPS ? 'Scarico o rettifica' : 'Rettifica giacenza'}</button>`;
@@ -224,11 +226,13 @@ function artBody(id) {
   const recs = [...S.data.ricette.values()].filter(r => (r.ingredienti || []).some(g => g.tipo !== 'ric' && g.refId === id)).sort(byName);
   const al = algSort(a.allergeni || []);
   return `<div class="dh"><p class="muted">${esc(CAT[a.categoria] || CAT.materia)} · ${esc(CONS[a.conservazione] || 'Ambiente')}${a.archiviato ? ' · archiviato' : ''}</p><div class="big" style="font-stretch:85%">${esc(a.nome)}</div></div>
-    <div class="kv"><div><small>Giacenza utilizzabile</small><b>${fmtQ(s.usable, a.unita)}</b></div><div><small>Scaduto da smaltire</small><b>${fmtQ(s.expired, a.unita)}</b></div><div><small>Scorta minima</small><b>${+a.scortaMin > 0 ? fmtQ(+a.scortaMin, a.unita) : '—'}</b></div><div><small>Ultimo costo</small><b>${cost != null ? EUR(cost) : '—'}</b><small>${a.unita === 'pz' ? 'al pezzo' : 'al ' + esc(unitOk(a.unita))}</small></div>${a.categoria === 'rivendita' ? `<div><small>Prezzo di vendita</small><b>${+a.prezzoVendita > 0 ? EUR(+a.prezzoVendita) : '—'}</b><small>${+a.prezzoVendita > 0 ? 'IVA inclusa, ' + perU(a.unita) : 'Da aggiungere con Modifica'}</small></div>` : ''}</div>
+    <div class="kv">${soloAcquisti(a) ? '' : `<div><small>Giacenza utilizzabile</small><b>${fmtQ(s.usable, a.unita)}</b></div><div><small>Scaduto da smaltire</small><b>${fmtQ(s.expired, a.unita)}</b></div><div><small>Scorta minima</small><b>${+a.scortaMin > 0 ? fmtQ(+a.scortaMin, a.unita) : '—'}</b></div>`}<div><small>Ultimo costo</small><b>${cost != null ? EUR(cost) : '—'}</b><small>${a.unita === 'pz' ? 'al pezzo' : 'al ' + esc(unitOk(a.unita))}</small></div>${a.categoria === 'rivendita' ? `<div><small>Prezzo di vendita</small><b>${+a.prezzoVendita > 0 ? EUR(+a.prezzoVendita) : '—'}</b><small>${+a.prezzoVendita > 0 ? 'IVA inclusa, ' + perU(a.unita) : 'Da aggiungere con Modifica'}</small></div>` : ''}</div>
     <h3>Prezzi d'acquisto</h3>${priceRow(id)}
     <h3>Allergeni e nome in etichetta</h3>${algChips(al, [])}<p style="margin-top:10px" class="labeltext">${emph(esc(artLabel(a)))}</p>
-    <h3>Lotti in giacenza</h3>${inUse.length ? `<div class="list">${inUse.map(l => lotRow(l)).join('')}</div>` : empty('Nessun lotto in giacenza. Carica la merce registrando un acquisto.')}
-    ${done.length ? `<details style="margin-top:12px"><summary class="lnk">Lotti esauriti (${done.length})</summary><div class="list" style="margin-top:10px">${done.map(l => lotRow(l)).join('')}</div></details>` : ''}
+    ${soloAcquisti(a) ? `<p class="hint">Lo scarico delle vendite è spento (Impostazioni): della rivendita si tengono solo gli acquisti e i prezzi, senza giacenza né avvisi.</p>
+    <h3>Acquisti</h3>${lots.length ? `<div class="list">${[...lots].sort((x, y) => y.data.localeCompare(x.data)).slice(0, 12).map(l => lotRow(l)).join('')}</div>` : empty('Nessun acquisto registrato.')}`
+    : `<h3>Lotti in giacenza</h3>${inUse.length ? `<div class="list">${inUse.map(l => lotRow(l)).join('')}</div>` : empty('Nessun lotto in giacenza. Carica la merce registrando un acquisto.')}
+    ${done.length ? `<details style="margin-top:12px"><summary class="lnk">Lotti esauriti (${done.length})</summary><div class="list" style="margin-top:10px">${done.map(l => lotRow(l)).join('')}</div></details>` : ''}`}
     <h3>Usato nelle schede</h3>${recs.length ? `<div class="chips">${recs.map(r => `<button type="button" class="btn" data-act="open-ric" data-id="${esc(r.id)}">${esc(r.nome)}</button>`).join('')}</div>` : '<p class="muted">Non è ancora in nessuna scheda tecnica.</p>'}
     ${a.fornitoreId && fornName(a.fornitoreId) ? `<p class="muted" style="margin-top:14px">Fornitore abituale: ${esc(fornName(a.fornitoreId))}</p>` : ''}
     ${a.note ? `<h3>Note</h3><div class="prose">${esc(a.note)}</div>` : ''}
@@ -237,7 +241,7 @@ function artBody(id) {
 function artFoot(id) {
   const a = S.data.articoli.get(id); if (!a || S.ro) return '';
   const s = artStock(id);
-  return `<button type="button" class="btn" data-act="edit-art" data-id="${esc(id)}">Modifica</button>${s.usable + s.expired > EPS ? `<button type="button" class="btn pri" data-act="mov-item" data-tipo="art" data-id="${esc(id)}">Registra scarico</button>` : `<button type="button" class="btn pri" data-act="new-doc">Registra acquisto</button>`}`;
+  return `<button type="button" class="btn" data-act="edit-art" data-id="${esc(id)}">Modifica</button>${!soloAcquisti(a) && s.usable + s.expired > EPS ? `<button type="button" class="btn pri" data-act="mov-item" data-tipo="art" data-id="${esc(id)}">Registra scarico</button>` : `<button type="button" class="btn pri" data-act="new-doc">Registra acquisto</button>`}`;
 }
 
 function priceRow(id) {
@@ -413,7 +417,7 @@ function schedaBody(id) {
     <h3>Conservazione</h3><p>${esc(r.conservazione || 'Non indicata')}</p>
     ${r.procedimento ? `<h3>Procedimento</h3><div class="prose">${esc(r.procedimento)}</div>` : ''}
     ${r.note ? `<h3>Note</h3><div class="prose">${esc(r.note)}</div>` : ''}
-    <h3>Lotti in giacenza</h3>${lots.length ? `<div class="list">${lots.map(prodRow).join('')}</div>` : empty('Nessun lotto in giacenza.')}
+    <h3>${lots[0]?.vetrina ? 'Lotti in vetrina' : 'Lotti in giacenza'}</h3>${lots.length ? `<div class="list">${lots.map(prodRow).join('')}</div>` : empty(vendite() || r.semilavorato ? 'Nessun lotto in giacenza.' : 'Nessun lotto in vetrina.')}
     <div class="morebar"><button type="button" class="btn dl" data-act="dl-scheda" data-id="${esc(id)}">${IC.down}Scarica scheda</button><button type="button" class="btn w" data-act="dup-ric" data-id="${esc(id)}">Duplica</button><button type="button" class="btn w" data-act="arch-ric" data-id="${esc(id)}">${r.archiviato ? 'Ripristina' : 'Archivia'}</button><button type="button" class="btn dan w" data-act="del-ric" data-id="${esc(id)}">Elimina</button></div>`;
 }
 function schedaFoot(id) {
@@ -435,7 +439,7 @@ function docBody(id) {
     }
     const l = Dd.acq.get(`${id}:${r.id}`); if (!l) return '';
     const s = st(l), u = lotUnit(l);
-    return `<button type="button" class="row" data-act="open-acq" data-id="${esc(l.key)}">${av(catIc(l.item?.categoria), s.c)}<span class="m"><b>${esc(lotName(l))}</b><span>${fmtQ(l.qta, u)}${r.importo != null && r.importo !== '' ? ' · ' + EUR(+r.importo) : ''} · lotto ${esc(l.lottoF || 'non indicato')} · scad. ${fmtD(l.scad)}</span><span>${l.used.length ? `Usato in ${l.used.length === 1 ? '1 produzione' : l.used.length + ' produzioni'}` : 'Non ancora usato'}</span><span class="mc"><span class="chip ${s.c}">${esc(s.t)}</span></span></span><span class="s"><span class="q">${fmtQ(l.res, u)}</span><small class="muted">residuo</small></span></button>`;
+    return `<button type="button" class="row" data-act="open-acq" data-id="${esc(l.key)}">${av(catIc(l.item?.categoria), s.c)}<span class="m"><b>${esc(lotName(l))}</b><span>${fmtQ(l.qta, u)}${r.importo != null && r.importo !== '' ? ' · ' + EUR(+r.importo) : ''} · lotto ${esc(l.lottoF || 'non indicato')} · scad. ${fmtD(l.scad)}</span><span>${l.used.length ? `Usato in ${l.used.length === 1 ? '1 produzione' : l.used.length + ' produzioni'}` : 'Non ancora usato'}</span><span class="mc"><span class="chip ${s.c}">${esc(s.t)}</span></span></span><span class="s"><span class="q">${fmtQ(l.fuori ? l.qta : l.res, u)}</span><small class="muted">${l.fuori ? 'comprati' : 'residuo'}</small></span></button>`;
   }).join('');
   const f = S.data.fornitori.get(d.fornitoreId);
   return `<div class="kv"><div><small>Documento</small><b>${esc(TIPI[d.tipo] || 'Documento')}${d.numero ? ' ' + esc(d.numero) : ''}</b></div><div><small>Data</small><b>${fmtD(d.data)}</b></div><div><small>Fornitore</small><b style="font-stretch:90%;font-size:18px">${f ? esc(f.nome) : '—'}</b></div><div><small>Totale senza IVA</small><b>${EUR(docTot(d))}</b></div></div>

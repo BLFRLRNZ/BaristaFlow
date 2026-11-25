@@ -88,7 +88,7 @@ with sync_playwright() as p:
     pg.locator("#notifiche .btn", has_text="Collega lo script di Google").click(); pg.wait_for_timeout(350)
     t = top(pg); t.locator("[data-act=posta-copia]").click(); toast(pg, "Script copiato")
     copiato = pg.evaluate("navigator.clipboard.readText()")
-    check("var VERSIONE = 2;" in copiato and "__CHIAVE__" not in copiato, "lo script copiato dall'app è quello con le notifiche, con la chiave")
+    check("var VERSIONE = 3;" in copiato and "__CHIAVE__" not in copiato, "lo script copiato dall'app è quello con le notifiche, con la chiave")
     g("/__script", copiato)   # incollato e pubblicato su Google
     t.locator("[data-k=url]").fill(SCRIPT_URL); t.locator("[data-act=save]").click()
     toast(pg, "Posta collegata: fatture.bar@gmail.com"); pg.wait_for_timeout(400)
@@ -163,6 +163,19 @@ with sync_playwright() as p:
     pg.locator("#cfg-gg").fill("2"); pg.locator("#cfgForm button[type=submit]").click(); toast(pg, "Impostazioni salvate")
     pg.wait_for_timeout(5500)
     check(gs("stato")["giorni"] == 2, "cambiano i dati dell'app: dopo pochi secondi lo script ha il riepilogo nuovo")
+
+    # scarico delle vendite spento: i lotti in vetrina vanno allo script a parte, avvisati prima e mai «da smaltire»
+    pg.locator(".opt", has_text="Solo scadenze").click(); pg.locator("#cfgForm button[type=submit]").click(); toast(pg, "il Banco è spento")
+    pg.wait_for_timeout(5500)
+    stato = gs("stato"); nomi = lambda xs: sorted({x["n"] for x in xs})
+    check({"Biscotti al burro", "Tartellette crema e nocciole"} <= set(nomi(stato.get("vetrina", []))) and not {"Biscotti al burro", "Tartellette crema e nocciole"} & set(nomi(stato["lotti"])), f"i lotti in vetrina vanno allo script a parte {nomi(stato.get('vetrina', []))}")
+    check("Acqua naturale 0,5 l" not in nomi(stato["scorte"]) and "aggiorna lo script" not in card(pg), "la rivendita esce dalle scorte; lo script è aggiornato, nessun avviso")
+    g("/__now", at(2026, 11, 26, 7, 5)); g("/__run?fn=controllo")
+    note = g("/__state")["pushes"][-1]["note"]
+    check(note["tag"] == "avvisi-2026-11-26" and "Tartellette crema e nocciole" in [l for l in note["body"].split("\n") if l.startswith("Scade oggi")][0], f"il giorno della scadenza: «Scade oggi» ({note['body']})")
+    g("/__now", at(2026, 11, 27, 7, 5)); g("/__run?fn=controllo")
+    note = g("/__state")["pushes"][-1]["note"]
+    check(note["tag"] == "avvisi-2026-11-27" and "Tartellette" not in note["body"], f"il giorno dopo il lotto è in archivio: non compare ({note['body']})")
 
     # script di una versione precedente: l'app chiede di aggiornarlo
     import subprocess as sp

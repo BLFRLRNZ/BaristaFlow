@@ -154,6 +154,8 @@ const bancoDesc = s => [...s.righe.values()].map(r => bancoRiga(r.nome, r.q, r.u
 
 /* ---------- la pagina ---------- */
 function vBanco() {
+  if (!vendite()) return `<section id="v-banco"><div class="ph"><div><h1>Banco</h1></div></div>${empty('Il Banco è spento: in Impostazioni lo scarico delle vendite è disattivato, quindi i prodotti venduti non escono dal magazzino uno per uno. Dei lotti di produzione si seguono solo le scadenze.', IC.banco)}
+    <div class="acts bk-new"><a class="btn" href="#oggi">Vai a Oggi</a><a class="btn w" href="#impostazioni">Impostazioni</a></div></section>`;
   const all = bancoItems(), idx = new Map(all.map(x => [x.k, x])), rs = bancoRighe(idx), c = bancoConto(rs), sc = bancoScontrini();
   const head = `<div class="ph"><div><h1>Banco</h1><p>Tocca i prodotti venduti e premi Invio: il magazzino si aggiorna da solo.</p></div></div>`;
   if (!all.length) return `<section id="v-banco">${head}${empty('Non c’è ancora niente da vendere. Al Banco compaiono le schede tecniche dei prodotti (non i semilavorati) e gli articoli di rivendita, come le bibite.', IC.banco)}
@@ -224,7 +226,7 @@ function sheetBanco() {
 
 /* Invio da tastiera: nella ricerca aggiunge l'unico prodotto trovato, su una quantità la conferma, altrove registra */
 function bancoEnter(e) {
-  if (e.isComposing || route() !== 'banco' || (stack.length && !top()?.banco)) return false;
+  if (e.isComposing || route() !== 'banco' || !vendite() || (stack.length && !top()?.banco)) return false;
   const t = e.target;
   if (t.dataset?.bq !== undefined) {
     e.preventDefault(); bancoSet(t.dataset.bq, t.value);

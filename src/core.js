@@ -100,8 +100,12 @@ const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: '', banco: '
 const cfg = () => {
   const c = S.data.impostazioni.get('generale') || {};
   const g = Math.round(pnum(c.giorniAvviso)), iva = pnum(c.iva), sr = pnum(c.sogliaRincaro);
-  return {nome: c.nome || '', indirizzo: c.indirizzo || '', piva: c.piva || '', giorniAvviso: g >= 0 ? g : 3, iva: iva >= 0 ? iva : 10, sogliaRincaro: sr >= 0 ? sr : 5};
+  return {nome: c.nome || '', indirizzo: c.indirizzo || '', piva: c.piva || '', giorniAvviso: g >= 0 ? g : 3, iva: iva >= 0 ? iva : 10, sogliaRincaro: sr >= 0 ? sr : 5, vendite: c.scaricoVendite !== false};
 };
+/* scarico delle vendite: con il Banco (di partenza) i prodotti venduti escono dal magazzino; spento, dei lotti di
+   produzione si seguono solo le scadenze e la rivendita resta negli acquisti e nei prezzi */
+const vendite = () => cfg().vendite;
+const soloAcquisti = a => a?.categoria === 'rivendita' && !vendite();
 
 /* archivio locale: usato fuori da claude.ai (dati nel browser) o in prova (dati in memoria) */
 function localDB(key) {
@@ -170,8 +174,9 @@ async function pool(items, n, fn) {
 }
 
 /* ---------- dati derivati: lotti, giacenze, costi ---------- */
-let D = null, Dver = -1;
-function drv() { if (Dver !== S.ver) { D = derive(); Dver = S.ver; } return D; }
+let D = null, Dver = -1, Dday = '';
+/* si ricalcola quando cambiano i dati e quando cambia il giorno (le scadenze dipendono da oggi) */
+function drv() { const t = today(); if (Dver !== S.ver || Dday !== t) { D = derive(); Dver = S.ver; Dday = t; } return D; }
 function derive() {
   const A = S.data.articoli, R = S.data.ricette;
   const acq = new Map(), prod = new Map(), artLots = new Map(), ricLots = new Map(), lastCost = new Map(), prices = new Map(), invCost = new Map();
@@ -204,6 +209,14 @@ function derive() {
   }
   for (const l of acq.values()) l.res = r6(l.qta - l.usedQ + l.movQ);
   for (const l of prod.values()) l.res = r6(l.qta - l.usedQ + l.movQ);
+  // scarico delle vendite spento: i prodotti venduti non escono uno per uno. Un lotto di produzione (non i
+  // semilavorati, che si consumano nelle produzioni) resta in vetrina fino alla scadenza e poi va in archivio,
+  // senza «da smaltire»; i lotti della rivendita restano solo negli acquisti e nei prezzi
+  if (!vendite()) {
+    const t = today();
+    for (const l of prod.values()) if (!l.item?.semilavorato) { l.vetrina = true; l.res = l.scad && l.scad < t ? 0 : r6(Math.max(0, l.qta - l.usedQ)); }
+    for (const l of acq.values()) if (l.item?.categoria === 'rivendita') { l.fuori = true; l.res = 0; }
+  }
   const byExp = (a, b) => (a.scad || '9999').localeCompare(b.scad || '9999') || a.data.localeCompare(b.data);
   for (const arr of artLots.values()) arr.sort(byExp);
   for (const arr of ricLots.values()) arr.sort(byExp);
@@ -216,6 +229,8 @@ const lotUnit = l => l.kind === 'prod' ? unitOk(l.p.unita || l.item?.resaUnita) 
 const lotName = l => l.kind === 'prod' ? (l.p.ricettaNome || l.item?.nome || 'Prodotto') : (l.item?.nome || 'Articolo eliminato');
 
 function st(l) {
+  if (l.fuori) return {c: '', t: 'Solo acquisti e prezzi', n: Infinity};
+  if (l.vetrina && l.scad && l.scad < today()) return {c: '', t: 'In archivio', n: Infinity};
   if (l.res <= EPS) return {c: '', t: 'Esaurito', n: Infinity};
   if (!l.scad) return {c: '', t: 'Senza scadenza', n: Infinity};
   const n = daysBetween(today(), l.scad), w = cfg().giorniAvviso;

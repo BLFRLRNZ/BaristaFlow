@@ -17,7 +17,7 @@ var RICERCA = 'has:attachment';
 
 var ALLEGATI = /\.(xml|p7m|zip|pdf)$/i;
 var GIORNI = 60;   // non si guarda più indietro di così
-var VERSIONE = 2;
+var VERSIONE = 3;
 
 // La prima volta premi «Esegui» con questa funzione: Google chiede i permessi (Gmail, notifiche, controllo
 // ogni 15 minuti) e nel registro compaiono gli allegati che lo script passerebbe all'app.
@@ -112,7 +112,7 @@ function disiscrivi(p) {
 function salvaStato(p) {
   var st = p.stato || {};
   return conLock(function () {
-    scrivi('stato', {lotti: (st.lotti || []).slice(0, 400), scorte: (st.scorte || []).slice(0, 200), giorni: Number(st.giorni) >= 0 ? Number(st.giorni) : 3, quando: Date.now()});
+    scrivi('stato', {lotti: (st.lotti || []).slice(0, 400), vetrina: (st.vetrina || []).slice(0, 200), scorte: (st.scorte || []).slice(0, 200), giorni: Number(st.giorni) >= 0 ? Number(st.giorni) : 3, quando: Date.now()});
     scrivi('notifiche', impostaNotifiche(leggi('notifiche') || {}, p));
     return {ok: true};
   });
@@ -159,9 +159,11 @@ function aggiorna(fn) { conLock(function () { var m = leggi('notifiche') || {}; 
 function avvisi(st, oggi, temi) {
   if (!st) return null;
   var righe = [], lotti = st.lotti || [], fine = piuGiorni(oggi, st.giorni >= 0 ? st.giorni : 3);
+  // i lotti in vetrina (scarico delle vendite spento) si avvisano solo prima: scaduti vanno in archivio
+  var vetrina = (st.vetrina || []).filter(function (l) { return l.s >= oggi; }), tutti = lotti.concat(vetrina);
   if (temi.scadenze !== false) {
-    var scaduti = lotti.filter(function (l) { return l.s < oggi; }), oggiL = lotti.filter(function (l) { return l.s === oggi; });
-    var presto = lotti.filter(function (l) { return l.s > oggi && l.s <= fine; });
+    var scaduti = lotti.filter(function (l) { return l.s < oggi; }), oggiL = tutti.filter(function (l) { return l.s === oggi; });
+    var presto = tutti.filter(function (l) { return l.s > oggi && l.s <= fine; }).sort(function (a, b) { return a.s < b.s ? -1 : a.s > b.s ? 1 : 0; });
     if (scaduti.length) righe.push((scaduti.length === 1 ? '1 lotto scaduto' : scaduti.length + ' lotti scaduti') + ' da smaltire: ' + nomi(scaduti));
     if (oggiL.length) righe.push('Scade oggi: ' + nomi(oggiL));
     if (presto.length) righe.push('In scadenza: ' + nomi(presto, true));

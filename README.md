@@ -76,6 +76,8 @@ Le manda lo stesso script di Google, senza servizi di terze parti:
 
 Lo script conosce i dati dell'ultima volta che l'app è stata usata: per le scadenze va bene, perché le date si sanno in anticipo; per le scorte vale l'ultimo aggiornamento.
 
+Con «Solo scadenze» (vedi sotto) l'app manda i lotti di produzione a parte: lo script li avvisa il giorno della scadenza e nei giorni prima, poi li lascia stare perché sono in archivio. Serve lo script dalla versione 3; con uno più vecchio l'app chiede di aggiornarlo, e intanto le notifiche non parlano di quei lotti.
+
 ## Banco: lo scontrino interno
 
 Alla cassa il bar batte solo il reparto, quindi l'app non può sapere cosa è stato venduto. Il Banco serve a questo: dopo lo scontrino fiscale si batte lo scontrino interno in Barista Flow e i prodotti venduti escono dal magazzino, senza dover contare la vetrina a fine giornata.
@@ -89,6 +91,19 @@ Alla cassa il bar batte solo il reparto, quindi l'app non può sapere cosa è st
 - Il prezzo di vendita viene dalla scheda tecnica e, per la rivendita, dall'articolo (campo «Prezzo di vendita», IVA inclusa). Senza prezzo il prodotto si vende lo stesso, ma non entra nel totale.
 
 Nei movimenti le vendite del Banco hanno la nota «Banco, ore 10:42», il codice dello scontrino (`banco`) e il prezzo unitario del momento (`prezzo`).
+
+## Vendite: scarico al Banco o solo scadenze
+
+Battere ogni vendita anche nell'app non sempre si può fare: con la coda al banco rallenta troppo. In Impostazioni → Vendite si sceglie come lavora il bar, e la scelta vale per tutti i dispositivi:
+
+- **Scarico al Banco** (di partenza): i prodotti venduti escono dal magazzino con lo scontrino interno, come descritto sopra.
+- **Solo scadenze**: il Banco si spegne e sparisce dai menu, ma la funzione resta e si riaccende quando si vuole. Il controllo si ferma alle materie prime in magazzino e al loro scarico con le produzioni:
+  - un lotto di produzione resta «in vetrina» con la quantità prodotta fino alla scadenza, con l'avviso in «Oggi» e nelle notifiche nei giorni prima e il giorno stesso; dopo va in archivio, senza «da smaltire» e senza scarichi da registrare;
+  - i semilavorati, che si consumano nelle produzioni, restano con giacenza, scadenza e «da smaltire» come le materie prime;
+  - la rivendita (bibite, cornetti surgelati…) resta negli acquisti e nei grafici dei prezzi, senza giacenza, scorta minima né avvisi;
+  - in Produzione i filtri diventano «Attivi», «In archivio» e «Tutti»; nello scarico rapido restano solo materie prime, imballaggi e semilavorati.
+
+I dati non cambiano: riaccendendo lo scarico al Banco, giacenze e movimenti tornano come prima.
 
 ## Pensata per l'uso al banco
 
@@ -162,7 +177,7 @@ test/                 prove automatiche nel browser
 | `ricette` | schede tecniche: ingredienti (articoli o semilavorati), resa, durata, tracce, prezzo |
 | `produzioni` | lotti prodotti con i consumi: quale lotto di ogni ingrediente e quanto |
 | `movimenti` | vendite, scarti, uso interno, rettifiche (variazione con segno su un lotto); quelle del Banco hanno anche `banco` (lo scontrino) e `prezzo` |
-| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari; nel documento `posta` il collegamento alla casella (URL dello script, chiave, mail già viste, fatture arrivate da importare) e le notifiche di questo dispositivo (ora, temi, ultimo riepilogo mandato) |
+| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari, scarico delle vendite (`scaricoVendite`: falso con «Solo scadenze»); nel documento `posta` il collegamento alla casella (URL dello script, chiave, mail già viste, fatture arrivate da importare) e le notifiche di questo dispositivo (ora, temi, ultimo riepilogo mandato) |
 
 Gli elementi dei dati di esempio, e quelli inseriti durante la prova, hanno `esempio: true`.
 
@@ -189,6 +204,7 @@ python3 test/test_uso.py
 python3 test/test_banco.py
 python3 test/test_anno.py
 python3 test/test_tema.py
+python3 test/test_scadenze.py
 python3 test/test_esempi.py
 python3 test/test_fatture.py
 python3 test/test_fatture_pdf.py
@@ -197,7 +213,7 @@ python3 test/test_posta.py
 python3 test/test_notifiche.py
 ```
 
-`test_tema.py` prova il tema in Impostazioni: automatico, chiaro e scuro, la barra del browser e il ritorno senza lampi. `test_anno.py` carica un anno di lavoro (più di 500 documenti) e controlla che Acquisti e Produzione restino leggere, che la ricerca trovi anche i documenti più vecchi e che il passaggio tra le pagine fotografi solo lo schermo. `test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
+`test_scadenze.py` prova «Solo scadenze»: Banco spento, lotti di produzione in vetrina e poi in archivio, semilavorati e materie prime da smaltire come sempre, rivendita solo negli acquisti, e il ritorno allo scarico al Banco. `test_tema.py` prova il tema in Impostazioni: automatico, chiaro e scuro, la barra del browser e il ritorno senza lampi. `test_anno.py` carica un anno di lavoro (più di 500 documenti) e controlla che Acquisti e Produzione restino leggere, che la ricerca trovi anche i documenti più vecchi e che il passaggio tra le pagine fotografi solo lo schermo. `test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
 
 ## Nota sulle etichette
 

@@ -147,6 +147,7 @@ const ACT = {
   'banco-annulla': b => bancoAnnulla(b.dataset.id),
   'banco-tutti': () => { BANCO.tutti = true; renderMain(); },
   altri: b => { const p = UI.pag[b.dataset.k]; if (p) { p.n += PAG; renderMain(); } },
+  tema: b => { const t = TEMA_BG[b.dataset.v] ? b.dataset.v : 'auto'; lsSet('bf-tema', t === 'auto' ? '' : t); applicaTema(t); renderMain(); },
   'banco-new-art': () => { if (guard()) formArticolo(null, null, {categoria: 'rivendita', unita: 'pz'}); },
   search: () => sheetSearch(),
   car: b => scrollLabels(+b.dataset.dir),
@@ -411,6 +412,7 @@ function subscribe() {
 const bancoRicorda = () => lsSet('bf-banco', route() === 'banco' ? '1' : '');
 async function init() {
   if (!location.hash && lsGet('bf-banco') === '1') { try { history.replaceState(history.state, '', '#banco'); } catch { /* cronologia non disponibile */ } }
+  applicaTema(temaScelto());
   wire(); paint(); curRoute = route(); bancoRicorda();
   const w = window.claude;
   if (!w || typeof w.use !== 'function') { S.db = localDB('barista-flow-v1'); S.mode = 'local'; document.body.classList.remove('nodl'); }

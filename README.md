@@ -101,7 +101,7 @@ Nei movimenti le vendite del Banco hanno la nota «Banco, ore 10:42», il codice
 - Gli elenchi che crescono col tempo, cioè i documenti d'acquisto e i lotti esauriti, mostrano i 40 più recenti e gli altri a gruppi con «Mostra altri». La ricerca guarda sempre in tutti: così la sezione resta veloce anche dopo anni di fatture.
 - Nel pulsante **+**, «Produci di nuovo» propone le produzioni più frequenti delle ultime sei settimane: un tocco apre il modulo già compilato con la quantità fatta più spesso. Nella produzione c'è il contapezzi e l'anteprima del codice lotto.
 - Le date dei moduli hanno le scelte rapide **Oggi** e **Ieri**. Nei documenti d'acquisto i fornitori usati di recente stanno in cima, il tipo di documento segue l'ultima volta (chi manda il DDT, chi la fattura) e nelle righe compaiono per primi gli articoli che compri di solito da quel fornitore.
-- Stile: verde Alpi (il marmo dei banconi) per azioni e struttura, ottone come filo sottile, superfici di porcellana; la sera diventa verde quasi nero con dettagli champagne, in automatico. Un solo carattere, Instrument Sans, incluso nell'app: niente caratteri scaricati da Google, funziona anche senza rete. Layout per telefono e barra laterale da computer.
+- Stile: verde Alpi (il marmo dei banconi) per azioni e struttura, ottone come filo sottile, superfici di porcellana; la sera diventa verde quasi nero con dettagli champagne, in automatico come il telefono. In Impostazioni → Aspetto si sceglie anche «Chiaro» o «Scuro» fisso: vale per quel dispositivo e si applica prima che la pagina si disegni, quindi aprendo in scuro non c'è nessun lampo chiaro. Un solo carattere, Instrument Sans, incluso nell'app: niente caratteri scaricati da Google, funziona anche senza rete. Layout per telefono e barra laterale da computer.
 
 ## Installarla sul telefono
 
@@ -188,6 +188,7 @@ python3 test/test_comodita.py
 python3 test/test_uso.py
 python3 test/test_banco.py
 python3 test/test_anno.py
+python3 test/test_tema.py
 python3 test/test_esempi.py
 python3 test/test_fatture.py
 python3 test/test_fatture_pdf.py
@@ -196,7 +197,7 @@ python3 test/test_posta.py
 python3 test/test_notifiche.py
 ```
 
-`test_anno.py` carica un anno di lavoro (più di 500 documenti) e controlla che Acquisti e Produzione restino leggere, che la ricerca trovi anche i documenti più vecchi e che il passaggio tra le pagine fotografi solo lo schermo. `test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
+`test_tema.py` prova il tema in Impostazioni: automatico, chiaro e scuro, la barra del browser e il ritorno senza lampi. `test_anno.py` carica un anno di lavoro (più di 500 documenti) e controlla che Acquisti e Produzione restino leggere, che la ricerca trovi anche i documenti più vecchi e che il passaggio tra le pagine fotografi solo lo schermo. `test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
 
 ## Nota sulle etichette
 

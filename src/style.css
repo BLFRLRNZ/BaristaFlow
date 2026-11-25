@@ -169,6 +169,8 @@ textarea{min-height:110px;resize:vertical;line-height:1.5}
 .seg button[aria-pressed=true]{background:light-dark(#ffffff,#26332e);color:var(--ink);font-weight:600;box-shadow:0 1px 2px light-dark(rgba(20,32,27,.1),rgba(0,0,0,.4)),0 0 0 1px var(--edge)}
 .sheet .seg,.sheet-g .seg{background:light-dark(#ecece5,#0f1714)}
 .fld .seg{flex-wrap:wrap;overflow:visible}
+.seg.seg-w{display:flex;flex-wrap:nowrap}
+.seg-w button{flex:1 1 0;padding:0 8px}
 .algrid{display:flex;flex-wrap:wrap;gap:8px}
 .altog{appearance:none;min-height:42px;padding:0 15px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--ink);font-family:var(--f);font-weight:550;font-size:14px;cursor:pointer}
 .altog[aria-pressed=true]{background:var(--pri);color:var(--onpri);border-color:var(--pri)}

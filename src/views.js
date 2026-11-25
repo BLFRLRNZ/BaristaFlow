@@ -360,6 +360,21 @@ function vPrezzi() {
 }
 
 /* ---------- Impostazioni ---------- */
+/* tema: automatico (come il telefono o il computer), chiaro o scuro; vale per questo dispositivo */
+const TEMI = [['auto', 'Automatico'], ['light', 'Chiaro'], ['dark', 'Scuro']];
+const TEMA_BG = {light: '#f1f1ec', dark: '#0c1311'};   // come --bg in style.css: il colore della barra del browser e del telefono
+const temaScelto = () => { const t = lsGet('bf-tema'); return t === 'light' || t === 'dark' ? t : 'auto'; };
+function applicaTema(t) {
+  const r = document.documentElement;
+  if (TEMA_BG[t]) r.dataset.theme = t; else delete r.dataset.theme;
+  $$('meta[name=theme-color]').forEach(m => { m.content = TEMA_BG[t] || TEMA_BG[/dark/.test(m.media) ? 'dark' : 'light']; });
+}
+function temaCard() {
+  const t = temaScelto();
+  const nota = t === 'dark' ? 'Sempre scuro, anche quando il telefono è in chiaro: riposa la vista la sera e nei locali poco illuminati.' : t === 'light' ? 'Sempre chiaro, anche quando il telefono è in scuro.' : 'Chiaro o scuro come il telefono o il computer.';
+  return `<div class="setgrp"><h2>Aspetto</h2><div class="card"><div class="fld"><span>Tema</span><div class="seg seg-w" role="group" aria-label="Tema">${TEMI.map(([v, l]) => `<button type="button" data-act="tema" data-v="${v}" aria-pressed="${t === v}">${l}</button>`).join('')}</div></div>
+    <p class="hint" style="margin:-4px 0 0">${esc(nota)} Vale solo su questo dispositivo.</p></div></div>`;
+}
 function vImpostazioni() {
   const c = cfg(), n = countSample(), reg = registered();
   const where = S.mode === 'cloud' ? 'I dati sono salvati nell’archivio di questa pagina su claude.ai e si vedono da ogni dispositivo con cui la apri.' : S.mode === 'local' ? 'I dati sono salvati solo in questo browser: esporta spesso un backup.' : 'In questa vista i dati non vengono salvati.';
@@ -384,6 +399,7 @@ function vImpostazioni() {
       <p class="hint" style="margin:-4px 0 14px">L'IVA serve solo a calcolare il food cost sul prezzo di vendita. In «Oggi» compare un avviso quando un prodotto comprato negli ultimi 30 giorni costa più della soglia rispetto all'acquisto precedente.</p>
       <button type="submit" class="btn pri w">Salva impostazioni</button>
     </div></div></form>
+    ${temaCard()}
     ${postaCard()}
     ${notifCard()}
     <div class="setgrp"><h2>Backup ed esportazioni</h2><div class="card"><p class="muted">Il backup contiene tutto: schede, acquisti, lotti, movimenti. Serve anche per spostare i dati su un altro dispositivo o sistema.</p>

@@ -116,7 +116,7 @@ with sync_playwright() as p:
 
     # 1. dal pulsante in Acquisti: tre fatture, una nota di credito e un file di metadati
     pg.goto(URL + "#acquisti"); pg.wait_for_selector("#v-acquisti")
-    pg.locator("main .btn", has_text="Importa fatture XML").click(); pg.wait_for_timeout(300)
+    pg.locator("main .btn", has_text="Importa fatture").click(); pg.wait_for_timeout(300)
     pg.set_input_files(".sheet input[data-file=fe]", [str(DIR / n) for n in files])
     pg.wait_for_selector(".sheet .list .row"); pg.wait_for_timeout(300)
     s = statuses(pg)
@@ -180,7 +180,7 @@ with sync_playwright() as p:
     pg.set_input_files(".sheet input[data-file=fe]", [str(DIR / "IT11111111111_01188.xml")]); pg.wait_for_timeout(500)
     check(statuses(pg).get("Fattura n. 1188 del 20/11/2026") == "Importata", "nello stesso elenco resta importata")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(250)
-    pg.locator("main .btn", has_text="Importa fatture XML").click(); pg.wait_for_timeout(250)
+    pg.locator("main .btn", has_text="Importa fatture").click(); pg.wait_for_timeout(250)
     pg.set_input_files(".sheet input[data-file=fe]", [str(DIR / "IT11111111111_01188.xml")]); pg.wait_for_selector(".sheet .list .row"); pg.wait_for_timeout(300)
     check(statuses(pg).get("Fattura n. 1188 del 20/11/2026") == "Già importata", "riaprendo: già importata")
 
@@ -205,7 +205,7 @@ with sync_playwright() as p:
             "es-a-panna": ("PAN05", "PANNA FRESCA 35% 0,5LT", "PZ", .5, 2.25), "es-a-mascarpone": ("MAS5", "MASCARPONE 500G", "PZ", .5, 3.85)}
     righe = [{"codice": CODE[x["articoloId"]][0], "descr": CODE[x["articoloId"]][1], "qta": x["qta"] / CODE[x["articoloId"]][3], "um": CODE[x["articoloId"]][2], "prezzo": CODE[x["articoloId"]][4], "totale": round(x["qta"] / CODE[x["articoloId"]][3] * CODE[x["articoloId"]][4], 2)} for x in ddt["righe"]]
     (DIR / "differita.xml").write_bytes(fattura("1201", "2026-11-24", *LAT, righe, tipo="TD24", ddt=[(ddt["numero"], ddt["data"])]))
-    pg.locator("main .btn", has_text="Importa fatture XML").click(); pg.wait_for_timeout(250)
+    pg.locator("main .btn", has_text="Importa fatture").click(); pg.wait_for_timeout(250)
     pg.set_input_files(".sheet input[data-file=fe]", [str(DIR / "differita.xml")]); pg.wait_for_selector(".sheet .list .row"); pg.wait_for_timeout(300)
     pg.locator(".sheet .row", has_text="Fattura n. 1201").click(); pg.wait_for_timeout(350)
     t = top(pg)
@@ -219,7 +219,7 @@ with sync_playwright() as p:
     check(burro is None or abs(burro["importo"] - round(burro["qta"] * 9.47, 2)) < .011, "prezzo del burro dalla fattura")
     check(len(docs(pg, "d.numero === '1201'")) == 0, "nessun carico doppio di merce")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(250)
-    pg.locator("main .btn", has_text="Importa fatture XML").click(); pg.wait_for_timeout(250)
+    pg.locator("main .btn", has_text="Importa fatture").click(); pg.wait_for_timeout(250)
     pg.set_input_files(".sheet input[data-file=fe]", [str(DIR / "differita.xml")]); pg.wait_for_selector(".sheet .list .row"); pg.wait_for_timeout(300)
     check(statuses(pg).get("Fattura n. 1201 del 24/11/2026") == "Già importata", "la differita risulta già importata")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(250)

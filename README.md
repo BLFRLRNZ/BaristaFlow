@@ -23,15 +23,27 @@ Durante la prova si può fare tutto liberamente. Anche quello che si inserisce v
 
 Gli esempi si generano in `src/esempi.js` con una simulazione giorno per giorno. Gli acquisti seguono i consumi, si usano prima i lotti che scadono prima e quello che scade si smaltisce: così giacenze, lotti e fatture tornano sempre. `test/check_esempi.js` lo verifica su date diverse.
 
-## Fatture elettroniche
+## Fatture dei fornitori: XML e PDF
 
-In Acquisti, o dal pulsante **+**, «Importa fatture XML» legge le fatture elettroniche dei fornitori: file `.xml`, firmati `.p7m` o tanti insieme in uno `.zip`. Si scaricano dal portale Fatture e Corrispettivi dell'Agenzia delle Entrate, dal gestionale del commercialista o dalle mail dei fornitori. La lettura avviene nel browser, anche su GitHub Pages e senza rete.
+In Acquisti, o dal pulsante **+**, «Importa fatture» legge le fatture dei fornitori. Accetta l'XML della fattura elettronica (`.xml`, firmato `.p7m` o tanti insieme in uno `.zip`) oppure il PDF. Gli XML si scaricano dal portale Fatture e Corrispettivi dell'Agenzia delle Entrate o dal gestionale del commercialista; i PDF sono quelli che i fornitori mandano per mail. Tutto si legge nel browser, sul telefono: i file non vengono mandati da nessuna parte.
 
 - Il fornitore si riconosce dalla partita IVA o dal nome; se manca, si crea con partita IVA, sede ed email.
 - La prima volta si abbina ogni riga a un articolo, con la conversione proposta dalla descrizione (per esempio «CT 24» diventa 24 pezzi, «6X0,5LT» 3 litri). Le righe che non sono merce, come trasporto e cauzioni, si saltano. Da quel momento le fatture di quel fornitore risultano «Pronte» e si importano con un tocco.
 - Se la fattura riporta lotto e scadenza, vengono letti; altrimenti si aggiungono a mano.
 - Una fattura differita sui DDT già registrati non carica di nuovo la merce: completa i prezzi dei DDT e li collega alla fattura.
 - Le note di credito, i file di ricevute e i metadati del Sistema di Interscambio vengono saltati, e le fatture già importate vengono riconosciute.
+
+### Fatture in PDF
+
+L'XML contiene i dati esatti della fattura; il PDF è un'impaginazione da cui i dati vanno ricostruiti. Il testo si estrae con [pdf.js](https://mozilla.github.io/pdf.js/) di Mozilla (in `vendor/pdfjs/`, licenza Apache 2.0), che si carica solo quando serve. Poi `src/fatture.js` ricompone righe e colonne dalla posizione delle parole:
+
+- fornitore e partita IVA dalla carta intestata, numero e data, imponibile e totale, i DDT citati;
+- le righe dalle intestazioni di colonna (Descrizione, Quantità, Prezzo, Importo, anche scritte attaccate) oppure, se non ci sono, dalle righe in cui quantità × prezzo = importo;
+- fatture su più pagine, con o senza intestazioni ripetute e righe di riporto, lotto e scadenza scritti sotto la riga, sconti, righe che non sono merce come il trasporto.
+
+Ogni riga si verifica con quantità × prezzo, e la somma delle righe con l'imponibile. Quando i conti tornano e fornitore e articoli sono già abbinati, anche il PDF risulta «Pronto» e si importa con un tocco; altrimenti resta «Da controllare», con numero, data, quantità e importi modificabili e il testo letto dal PDF consultabile. Le scansioni e le foto non contengono testo e non si leggono; i PDF protetti da password, le note di credito e i DDT vengono riconosciuti e non si caricano.
+
+Il lettore di PDF è un modulo JavaScript: funziona se l'app è servita da un indirizzo web (GitHub Pages, o `python3 -m http.server` in locale), non aprendo `index.html` come file.
 
 ## Pensata per l'uso al banco
 
@@ -71,12 +83,13 @@ src/
   details.js          dettagli: lotto, lotto del fornitore, articolo, scheda, documento, storico prezzi con grafico
   forms.js            moduli: articolo, fornitore, documento d'acquisto, scheda tecnica, produzione, scarichi
   quick.js            pulsante +, scarico rapido, ricerca globale, installazione sul telefono
-  fatture.js          lettura delle fatture elettroniche XML (anche .p7m e .zip) e abbinamento agli articoli
+  fatture.js          lettura delle fatture XML (anche .p7m e .zip) e PDF, abbinamento agli articoli
   esempi.js           bar di esempio (simulazione con date riferite a oggi), prova e registrazione del bar
   main.js             azioni, esportazioni, avvio e collegamento all'archivio
 manifest.webmanifest  nome, colori e icone per installare l'app
 sw.js                 funzionamento senza rete
 icone/                icona dell'app (SVG e PNG)
+vendor/pdfjs/         pdf.js di Mozilla, per estrarre il testo dai PDF (licenza Apache 2.0)
 test/                 prove automatiche nel browser
   dati-test.json      dati fissi su cui girano le prove (creati da genera_dati_test.py)
   check_esempi.js     controlla la coerenza dei dati di esempio
@@ -117,7 +130,10 @@ python3 test/test_prezzi.py
 python3 test/test_comodita.py
 python3 test/test_esempi.py
 python3 test/test_fatture.py
+python3 test/test_fatture_pdf.py
 ```
+
+`test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`.
 
 ## Nota sulle etichette
 

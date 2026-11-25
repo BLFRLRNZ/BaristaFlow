@@ -1,5 +1,5 @@
 """Assembla src/ in un unico file index.html (HTML, CSS e JavaScript insieme), pronto da aprire o pubblicare."""
-import pathlib, re, sys
+import pathlib, re, sys, urllib.parse
 
 root = pathlib.Path(__file__).resolve().parent
 src = root / "src"
@@ -10,6 +10,7 @@ logo = re.search(r"const LOGO = `(.*?)`;", js, re.S).group(1)
 if re.search(r"</script|<!--", js, re.I):
     sys.exit("Il JavaScript contiene una sequenza che romperebbe l'HTML")
 script = '"use strict";\n{\n' + js + "\n}\n"
-out = shell.replace("/*STYLE*/", css).replace("/*LOGO*/", logo).replace("/*SCRIPT*/", script)
+fav = "data:image/svg+xml," + urllib.parse.quote(" ".join((root / "icone" / "icon.svg").read_text(encoding="utf-8").split()), safe=" =:/,;'")
+out = shell.replace("/*FAVICON*/", fav).replace("/*STYLE*/", css).replace("/*LOGO*/", logo).replace("/*SCRIPT*/", script)
 (root / "index.html").write_text(out, encoding="utf-8")
 print("index.html:", len(out), "byte,", out.count("\n"), "righe")

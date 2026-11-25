@@ -409,6 +409,10 @@ button.sync{border:0;cursor:pointer}
 .fe-line .fe-q{margin:0 0 12px;font-size:14.5px}
 .fe-line .fe-h{margin:-4px 0 12px}
 .fe-line .fld>span .chip{margin-left:6px;vertical-align:1px}
+.fe-line .fe-q .chip{margin-left:4px}
+.fe-raw{margin:6px 0 14px}
+.fe-raw summary{cursor:pointer;color:var(--link);font-weight:650;padding:6px 0}
+.fe-raw pre{margin:6px 0 0;padding:12px;border-radius:12px;background:var(--surf2);font-size:12px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto}
 
 /* avvisi e caricamento */
 #toast{position:fixed;left:12px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:90;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;gap:8px;pointer-events:none}

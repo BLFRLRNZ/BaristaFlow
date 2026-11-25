@@ -10,7 +10,7 @@ function sheetQuick() {
       ${qa('new-ric', IC.doc, 'Scheda tecnica', 'Nuovo prodotto o semilavorato')}
       ${qa('new-art', IC.box, 'Articolo', 'Materia prima, rivendita, imballaggio')}
       ${qa('new-forn', IC.truck, 'Fornitore', 'Ragione sociale e contatti')}
-      ${qa('fe-import', IC.down, 'Importa fatture', 'File XML delle fatture elettroniche')}
+      ${qa('fe-import', IC.down, 'Importa fatture', 'XML o PDF dei fornitori')}
     </div>`});
 }
 
@@ -74,6 +74,5 @@ function setupPWA() {
   if (S.mode !== 'local' || !/^https?:$/.test(location.protocol)) return;
   const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.append(l);
   const ic = document.createElement('link'); ic.rel = 'apple-touch-icon'; ic.href = 'icone/icon-180.png'; document.head.append(ic);
-  const fav = document.createElement('link'); fav.rel = 'icon'; fav.href = 'icone/icon.svg'; fav.type = 'image/svg+xml'; document.head.append(fav);
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { /* senza lavoro offline */ });
 }

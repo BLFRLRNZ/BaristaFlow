@@ -481,14 +481,15 @@ button.sync{border:0;cursor:pointer;font-family:var(--f)}
 .skel{display:grid;gap:14px;padding-top:6px}
 .sk{border-radius:16px;background:linear-gradient(90deg,var(--surf2) 0%,var(--surf3) 50%,var(--surf2) 100%);background-size:200% 100%;animation:shim 1.3s linear infinite}
 @keyframes shim{to{background-position:-200% 0}}
-/* passaggio tra le pagine: la barra in alto e le sezioni restano ferme, il contenuto sfuma e sale di poco */
-main{view-transition-name:pagina}
+/* passaggio tra le pagine: la barra in alto e le sezioni restano ferme, il contenuto sfuma e sale di poco.
+   Sfuma la fotografia dello schermo (root), non tutta la pagina: una pagina lunga (gli acquisti di un anno)
+   sarebbe un'immagine enorme, lenta da fare e sul telefono capace di lampeggiare o bloccare il passaggio */
 .topbar{view-transition-name:barra}
 .tabs{view-transition-name:sezioni}
 ::view-transition-group(*){animation-duration:.28s}
-::view-transition-group(pagina),::view-transition-group(barra),::view-transition-group(sezioni),::view-transition-old(barra),::view-transition-new(barra),::view-transition-old(sezioni),::view-transition-new(sezioni),::view-transition-old(root),::view-transition-new(root){animation:none}
-::view-transition-old(pagina){animation:vt-out .12s ease-in both}
-::view-transition-new(pagina){animation:vt-in .3s cubic-bezier(.2,.8,.2,1) .04s both}
+::view-transition-group(root),::view-transition-group(barra),::view-transition-group(sezioni),::view-transition-old(barra),::view-transition-new(barra),::view-transition-old(sezioni),::view-transition-new(sezioni){animation:none}
+::view-transition-old(root){animation:vt-out .12s ease-in both}
+::view-transition-new(root){animation:vt-in .3s cubic-bezier(.2,.8,.2,1) .04s both}
 @keyframes vt-out{to{opacity:0}}
 @keyframes vt-in{from{opacity:0;transform:translateY(10px)}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

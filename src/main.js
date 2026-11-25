@@ -146,6 +146,7 @@ const ACT = {
   'banco-apri': () => sheetBanco(),
   'banco-annulla': b => bancoAnnulla(b.dataset.id),
   'banco-tutti': () => { BANCO.tutti = true; renderMain(); },
+  altri: b => { const p = UI.pag[b.dataset.k]; if (p) { p.n += PAG; renderMain(); } },
   'banco-new-art': () => { if (guard()) formArticolo(null, null, {categoria: 'rivendita', unita: 'pz'}); },
   search: () => sheetSearch(),
   car: b => scrollLabels(+b.dataset.dir),

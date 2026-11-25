@@ -48,6 +48,14 @@ const navSeg = (cur, opts) => `<div class="seg" role="group">${opts.map(([v, t])
 const algChips = (al, tr) => `<div class="chips">${al.length ? al.map(a => `<span class="chip al">${esc(ALGN[a])}</span>`).join('') : '<span class="chip">Nessuno dei 14 allergeni</span>'}${(tr || []).map(a => `<span class="chip">Tracce: ${esc(ALGN[a].toLowerCase())}</span>`).join('')}</div>`;
 /* i riquadri di «Oggi» filtrano l'elenco delle cose da fare; toccati di nuovo lo riaprono tutto */
 const tile = (cls, n, label, f, ic) => `<button type="button" class="tile ${n ? cls : ''}" id="tile-${f}" data-act="todo-f" data-f="${f}" aria-pressed="${UI.todoF === f}" aria-controls="todo"><span class="ti">${ic}</span><b>${n}</b><span>${esc(label)}</span></button>`;
+/* elenchi che crescono col tempo (documenti, lotti esauriti): si disegnano i primi, gli altri a gruppi su richiesta;
+   la ricerca guarda sempre in tutti. Un'altra ricerca o un altro filtro ripartono dal primo gruppo */
+const PAG = 40;
+function pagina(k, items, sig) { if (UI.pag[k]?.sig !== sig) UI.pag[k] = {sig, n: PAG}; return items.slice(0, UI.pag[k].n); }
+function altri(k, items, cosa, ic, hint = '') {
+  const rest = items.length - UI.pag[k].n; if (rest <= 0) return '';
+  return `<button type="button" class="row" id="${k}-altri" data-act="altri" data-k="${k}">${av(ic)}<span class="m"><b>Mostra altri ${Math.min(rest, PAG)} ${cosa}</b><span>${rest === 1 ? 'Ne resta 1 più vecchio' : `Ne restano ${rest} più vecchi`}${hint}</span></span></button>`;
+}
 const av = (content, tone = '') => `<span class="av ${tone}" aria-hidden="true">${content}</span>`;
 const catIc = c => c === 'rivendita' ? IC.bottle : c === 'imballaggio' ? IC.bag : IC.wheat;
 const sigOf = l => esc(String(l.p?.lotto || '').split('-')[0].slice(0, 4) || 'LOT');
@@ -201,7 +209,7 @@ function vProduzione() {
     ${prodNav('produzione')}
     ${nRic ? '' : `<p class="note w">${IC.info}<span>Per produrre serve almeno una scheda tecnica. <button type="button" class="lnk" data-act="new-ric">Crea la prima scheda</button></span></p>`}
     <div class="bar">${search('prod', 'Cerca lotto, prodotto o operatore')}${seg('prodF', [['attivi', 'Con giacenza'], ['esauriti', 'Esauriti'], ['tutti', 'Tutti']])}</div>
-    ${lots.length ? `<div class="list">${lots.map(prodRow).join('')}</div>` : empty(q ? 'Nessun lotto corrisponde alla ricerca.' : 'Nessun lotto in questo elenco.', IC.chef)}</section>`;
+    ${lots.length ? `<div class="list">${pagina('prod', lots, q + '|' + UI.prodF).map(prodRow).join('')}${altri('prod', lots, 'lotti', IC.chef)}</div>` : empty(q ? 'Nessun lotto corrisponde alla ricerca.' : 'Nessun lotto in questo elenco.', IC.chef)}</section>`;
 }
 function ricCard(r) {
   const al = algSort([...recAllergensOf(r, [r.id])]);
@@ -277,11 +285,11 @@ function vAcquisti() {
   let docs = [...S.data.documenti.values()];
   if (q) docs = docs.filter(d => [d.numero, fornName(d.fornitoreId), TIPI[d.tipo], d.fatturaRif, ...(d.righe || []).flatMap(r => [S.data.articoli.get(r.articoloId)?.nome, r.lotto])].join(' ').toLowerCase().includes(q));
   docs.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (b.creato || 0) - (a.creato || 0));
-  const rows = docs.map(d => {
+  const rows = pagina('acq', docs, q).map(d => {
     const n = (d.righe || []).length, att = (d.allegati || []).length;
     const noPrice = d.tipo !== 'inventario' && (d.righe || []).some(r => r.importo == null || r.importo === '');
     return `<button type="button" class="row" data-act="open-doc" data-id="${esc(d.id)}">${av(DOCAB[d.tipo] || 'DOC', noPrice ? 'amb' : '')}<span class="m"><b>${esc(docName(d))}</b><span>${esc(fornName(d.fornitoreId) || (d.tipo === 'inventario' ? 'Merce già in magazzino' : 'Fornitore non indicato'))} · ${n === 1 ? '1 riga' : `${n} righe`}${att ? ` · ${att === 1 ? '1 allegato' : `${att} allegati`}` : ''}${d.tipo === 'ddt' && d.fatturaRif ? ` · fattura ${esc(d.fatturaRif)}` : ''}</span><span class="mc">${d.soloPrezzi ? '<span class="chip">Solo storico prezzi</span>' : ''}${noPrice ? '<span class="chip amb">Prezzi da inserire</span>' : ''}</span></span><span class="s"><span class="q">${EUR(docTot(d))}</span></span></button>`;
-  }).join('');
+  }).join('') + altri('acq', docs, 'documenti', IC.receipt, q ? '' : '. Per trovarne uno, cerca il numero o il fornitore.');
   return `<section id="v-acquisti"><div class="ph"><div><h1>Acquisti</h1><p>Fatture e DDT: ogni riga diventa un lotto di magazzino con lotto del fornitore, scadenza e costo.</p></div>
     <div class="acts w"><button type="button" class="btn pri" data-act="new-doc">${IC.plus}Registra documento</button><button type="button" class="btn" data-act="fe-import">${IC.down}Importa fatture${postaCoda().length ? ` <span class="chip amb">${postaMail(postaCoda())} dalla posta</span>` : ''}</button><button type="button" class="btn" data-act="new-forn">Nuovo fornitore</button></div></div>
     <div class="subnav">${acqNav('acquisti')}</div>

@@ -72,7 +72,11 @@ with sync_playwright() as p:
         shot(pg, "e_" + name)
     section("produzione", "main .list .row", "produzione", 8)
     pg.locator("main .seg button", has_text="Tutti").click(); pg.wait_for_timeout(150)
-    check(pg.locator("main .list .row").count() > 60, "produzione: tutti i lotti delle quattro settimane")
+    check(pg.locator("main .list .row[data-act=open-lotto]").count() == 40 and pg.locator("#prod-altri").count() == 1, "produzione: tutti i lotti, i più recenti per primi e «Mostra altri»")
+    for _ in range(10):
+        if not pg.locator("#prod-altri").count(): break
+        pg.locator("#prod-altri").click(); pg.wait_for_timeout(150)
+    check(pg.locator("main .list .row[data-act=open-lotto]").count() > 60, "produzione: tutti i lotti delle quattro settimane")
     section("schede", "main .rc", "schede", 9)
     cats = [T(x) for x in pg.locator("main .bar .seg button").all_inner_texts()]
     check(cats == ["Tutte", "Dolci da forno", "Pasticceria fresca", "Salato", "Semilavorati"], f"categorie delle schede {cats}")
@@ -82,7 +86,13 @@ with sync_playwright() as p:
     section("magazzino", "main .list .row", "magazzino", 30)
     pg.locator("main .seg button", has_text="Prodotti").click(); pg.wait_for_timeout(150)
     check(pg.locator("main .grp").count() >= 5, "magazzino: prodotti in giacenza")
-    section("acquisti", "main .list .row", "acquisti", 120)
+    section("acquisti", "main .list .row", "acquisti", 40)
+    # i documenti più recenti, gli altri a gruppi di 40: la pagina resta leggera anche con un anno di fatture
+    check(pg.locator("main .list .row[data-act=open-doc]").count() == 40 and pg.locator("#acq-altri").count() == 1, "acquisti: i 40 documenti più recenti e «Mostra altri»")
+    for _ in range(10):
+        if not pg.locator("#acq-altri").count(): break
+        pg.locator("#acq-altri").click(); pg.wait_for_timeout(150)
+    check(pg.locator("main .list .row[data-act=open-doc]").count() >= 120 and pg.locator("#acq-altri").count() == 0, "acquisti: con «Mostra altri» arrivano tutti")
     acq = T(pg.locator("main .list").inner_text())
     check("Prezzi da inserire" in acq and "Solo storico prezzi" in acq and "Inventario iniziale" in acq and "Scontrino" in acq and "fattura n. " in acq, "acquisti: DDT senza prezzi, storico, inventario, scontrini, fattura collegata")
     section("prezzi", "main .list .row", "prezzi", 25)

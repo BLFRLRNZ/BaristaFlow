@@ -45,6 +45,20 @@ Ogni riga si verifica con quantità × prezzo, e la somma delle righe con l'impo
 
 Il lettore di PDF è un modulo JavaScript: funziona se l'app è servita da un indirizzo web (GitHub Pages, o `python3 -m http.server` in locale), non aprendo `index.html` come file.
 
+### Fatture dalla posta
+
+Le fatture che arrivano per mail possono comparire da sole in «Importa fatture», senza scaricarle e caricarle a mano. Serve una casella Gmail, meglio se usata solo per le fatture, in cui arrivino le copie con il file allegato (XML, P7M, ZIP o PDF): dal servizio dove il bar riceve le fatture si attiva l'invio di una copia a quell'indirizzo.
+
+Fa da ponte `apps-script/fatture-dalla-posta.gs`, un piccolo script di Google Apps Script, gratuito, che gira nell'account Google della casella. Legge solo gli allegati delle mail che corrispondono alla ricerca impostata nello script (di base tutte quelle con allegati) e li passa all'app. Si installa da Impostazioni → Fatture dalla posta, che guida passo per passo e copia lo script con la chiave del collegamento già scritta:
+
+1. con l'account della casella si crea un progetto su script.google.com e si incolla lo script;
+2. si esegue la funzione `prova`, che chiede il permesso di leggere Gmail;
+3. si pubblica come app web (esegui come: il proprio account; accesso: chiunque) e si incolla nell'app l'URL che finisce con `/exec`.
+
+L'app controlla la casella quando si apre, quando si torna su di essa e ogni 15 minuti mentre è aperta. Le fatture arrivate compaiono in «Oggi» e in Acquisti; «Importa fatture» le scarica e le legge come i file scelti a mano, quindi quelle dei fornitori già abbinati risultano pronte. Se una mail contiene la stessa fattura in XML e in PDF vale l'XML; le fatture che non sono merce, come luce e telefono, si tolgono con «Non importare». Lo script risponde solo a chi conosce l'URL e la chiave.
+
+Il collegamento funziona dall'app pubblicata su un sito, come GitHub Pages; la versione su claude.ai non può chiamare siti esterni.
+
 ## Pensata per l'uso al banco
 
 - Il pulsante **+** al centro della barra in basso apre le registrazioni rapide: produzione, acquisto, scarico, scheda, articolo e fornitore.
@@ -84,15 +98,18 @@ src/
   forms.js            moduli: articolo, fornitore, documento d'acquisto, scheda tecnica, produzione, scarichi
   quick.js            pulsante +, scarico rapido, ricerca globale, installazione sul telefono
   fatture.js          lettura delle fatture XML (anche .p7m e .zip) e PDF, abbinamento agli articoli
+  posta.js            fatture dalla posta: collegamento allo script di Google, controllo della casella, fatture arrivate
   esempi.js           bar di esempio (simulazione con date riferite a oggi), prova e registrazione del bar
   main.js             azioni, esportazioni, avvio e collegamento all'archivio
 manifest.webmanifest  nome, colori e icone per installare l'app
 sw.js                 funzionamento senza rete
 icone/                icona dell'app (SVG e PNG)
 vendor/pdfjs/         pdf.js di Mozilla, per estrarre il testo dai PDF (licenza Apache 2.0)
+apps-script/          script di Google Apps Script che passa all'app gli allegati delle mail con le fatture
 test/                 prove automatiche nel browser
   dati-test.json      dati fissi su cui girano le prove (creati da genera_dati_test.py)
   check_esempi.js     controlla la coerenza dei dati di esempio
+  check_posta_gs.js   prova lo script di Google con una casella Gmail finta
 ```
 
 ## Modello dei dati
@@ -105,7 +122,7 @@ test/                 prove automatiche nel browser
 | `ricette` | schede tecniche: ingredienti (articoli o semilavorati), resa, durata, tracce, prezzo |
 | `produzioni` | lotti prodotti con i consumi: quale lotto di ogni ingrediente e quanto |
 | `movimenti` | vendite, scarti, uso interno, rettifiche (variazione con segno su un lotto) |
-| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari |
+| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari; nel documento `posta` il collegamento alla casella (URL dello script, chiave, mail già viste, fatture arrivate da importare) |
 
 Gli elementi dei dati di esempio, e quelli inseriti durante la prova, hanno `esempio: true`.
 
@@ -131,9 +148,11 @@ python3 test/test_comodita.py
 python3 test/test_esempi.py
 python3 test/test_fatture.py
 python3 test/test_fatture_pdf.py
+node test/check_posta_gs.js
+python3 test/test_posta.py
 ```
 
-`test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`.
+`test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app.
 
 ## Nota sulle etichette
 

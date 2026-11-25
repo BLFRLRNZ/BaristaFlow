@@ -446,6 +446,16 @@ button.sync{border:0;cursor:pointer}
 body.ro .w{display:none!important}
 body.nodl .dl{display:none!important}
 
+/* fatture dalla posta */
+ol.steps{margin:4px 0 18px;padding-left:22px;display:grid;gap:10px;line-height:1.5}
+ol.steps li::marker{font-weight:800;color:var(--ink2)}
+ol.steps .acts{display:flex;margin-top:8px}
+.posta-gs pre{max-height:240px;overflow:auto;font-size:12px}
+.note.posta-bar{margin-bottom:12px}
+.note.posta-bar .lnk{display:block;margin:4px 0 0}
+ol.steps a{color:var(--link);font-weight:700;text-decoration:none}
+.btn .chip{margin-left:4px;font-size:12px}
+
 </style>
 </head>
 <body class="nodl">
@@ -490,6 +500,7 @@ const svg = p => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${p}</sv
 const IC = {
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   x: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
+  mail: svg('<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4.5 7.5 7.5 5.5 7.5-5.5"/>'),
   copy: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>'),
   down: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
   search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>'),
@@ -1027,8 +1038,8 @@ function vOggi() {
   const more = !UI.todoAll && soon.length > 5 ? soon.length - 4 : 0;
   const soonRows = (more ? soon.slice(0, 4) : soon).map(l => lotRow(l));
   if (more) soonRows.push(`<button type="button" class="row" data-act="todo-all">${av(IC.clock, 'amb')}<span class="m"><b>Altri ${more} in scadenza</b><span>Mostra tutto l’elenco</span></span></button>`);
-  const todo = [...exp.map(l => lotRow(l, smal(l))), ...soonRows, ...under.map(underRow),
-    ...rincari.map(x => `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(x.a.id)}">${av(IC.trend, 'red')}<span class="m"><b>${esc(x.a.nome)}</b><span>Rincaro: pagato ${EUR(x.l.p)} ${perU(x.a.unita)} il ${fmtD(x.l.date)}, prima ${EUR(x.pv.p)}</span><span class="mc">${delta(x.ch)}</span></span></button>`)];
+  const todo = [postaRow(), ...exp.map(l => lotRow(l, smal(l))), ...soonRows, ...under.map(underRow),
+    ...rincari.map(x => `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(x.a.id)}">${av(IC.trend, 'red')}<span class="m"><b>${esc(x.a.nome)}</b><span>Rincaro: pagato ${EUR(x.l.p)} ${perU(x.a.unita)} il ${fmtD(x.l.date)}, prima ${EUR(x.pv.p)}</span><span class="mc">${delta(x.ch)}</span></span></button>`)].filter(Boolean);
   const sample = countSample();
   return `<section id="v-oggi"><div class="ph"><div><p class="kick">${esc(dateStr)}</p><h1>${greet}</h1></div>
     <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div></div>
@@ -1138,7 +1149,7 @@ function vAcquisti() {
     return `<button type="button" class="row" data-act="open-doc" data-id="${esc(d.id)}">${av(DOCAB[d.tipo] || 'DOC', noPrice ? 'amb' : '')}<span class="m"><b>${esc(docName(d))}</b><span>${esc(fornName(d.fornitoreId) || (d.tipo === 'inventario' ? 'Merce già in magazzino' : 'Fornitore non indicato'))} · ${n === 1 ? '1 riga' : `${n} righe`}${att ? ` · ${att === 1 ? '1 allegato' : `${att} allegati`}` : ''}${d.tipo === 'ddt' && d.fatturaRif ? ` · fattura ${esc(d.fatturaRif)}` : ''}</span><span class="mc">${d.soloPrezzi ? '<span class="chip">Solo storico prezzi</span>' : ''}${noPrice ? '<span class="chip amb">Prezzi da inserire</span>' : ''}</span></span><span class="s"><span class="q">${EUR(docTot(d))}</span></span></button>`;
   }).join('');
   return `<section id="v-acquisti"><div class="ph"><div><h1>Acquisti</h1><p>Fatture e DDT: ogni riga diventa un lotto di magazzino con lotto del fornitore, scadenza e costo.</p></div>
-    <div class="acts w"><button type="button" class="btn pri" data-act="new-doc">${IC.plus}Registra documento</button><button type="button" class="btn" data-act="fe-import">${IC.down}Importa fatture</button><button type="button" class="btn" data-act="new-forn">Nuovo fornitore</button></div></div>
+    <div class="acts w"><button type="button" class="btn pri" data-act="new-doc">${IC.plus}Registra documento</button><button type="button" class="btn" data-act="fe-import">${IC.down}Importa fatture${postaCoda().length ? ` <span class="chip amb">${postaMail(postaCoda())} dalla posta</span>` : ''}</button><button type="button" class="btn" data-act="new-forn">Nuovo fornitore</button></div></div>
     <div class="subnav">${acqNav('acquisti')}</div>
     <div class="bar">${search('acq', 'Cerca numero, fornitore, articolo o lotto')}</div>
     ${rows ? `<div class="list">${rows}</div>` : empty(q ? 'Nessun documento corrisponde alla ricerca.' : 'Nessun acquisto registrato. Registra la prima fattura o il primo DDT.', IC.receipt)}</section>`;
@@ -1231,6 +1242,7 @@ function vImpostazioni() {
       <p class="hint" style="margin:-4px 0 14px">L'IVA serve solo a calcolare il food cost sul prezzo di vendita. In «Oggi» compare un avviso quando un prodotto comprato negli ultimi 30 giorni costa più della soglia rispetto all'acquisto precedente.</p>
       <button type="submit" class="btn pri w">Salva impostazioni</button>
     </div></div></form>
+    ${postaCard()}
     <div class="setgrp"><h2>Backup ed esportazioni</h2><div class="card"><p class="muted">Il backup contiene tutto: schede, acquisti, lotti, movimenti. Serve anche per spostare i dati su un altro dispositivo o sistema.</p>
       <div class="acts"><button type="button" class="btn dl" data-act="dl-backup">${IC.down}Esporta backup</button><label class="btn w">Importa backup<input type="file" accept="application/json,.json" data-file="import"></label><button type="button" class="btn dl" data-act="dl-csv">${IC.down}Giacenze in CSV</button></div>
       ${S.mode !== 'local' && !S.downloads ? '<p class="hint" style="margin-top:10px">Il download dei file non è disponibile in questa vista.</p>' : ''}</div></div>
@@ -2595,7 +2607,7 @@ async function fePdf(name, bytes) {
     testo: lines.slice(0, 300).map(l => l.text)}]};
 }
 async function feRead(files) {
-  const out = [], seen = new Set(FE.list.map(e => e.key));
+  const out = [], seen = new Map(FE.list.map(e => [e.key, e]));
   let ignored = 0;
   const one = async (name, bytes, depth) => {
     if (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 3 && bytes[3] === 4) {
@@ -2612,8 +2624,9 @@ async function feRead(files) {
     if (r.err) { out.push({key: 'err:' + name, file: name, err: r.err}); return; }
     for (const f of r.fatture) {
       const key = [fePiva(f.forn.piva) || feNome(f.forn.nome), f.numero, f.data].join('|');
-      if (seen.has(key)) continue;
-      seen.add(key); out.push({key, file: name, f});
+      const ex = seen.get(key);
+      if (ex) { if (ex.f?.pdf && !f.pdf && !ex.done) Object.assign(ex, {file: name, f}); continue; }
+      const e = {key, file: name, f}; seen.set(key, e); out.push(e);
     }
   };
   for (const file of files) {
@@ -2701,6 +2714,7 @@ function feDup(f, fid) {
 function feStatus(e) {
   if (e.err) return {k: 'err', txt: e.err[0].toUpperCase() + e.err.slice(1)};
   if (e.done) return {k: 'done', txt: 'Importata'};
+  if (e.scartata) return {k: 'skip', txt: 'Non importata'};
   const f = e.f;
   if (f.tipo === 'TD04') return {k: 'skip', txt: 'Nota di credito: non si carica'};
   if (f.tipo === 'DDT') return {k: 'skip', txt: 'Sembra un DDT, non una fattura: registralo come DDT'};
@@ -2750,6 +2764,7 @@ async function feSave(e, fid, solo, lines) {
   }
   for (const id of e.nuovi || []) { const a = S.data.articoli.get(id); if (a && !a.fornitoreId) await put('articoli', id, {...strip(a), fornitoreId: fid}, true); }
   e.done = true;
+  if (e.posta) await fePostaClose();
   return true;
 }
 
@@ -2757,7 +2772,7 @@ async function feSave(e, fid, solo, lines) {
 function sheetFatture() {
   if (!guard()) return;
   FE.list = []; FE.ignored = 0;
-  const o = {title: 'Importa fatture', busy: false, live: true,
+  const o = {title: 'Importa fatture', busy: false, live: true, fe: true,
     body: () => {
       const rows = FE.list.map((e, i) => {
         const s = feStatus(e), f = e.f;
@@ -2767,18 +2782,20 @@ function sheetFatture() {
         const open = f && !['done', 'dup', 'skip'].includes(s.k);
         return `<${open ? 'button type="button"' : 'div'} class="row${open ? '' : ' static'}" ${open ? `data-act="fe-open" data-i="${i}"` : ''}>${av(s.k === 'done' || s.k === 'ready' ? IC.check : s.k === 'err' ? IC.alert : IC.receipt, tone)}<span class="m"><b>${esc(title)}</b><span>${esc(sub)}</span><span class="mc"><span class="chip ${tone}">${esc(s.txt)}</span></span></span></${open ? 'button' : 'div'}>`;
       }).join('');
-      return `<p class="muted">Carica le fatture dei fornitori. Gli XML delle fatture elettroniche, anche firmati (.p7m) o tanti insieme in uno .zip, si leggono in modo esatto. Dei PDF l'app legge il testo e ti propone righe e importi da controllare; le foto e le scansioni invece non si possono leggere.</p>
+      return `${postaBar()}<p class="muted">Carica le fatture dei fornitori. Gli XML delle fatture elettroniche, anche firmati (.p7m) o tanti insieme in uno .zip, si leggono in modo esatto. Dei PDF l'app legge il testo e ti propone righe e importi da controllare; le foto e le scansioni invece non si possono leggere.</p>
         ${countSample() ? '<p class="note warn">' + IC.info + '<span>Stai usando i dati di esempio: anche le fatture che importi ora vengono cancellate quando registri il bar.</span></p>' : ''}
         <p><label class="btn ${FE.list.length ? '' : 'pri'}">${IC.plus}${FE.list.length ? 'Aggiungi altri file' : 'Scegli i file'}<input type="file" accept=".xml,.p7m,.zip,.pdf,application/xml,text/xml,application/zip,application/pkcs7-mime,application/pdf" multiple data-file="fe"></label></p>
-        ${o.busy ? '<p class="hint">Leggo i file…</p>' : ''}
+        ${o.busy === 'posta' ? '<p class="hint">Scarico le fatture arrivate dalla posta…</p>' : o.busy ? '<p class="hint">Leggo i file…</p>' : ''}
         ${FE.list.length ? `<div class="list">${rows}</div>` : ''}
         ${FE.ignored ? `<p class="hint" style="margin-top:10px">${FE.ignored === 1 ? 'Un file' : FE.ignored + ' file'} senza fattura (ricevute e metadati del Sistema di Interscambio) ${FE.ignored === 1 ? 'è stato saltato' : 'sono stati saltati'}.</p>` : ''}
         ${FE.list.some(e => e.f && feStatus(e).k === 'check') ? '<p class="hint" style="margin-top:10px">Tocca le fatture da controllare: la prima volta abbini le righe ai tuoi articoli, poi l’app se lo ricorda per quel fornitore.</p>' : ''}`;
     },
     foot: () => { const n = FE.list.filter(e => e.f && feStatus(e).k === 'ready').length; return n ? `<button type="button" class="btn pri" data-act="fe-all">Importa ${n === 1 ? 'la fattura pronta' : `le ${n} fatture pronte`}</button>` : ''; }};
   openSheet(o);
+  if (postaCoda().length) fePostaLoad(o);
 }
 async function feAddFiles(o, files) {
+  if (o.busy) { toast('Aspetta un attimo: sto ancora leggendo le fatture.'); return; }
   o.busy = true; paintSheet(o);
   try { const {out, ignored} = await feRead(files); FE.list.push(...out); FE.ignored += ignored; }
   catch { toast('Non sono riuscito a leggere i file.', true); }
@@ -2850,7 +2867,8 @@ function sheetFattura(e) {
           <details class="fe-raw"><summary>Testo letto dal PDF</summary><pre>${esc((f.testo || []).join('\n'))}</pre></details>` : ''}
         <p class="err" id="ferr" role="alert"></p>`;
     },
-    foot: () => foot('Importa fattura'),
+    entry: e,
+    foot: () => e.posta ? `<button type="button" class="btn" data-act="fe-scarta">Non importare</button><button type="button" class="btn pri" data-act="save">Importa fattura</button>` : foot('Importa fattura'),
     onField: (k, oo, kind, el) => {
       if (k === 'forn') { fill(); paintSheet(oo); return; }
       if (k === 'solo') { paintSheet(oo); return; }
@@ -2905,6 +2923,201 @@ function sheetFattura(e) {
       }
     }};
   openSheet(o);
+}
+
+/* ---------- fatture dalla posta: una casella Gmail collegata con uno script di Google ----------
+   Lo script (apps-script/fatture-dalla-posta.gs) elenca gli allegati XML, P7M, ZIP e PDF arrivati nella casella
+   e li passa all'app. Le mail nuove finiscono in una coda; «Importa fatture» le scarica e le legge come i file scelti a mano. */
+const POSTA_GS = "/*\n * Barista Flow \u00b7 Fatture dalla posta\n *\n * Passa a Barista Flow le fatture che arrivano come allegato (XML, P7M, ZIP o PDF)\n * nella casella Gmail dell'account con cui crei questo script.\n * Come si installa: in Barista Flow, Impostazioni \u2192 Fatture dalla posta.\n */\n\n// La sceglie l'app: lo script copiato da Barista Flow la contiene gi\u00e0.\nvar CHIAVE = '__CHIAVE__';\n\n// Quali mail guardare, con la ricerca di Gmail. Con una casella usata solo per le fatture va bene cos\u00ec;\n// altrimenti limita al mittente, per esempio: 'from:fatture@servizio.it has:attachment'\nvar RICERCA = 'has:attachment';\n\nvar ALLEGATI = /\\.(xml|p7m|zip|pdf)$/i;\nvar GIORNI = 60;   // non si guarda pi\u00f9 indietro di cos\u00ec\n\n// La prima volta premi \u00abEsegui\u00bb con questa funzione: Google chiede il permesso di leggere Gmail\n// e nel registro compaiono gli allegati che lo script passerebbe all'app.\nfunction prova() {\n  var r = elenco(0);\n  Logger.log('Casella ' + r.casella + ': ' + r.file.length + ' allegati negli ultimi ' + GIORNI + ' giorni');\n  r.file.forEach(function (f) { Logger.log(new Date(f.data).toLocaleString() + '  ' + f.nome + '  da ' + f.da); });\n}\n\n// L'app chiama l'indirizzo dell'app web: ?k=chiave&dal=millisecondi per l'elenco, ?k=chiave&op=file&id=\u2026 per un allegato\nfunction doGet(e) {\n  var p = (e && e.parameter) || {};\n  if (String(CHIAVE).length < 16 || p.k !== CHIAVE) return risposta({ok: false, errore: 'chiave'});\n  try {\n    return risposta(p.op === 'file' ? file(p.id) : elenco(Number(p.dal) || 0));\n  } catch (err) {\n    return risposta({ok: false, errore: String((err && err.message) || err)});\n  }\n}\n\n// allegati delle mail arrivate dopo \u00abdal\u00bb, con un giorno di margine: i doppioni li scarta l'app\nfunction elenco(dal) {\n  var da = Math.max(dal - 864e5, Date.now() - GIORNI * 864e5);\n  var fili = GmailApp.search(RICERCA + ' after:' + Math.floor(da / 1000), 0, 200);\n  var out = [];\n  fili.forEach(function (filo) {\n    filo.getMessages().forEach(function (m) {\n      var t = m.getDate().getTime();\n      if (t < da) return;\n      m.getAttachments({includeInlineImages: false}).forEach(function (a, i) {\n        if (ALLEGATI.test(a.getName())) out.push({id: m.getId() + ':' + i, nome: a.getName(), data: t, da: m.getFrom(), oggetto: m.getSubject(), byte: a.getSize()});\n      });\n    });\n  });\n  out.sort(function (a, b) { return a.data - b.data; });\n  return {ok: true, casella: Session.getEffectiveUser().getEmail(), adesso: Date.now(), file: out.slice(0, 300)};\n}\n\nfunction file(id) {\n  var parti = String(id || '').split(':');\n  var m = parti[0] ? GmailApp.getMessageById(parti[0]) : null;\n  var a = m ? m.getAttachments({includeInlineImages: false})[Number(parti[1])] : null;\n  if (!a) return {ok: false, errore: 'allegato non trovato'};\n  return {ok: true, nome: a.getName(), b64: Utilities.base64Encode(a.getBytes())};\n}\n\nfunction risposta(o) {\n  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);\n}\n";
+const POSTA = {busy: false, last: 0, timer: 0};
+const postaCfg = () => S.data.impostazioni.get('posta') || null;
+const postaOk = () => S.mode === 'local';   // su claude.ai la pagina non può chiamare siti esterni
+const postaOn = () => { const p = postaCfg(); return postaOk() && !!(p && p.url && p.chiave); };
+const postaCoda = () => (postaOn() && Array.isArray(postaCfg().coda) ? postaCfg().coda : []);
+const postaMail = coda => new Set(coda.map(x => String(x.id).split(':')[0])).size;   // una mail = una fattura, anche con XML e PDF allegati
+const postaScript = k => POSTA_GS.replace('__CHIAVE__', k);
+const POSTA_TRENTA = 30 * 864e5;
+function postaChiave() {
+  const b = crypto.getRandomValues(new Uint8Array(18));
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function fmtWhen(ts) {
+  const d = new Date(+ts); if (!+ts || isNaN(d)) return '';
+  const iso = isoOf(d), hm = d.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'});
+  return `${iso === today() ? 'oggi' : iso === isoOf(new Date(Date.now() - 864e5)) ? 'ieri' : 'il ' + fmtD(iso)} alle ${hm}`;
+}
+
+/* --- chiamate allo script --- */
+async function postaFetch(p, params) {
+  const u = new URL(p.url);
+  u.searchParams.set('k', p.chiave);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, String(v));
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
+  let txt;
+  try { const r = await fetch(u.href, {signal: ctl.signal, cache: 'no-store'}); if (!r.ok) throw Object.assign(new Error('http'), {code: 'risposta'}); txt = await r.text(); }
+  finally { clearTimeout(t); }
+  let j; try { j = JSON.parse(txt); } catch { throw Object.assign(new Error('json'), {code: 'risposta'}); }
+  if (!j || j.ok !== true) throw Object.assign(new Error('script'), {code: String(j?.errore || 'risposta')});
+  return j;
+}
+function postaErr(e) {
+  if (e?.code === 'chiave') return 'La chiave non corrisponde: copia di nuovo lo script da Barista Flow, incollalo e pubblica una nuova versione.';
+  if (e?.name === 'AbortError') return 'Lo script non ha risposto in tempo: riprova tra poco.';
+  if (!navigator.onLine) return 'Sei senza connessione: la posta si controlla quando torna.';
+  if (!e?.code || e.code === 'risposta') return 'Lo script non risponde: controlla l’URL (finisce con /exec) e che l’accesso sia «Chiunque».';
+  return 'Lo script ha dato un errore: ' + String(e.code).slice(0, 160);
+}
+
+/* --- controllo della casella: all'avvio, quando si torna sull'app e ogni 15 minuti mentre è aperta --- */
+async function postaSync(manual) {
+  const p = postaCfg();
+  if (!postaOn() || POSTA.busy || !allLoaded() || S.ro) return null;
+  if (!manual && !navigator.onLine) return null;
+  POSTA.busy = true; POSTA.last = Date.now(); refreshSheets();
+  let n = null;
+  try {
+    const j = await postaFetch(p, {dal: p.dal || Date.now() - POSTA_TRENTA});
+    const cur = postaCfg(); if (!cur || cur.url !== p.url) return null;   // scollegata o cambiata nel frattempo
+    const files = (Array.isArray(j.file) ? j.file : []).filter(x => x && typeof x.id === 'string' && x.id.length < 200);
+    const visti = {...(cur.visti || {})}, coda = [...(cur.coda || [])];
+    const nuovi = files.filter(x => !visti[x.id]);
+    for (const x of nuovi) {
+      visti[x.id] = +x.data || Date.now();
+      coda.push({id: x.id, nome: String(x.nome || 'allegato').slice(0, 120), data: +x.data || Date.now(), da: String(x.da || '').slice(0, 120), oggetto: String(x.oggetto || '').slice(0, 160)});
+    }
+    const old = Date.now() - 120 * 864e5;
+    for (const k of Object.keys(visti)) if (visti[k] < old) delete visti[k];
+    const dal = Math.max(+cur.dal || 0, ...files.map(x => +x.data || 0)) || Date.now() - POSTA_TRENTA;
+    await put('impostazioni', 'posta', {...strip(cur), visti, coda, dal, controllata: Date.now(), casella: String(j.casella || cur.casella || '').slice(0, 120), errore: ''}, true);
+    n = nuovi.length;
+    const m = postaMail(nuovi), o = stack.find(x => x.fe);
+    if (m) toast(m === 1 ? 'È arrivata una fattura dalla posta' : `Sono arrivate ${m} fatture dalla posta`, false, o ? null : {label: 'Vedi', fn: () => sheetFatture()});
+    else if (manual) toast('Nessuna fattura nuova nella posta');
+    if (o && n) fePostaLoad(o);
+  } catch (e) {
+    const msg = postaErr(e), cur = postaCfg();
+    if (cur) await put('impostazioni', 'posta', {...strip(cur), errore: msg, controllata: Date.now()}, true);
+    if (manual) toast(msg, true);
+  } finally { POSTA.busy = false; refreshSheets(); }
+  return n;
+}
+function postaStart() {
+  clearInterval(POSTA.timer); POSTA.timer = 0;
+  if (!postaOn()) return;
+  POSTA.timer = setInterval(() => { if (document.visibilityState === 'visible' && Date.now() - POSTA.last > 14 * 60e3) postaSync(); }, 60e3);
+  postaSync();
+}
+function postaBoot() {   // appena l'archivio è caricato
+  let n = 0;
+  const t = setInterval(() => { if (allLoaded() || ++n > 80) { clearInterval(t); postaStart(); } }, 250);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && postaOn() && Date.now() - POSTA.last > 10 * 60e3) postaSync(); });
+async function postaRiparti() {   // finita la prova, le fatture importate con gli esempi sono state cancellate: si riprendono dalla posta
+  const p = postaCfg(); if (!p || !p.url) return;
+  await put('impostazioni', 'posta', {...strip(p), visti: {}, coda: [], dal: Date.now() - POSTA_TRENTA}, true);
+  postaSync();
+}
+async function postaOff() {
+  if (!(await ask('Scollego la posta? Le fatture già importate restano; quelle arrivate e non ancora importate escono dall’elenco.', 'Scollega', true))) return;
+  clearInterval(POSTA.timer); POSTA.timer = 0;
+  if (await del('impostazioni', 'posta')) toast('Posta scollegata. Lo script resta nel tuo account Google: puoi eliminarlo da script.google.com.');
+}
+
+/* --- nell'elenco di «Importa fatture» --- */
+async function fePostaLoad(o) {
+  const p = postaCfg(); if (!p || o.busy) return;
+  const todo = postaCoda().filter(x => !FE.list.some(e => e.posta === x.id));
+  if (!todo.length) return;
+  o.busy = 'posta'; paintSheet(o);
+  const vuoti = [];
+  for (const x of todo) {
+    let file;
+    try { const j = await postaFetch(p, {op: 'file', id: x.id}); file = new File([Uint8Array.from(atob(String(j.b64 || '')), c => c.charCodeAt(0))], String(j.nome || x.nome)); }
+    catch (err) { FE.list.push({key: 'posta:' + x.id, file: x.nome, posta: x.id, retry: true, err: 'non scaricato dalla posta. ' + postaErr(err)}); continue; }
+    const {out, ignored} = await feRead([file]);
+    for (const e of out) e.posta = x.id;
+    FE.list.push(...out); FE.ignored += ignored;
+    if (!out.length) vuoti.push(x.id);   // metadati del Sistema di Interscambio o doppione (lo stesso documento in XML e in PDF)
+  }
+  o.busy = false;
+  await fePostaClose(vuoti);
+  if (stack.includes(o)) paintSheet(o);
+}
+/* un allegato esce dalla coda quando tutte le sue fatture sono importate, già presenti, scartate o non leggibili */
+async function fePostaClose(extra = []) {
+  const p = postaCfg(); if (!p || !(p.coda || []).length) return;
+  const by = new Map();
+  for (const e of FE.list) if (e.posta) { if (!by.has(e.posta)) by.set(e.posta, []); by.get(e.posta).push(e); }
+  const fine = e => !e.retry && (e.done || e.scartata || !e.f || ['dup', 'skip', 'err'].includes(feStatus(e).k));
+  const coda = p.coda.filter(x => !extra.includes(x.id) && !(by.has(x.id) && by.get(x.id).every(fine)));
+  if (coda.length !== p.coda.length) await put('impostazioni', 'posta', {...strip(p), coda}, true);
+}
+function postaBar() {
+  if (!postaOk() || S.ro) return '';
+  const p = postaCfg();
+  if (!postaOn()) return `<p class="note posta-bar">${IC.mail}<span>Vuoi che le fatture arrivino da sole dalla posta? <button type="button" class="lnk" data-act="posta-setup">Collega la posta</button></span></p>`;
+  const what = p.errore ? esc(p.errore) : `Posta collegata${p.casella ? ` (${esc(p.casella)})` : ''}: ${p.controllata ? 'controllata ' + esc(fmtWhen(p.controllata)) : 'non ancora controllata'}.`;
+  return `<p class="note posta-bar${p.errore ? ' warn' : ''}">${p.errore ? IC.alert : IC.mail}<span>${what} <button type="button" class="lnk" data-act="posta-sync" ${POSTA.busy ? 'disabled' : ''}>${POSTA.busy ? 'Controllo…' : 'Controlla adesso'}</button></span></p>`;
+}
+function postaRow() {
+  const n = postaMail(postaCoda());
+  return n ? `<button type="button" class="row" data-act="fe-import">${av(IC.mail, 'amb')}<span class="m"><b>${n === 1 ? 'Una fattura arrivata' : n + ' fatture arrivate'} dalla posta</b><span>Controllale e importale negli acquisti</span></span></button>` : '';
+}
+
+/* --- Impostazioni --- */
+function postaCard() {
+  if (S.ro) return '';
+  const head = '<div class="setgrp" id="posta"><h2>Fatture dalla posta</h2><div class="card">';
+  if (!postaOk()) return `${head}<p class="muted">Le fatture che arrivano per mail possono comparire da sole in «Importa fatture». Si collega dall’app pubblicata sul tuo sito (GitHub Pages): da qui la pagina non può collegarsi a Google.</p></div></div>`;
+  const p = postaCfg();
+  if (!postaOn()) return `${head}<p>Le fatture che arrivano come allegato in una casella Gmail, XML o PDF, compaiono da sole in «Importa fatture». Fa da ponte un piccolo script di Google, gratuito, che prepari una volta sola.</p><button type="button" class="btn pri w" data-act="posta-setup">${IC.mail}Collega la posta</button></div></div>`;
+  const n = postaMail(p.coda || []);
+  return `${head}<p>Collegata a <b>${esc(p.casella || 'Gmail')}</b>. La posta si controlla quando apri l’app e ogni 15 minuti mentre è aperta${p.controllata ? `; ultimo controllo ${esc(fmtWhen(p.controllata))}` : ''}.</p>
+    ${p.errore ? `<p class="note warn">${IC.alert}<span>${esc(p.errore)}</span></p>` : ''}
+    ${n ? `<p><button type="button" class="lnk" data-act="fe-import">${n === 1 ? 'Una fattura da importare' : n + ' fatture da importare'}</button></p>` : ''}
+    <div class="acts"><button type="button" class="btn" data-act="posta-sync" ${POSTA.busy ? 'disabled' : ''}>Controlla adesso</button><button type="button" class="btn" data-act="posta-setup">Modifica</button><button type="button" class="btn dan" data-act="posta-off">Scollega</button></div></div></div>`;
+}
+function formPosta() {
+  if (!guard() || !postaOk()) return;
+  let p = postaCfg() || {};
+  if (!p.chiave) { p = {...p, chiave: postaChiave()}; put('impostazioni', 'posta', strip(p), true); }   // la chiave resta la stessa anche se chiudi e riapri
+  const st = {url: p.url || ''}, key = p.chiave;
+  openSheet({form: true, st, title: p.url ? 'Collegamento della posta' : 'Collega la posta',
+    body: () => `<p class="muted">Le fatture che arrivano come allegato (XML, P7M, ZIP o PDF) in una casella Gmail compaiono da sole in «Importa fatture». Fa da ponte un piccolo script di Google, gratuito, che crei una volta sola con l’account di quella casella.</p>
+      <ol class="steps">
+        <li><b>La casella.</b> Meglio una casella Gmail solo per le fatture, per esempio fatture.nomedelbar@gmail.com. Nel servizio dove arrivano le fatture attiva l’invio di una copia via mail a quell’indirizzo, con il file allegato.</li>
+        <li><b>Lo script.</b> Con l’account di quella casella apri <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a>: si apre un progetto nuovo. Cancella il testo che c’è e incolla lo script.<span class="acts"><button type="button" class="btn sm" data-act="posta-copia">${IC.copy}Copia lo script</button></span></li>
+        <li><b>Il permesso.</b> Premi Esegui con la funzione «prova». Google avvisa che l’app non è verificata: è il tuo script, quindi scegli Avanzate, poi Vai al progetto, e consenti la lettura di Gmail.</li>
+        <li><b>La pubblicazione.</b> Esegui il deployment, Nuovo deployment, tipo App web. Esegui come: il tuo account; chi ha accesso: Chiunque. Copia l’URL dell’app web e incollalo qui sotto.</li>
+      </ol>
+      <label class="fld"><span>URL dell’app web</span><input type="url" data-k="url" value="${esc(st.url)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false"></label>
+      <details class="fe-raw posta-gs"><summary>Vedi lo script</summary><pre>${esc(postaScript(key))}</pre></details>
+      <p class="hint">Lo script copiato da qui contiene la chiave di questo collegamento. Chi ha l’URL e la chiave può leggere gli allegati delle fatture: non condividerli.</p>
+      <p class="err" id="ferr" role="alert"></p>`,
+    foot: () => foot(p.url ? 'Prova e salva' : 'Prova e collega'),
+    onSave: async o => {
+      const url = st.url.trim();
+      if (!/^https:\/\/\S+$/i.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/\S*$/i.test(url)) return ferr(o, 'Incolla l’URL dell’app web: comincia con https://script.google.com/ e finisce con /exec.');
+      let j;
+      try { j = await postaFetch({url, chiave: key}, {dal: Date.now() - POSTA_TRENTA}); }
+      catch (e) { return ferr(o, postaErr(e)); }
+      // stessa casella con un nuovo deployment: le mail già viste restano viste
+      const cur = postaCfg() || p, casella = String(j.casella || '').slice(0, 120), same = !!cur.casella && cur.casella === casella;
+      const rec = {...strip(cur), url, chiave: key, casella, dal: same && cur.dal ? cur.dal : Date.now() - POSTA_TRENTA, visti: same ? cur.visti || {} : {}, coda: same ? cur.coda || [] : [], controllata: 0, errore: ''};
+      if (!(await put('impostazioni', 'posta', rec))) return;
+      o.dirty = false; closeSheet();
+      toast(rec.casella ? `Posta collegata: ${rec.casella}` : 'Posta collegata');
+      postaStart();
+    }});
+}
+async function postaCopia(b) {
+  const o = sheetOf(b), k = postaCfg()?.chiave; if (!k) return;
+  try { await navigator.clipboard.writeText(postaScript(k)); toast('Script copiato: incollalo nel progetto di script.google.com'); }
+  catch {
+    const d = o && $('.posta-gs', o.el);
+    if (d) { d.open = true; const r = document.createRange(); r.selectNodeContents($('pre', d)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+    toast('Non riesco a copiarlo da qui: ho selezionato il testo dello script, copialo tu.', true);
+  }
 }
 
 /* ---------- dati di esempio: un bar già avviato, con le date riferite al giorno in cui si caricano ---------- */
@@ -3316,6 +3529,7 @@ async function clearSample() {
   while (stack.length) closeSheet();
   const ok = await runOps('Cancello i dati di prova', items);
   toast(ok === items.length ? 'Dati di esempio cancellati' : `Cancellati ${ok} elementi su ${items.length}: riprova per gli altri.`, ok < items.length);
+  await postaRiparti();
 }
 function formRegistra() {
   const c = cfg(), st = {nome: c.nome, indirizzo: c.indirizzo, piva: c.piva};
@@ -3334,7 +3548,7 @@ function formRegistra() {
       if (!(await put('impostazioni', 'generale', {...(prev ? strip(prev) : {}), nome, indirizzo: st.indirizzo.trim().slice(0, 140), piva: st.piva.trim().slice(0, 20), registrato: Date.now()}))) return;
       o.dirty = false; closeSheet();
       const items = sampleOps();
-      if (items.length) { const ok = await runOps('Cancello i dati di prova', items); if (ok < items.length) { toast(`${items.length - ok} dati di prova non sono stati cancellati: riprova da Impostazioni.`, true); return; } }
+      if (items.length) { const ok = await runOps('Cancello i dati di prova', items); if (ok < items.length) { toast(`${items.length - ok} dati di prova non sono stati cancellati: riprova da Impostazioni.`, true); return; } await postaRiparti(); }
       goOggi();
       toast(`Benvenuto, ${nome}! Si comincia dai primi passi.`);
     }});
@@ -3574,6 +3788,11 @@ const ACT = {
   'fe-import': () => sheetFatture(),
   'fe-open': b => { const e = FE.list[+b.dataset.i]; if (e?.f) sheetFattura(e); },
   'fe-all': () => feAll(),
+  'fe-scarta': async () => { const o = top(), e = o?.entry; if (!e) return; o.dirty = false; e.scartata = true; closeSheet(); await fePostaClose(); refreshSheets(); toast('Non importata: esce dalle fatture arrivate dalla posta.'); },
+  'posta-setup': () => formPosta(),
+  'posta-sync': () => postaSync(true),
+  'posta-off': () => postaOff(),
+  'posta-copia': b => postaCopia(b),
   'load-sample': () => loadSample(),
   'reset-sample': () => { if (guard()) resetSample(); },
   register: () => { if (!guard()) return; while (stack.length) closeSheet(); if (registered()) clearSample(); else formRegistra(); },
@@ -3687,6 +3906,7 @@ async function init() {
   setupPWA();
   subscribe();
   paint();
+  if (S.mode === 'local') postaBoot();
 }
 init();
 

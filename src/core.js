@@ -12,6 +12,7 @@ const svg = p => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${p}</sv
 const IC = {
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   x: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
+  mail: svg('<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4.5 7.5 7.5 5.5 7.5-5.5"/>'),
   copy: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>'),
   down: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
   search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>'),

@@ -427,3 +427,13 @@ button.sync{border:0;cursor:pointer}
 @media(max-width:959px){.deskonly{display:none!important}}
 body.ro .w{display:none!important}
 body.nodl .dl{display:none!important}
+
+/* fatture dalla posta */
+ol.steps{margin:4px 0 18px;padding-left:22px;display:grid;gap:10px;line-height:1.5}
+ol.steps li::marker{font-weight:800;color:var(--ink2)}
+ol.steps .acts{display:flex;margin-top:8px}
+.posta-gs pre{max-height:240px;overflow:auto;font-size:12px}
+.note.posta-bar{margin-bottom:12px}
+.note.posta-bar .lnk{display:block;margin:4px 0 0}
+ol.steps a{color:var(--link);font-weight:700;text-decoration:none}
+.btn .chip{margin-left:4px;font-size:12px}

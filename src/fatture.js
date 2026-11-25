@@ -394,7 +394,7 @@ async function fePdf(name, bytes) {
     testo: lines.slice(0, 300).map(l => l.text)}]};
 }
 async function feRead(files) {
-  const out = [], seen = new Set(FE.list.map(e => e.key));
+  const out = [], seen = new Map(FE.list.map(e => [e.key, e]));
   let ignored = 0;
   const one = async (name, bytes, depth) => {
     if (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 3 && bytes[3] === 4) {
@@ -411,8 +411,9 @@ async function feRead(files) {
     if (r.err) { out.push({key: 'err:' + name, file: name, err: r.err}); return; }
     for (const f of r.fatture) {
       const key = [fePiva(f.forn.piva) || feNome(f.forn.nome), f.numero, f.data].join('|');
-      if (seen.has(key)) continue;
-      seen.add(key); out.push({key, file: name, f});
+      const ex = seen.get(key);
+      if (ex) { if (ex.f?.pdf && !f.pdf && !ex.done) Object.assign(ex, {file: name, f}); continue; }
+      const e = {key, file: name, f}; seen.set(key, e); out.push(e);
     }
   };
   for (const file of files) {
@@ -500,6 +501,7 @@ function feDup(f, fid) {
 function feStatus(e) {
   if (e.err) return {k: 'err', txt: e.err[0].toUpperCase() + e.err.slice(1)};
   if (e.done) return {k: 'done', txt: 'Importata'};
+  if (e.scartata) return {k: 'skip', txt: 'Non importata'};
   const f = e.f;
   if (f.tipo === 'TD04') return {k: 'skip', txt: 'Nota di credito: non si carica'};
   if (f.tipo === 'DDT') return {k: 'skip', txt: 'Sembra un DDT, non una fattura: registralo come DDT'};
@@ -549,6 +551,7 @@ async function feSave(e, fid, solo, lines) {
   }
   for (const id of e.nuovi || []) { const a = S.data.articoli.get(id); if (a && !a.fornitoreId) await put('articoli', id, {...strip(a), fornitoreId: fid}, true); }
   e.done = true;
+  if (e.posta) await fePostaClose();
   return true;
 }
 
@@ -556,7 +559,7 @@ async function feSave(e, fid, solo, lines) {
 function sheetFatture() {
   if (!guard()) return;
   FE.list = []; FE.ignored = 0;
-  const o = {title: 'Importa fatture', busy: false, live: true,
+  const o = {title: 'Importa fatture', busy: false, live: true, fe: true,
     body: () => {
       const rows = FE.list.map((e, i) => {
         const s = feStatus(e), f = e.f;
@@ -566,18 +569,20 @@ function sheetFatture() {
         const open = f && !['done', 'dup', 'skip'].includes(s.k);
         return `<${open ? 'button type="button"' : 'div'} class="row${open ? '' : ' static'}" ${open ? `data-act="fe-open" data-i="${i}"` : ''}>${av(s.k === 'done' || s.k === 'ready' ? IC.check : s.k === 'err' ? IC.alert : IC.receipt, tone)}<span class="m"><b>${esc(title)}</b><span>${esc(sub)}</span><span class="mc"><span class="chip ${tone}">${esc(s.txt)}</span></span></span></${open ? 'button' : 'div'}>`;
       }).join('');
-      return `<p class="muted">Carica le fatture dei fornitori. Gli XML delle fatture elettroniche, anche firmati (.p7m) o tanti insieme in uno .zip, si leggono in modo esatto. Dei PDF l'app legge il testo e ti propone righe e importi da controllare; le foto e le scansioni invece non si possono leggere.</p>
+      return `${postaBar()}<p class="muted">Carica le fatture dei fornitori. Gli XML delle fatture elettroniche, anche firmati (.p7m) o tanti insieme in uno .zip, si leggono in modo esatto. Dei PDF l'app legge il testo e ti propone righe e importi da controllare; le foto e le scansioni invece non si possono leggere.</p>
         ${countSample() ? '<p class="note warn">' + IC.info + '<span>Stai usando i dati di esempio: anche le fatture che importi ora vengono cancellate quando registri il bar.</span></p>' : ''}
         <p><label class="btn ${FE.list.length ? '' : 'pri'}">${IC.plus}${FE.list.length ? 'Aggiungi altri file' : 'Scegli i file'}<input type="file" accept=".xml,.p7m,.zip,.pdf,application/xml,text/xml,application/zip,application/pkcs7-mime,application/pdf" multiple data-file="fe"></label></p>
-        ${o.busy ? '<p class="hint">Leggo i file…</p>' : ''}
+        ${o.busy === 'posta' ? '<p class="hint">Scarico le fatture arrivate dalla posta…</p>' : o.busy ? '<p class="hint">Leggo i file…</p>' : ''}
         ${FE.list.length ? `<div class="list">${rows}</div>` : ''}
         ${FE.ignored ? `<p class="hint" style="margin-top:10px">${FE.ignored === 1 ? 'Un file' : FE.ignored + ' file'} senza fattura (ricevute e metadati del Sistema di Interscambio) ${FE.ignored === 1 ? 'è stato saltato' : 'sono stati saltati'}.</p>` : ''}
         ${FE.list.some(e => e.f && feStatus(e).k === 'check') ? '<p class="hint" style="margin-top:10px">Tocca le fatture da controllare: la prima volta abbini le righe ai tuoi articoli, poi l’app se lo ricorda per quel fornitore.</p>' : ''}`;
     },
     foot: () => { const n = FE.list.filter(e => e.f && feStatus(e).k === 'ready').length; return n ? `<button type="button" class="btn pri" data-act="fe-all">Importa ${n === 1 ? 'la fattura pronta' : `le ${n} fatture pronte`}</button>` : ''; }};
   openSheet(o);
+  if (postaCoda().length) fePostaLoad(o);
 }
 async function feAddFiles(o, files) {
+  if (o.busy) { toast('Aspetta un attimo: sto ancora leggendo le fatture.'); return; }
   o.busy = true; paintSheet(o);
   try { const {out, ignored} = await feRead(files); FE.list.push(...out); FE.ignored += ignored; }
   catch { toast('Non sono riuscito a leggere i file.', true); }
@@ -649,7 +654,8 @@ function sheetFattura(e) {
           <details class="fe-raw"><summary>Testo letto dal PDF</summary><pre>${esc((f.testo || []).join('\n'))}</pre></details>` : ''}
         <p class="err" id="ferr" role="alert"></p>`;
     },
-    foot: () => foot('Importa fattura'),
+    entry: e,
+    foot: () => e.posta ? `<button type="button" class="btn" data-act="fe-scarta">Non importare</button><button type="button" class="btn pri" data-act="save">Importa fattura</button>` : foot('Importa fattura'),
     onField: (k, oo, kind, el) => {
       if (k === 'forn') { fill(); paintSheet(oo); return; }
       if (k === 'solo') { paintSheet(oo); return; }

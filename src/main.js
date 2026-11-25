@@ -226,6 +226,11 @@ const ACT = {
   'fe-import': () => sheetFatture(),
   'fe-open': b => { const e = FE.list[+b.dataset.i]; if (e?.f) sheetFattura(e); },
   'fe-all': () => feAll(),
+  'fe-scarta': async () => { const o = top(), e = o?.entry; if (!e) return; o.dirty = false; e.scartata = true; closeSheet(); await fePostaClose(); refreshSheets(); toast('Non importata: esce dalle fatture arrivate dalla posta.'); },
+  'posta-setup': () => formPosta(),
+  'posta-sync': () => postaSync(true),
+  'posta-off': () => postaOff(),
+  'posta-copia': b => postaCopia(b),
   'load-sample': () => loadSample(),
   'reset-sample': () => { if (guard()) resetSample(); },
   register: () => { if (!guard()) return; while (stack.length) closeSheet(); if (registered()) clearSample(); else formRegistra(); },
@@ -339,5 +344,6 @@ async function init() {
   setupPWA();
   subscribe();
   paint();
+  if (S.mode === 'local') postaBoot();
 }
 init();

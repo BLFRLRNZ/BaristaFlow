@@ -1,12 +1,16 @@
 """Assembla src/ in un unico file index.html (HTML, CSS e JavaScript insieme), pronto da aprire o pubblicare."""
-import pathlib, re, sys, urllib.parse
+import json, pathlib, re, sys, urllib.parse
 
 root = pathlib.Path(__file__).resolve().parent
 src = root / "src"
 shell = (src / "shell.html").read_text(encoding="utf-8")
 css = (src / "style.css").read_text(encoding="utf-8")
-js = "\n".join((src / f).read_text(encoding="utf-8") for f in ["core.js", "views.js", "details.js", "forms.js", "quick.js", "fatture.js", "esempi.js", "main.js"])
+js = "\n".join((src / f).read_text(encoding="utf-8") for f in ["core.js", "views.js", "details.js", "forms.js", "quick.js", "fatture.js", "posta.js", "esempi.js", "main.js"])
 logo = re.search(r"const LOGO = `(.*?)`;", js, re.S).group(1)
+# lo script di Google per le fatture dalla posta: l'app lo mostra e lo copia con la chiave del collegamento
+gs = (root / "apps-script" / "fatture-dalla-posta.gs").read_text(encoding="utf-8")
+assert js.count("/*POSTA_GS*/''") == 1 and gs.count("__CHIAVE__") == 1
+js = js.replace("/*POSTA_GS*/''", json.dumps(gs))
 if re.search(r"</script|<!--", js, re.I):
     sys.exit("Il JavaScript contiene una sequenza che romperebbe l'HTML")
 script = '"use strict";\n{\n' + js + "\n}\n"

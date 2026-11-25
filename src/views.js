@@ -154,8 +154,8 @@ function vOggi() {
   const more = !UI.todoAll && soon.length > 5 ? soon.length - 4 : 0;
   const soonRows = (more ? soon.slice(0, 4) : soon).map(l => lotRow(l));
   if (more) soonRows.push(`<button type="button" class="row" data-act="todo-all">${av(IC.clock, 'amb')}<span class="m"><b>Altri ${more} in scadenza</b><span>Mostra tutto l’elenco</span></span></button>`);
-  const todo = [...exp.map(l => lotRow(l, smal(l))), ...soonRows, ...under.map(underRow),
-    ...rincari.map(x => `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(x.a.id)}">${av(IC.trend, 'red')}<span class="m"><b>${esc(x.a.nome)}</b><span>Rincaro: pagato ${EUR(x.l.p)} ${perU(x.a.unita)} il ${fmtD(x.l.date)}, prima ${EUR(x.pv.p)}</span><span class="mc">${delta(x.ch)}</span></span></button>`)];
+  const todo = [postaRow(), ...exp.map(l => lotRow(l, smal(l))), ...soonRows, ...under.map(underRow),
+    ...rincari.map(x => `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(x.a.id)}">${av(IC.trend, 'red')}<span class="m"><b>${esc(x.a.nome)}</b><span>Rincaro: pagato ${EUR(x.l.p)} ${perU(x.a.unita)} il ${fmtD(x.l.date)}, prima ${EUR(x.pv.p)}</span><span class="mc">${delta(x.ch)}</span></span></button>`)].filter(Boolean);
   const sample = countSample();
   return `<section id="v-oggi"><div class="ph"><div><p class="kick">${esc(dateStr)}</p><h1>${greet}</h1></div>
     <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div></div>
@@ -265,7 +265,7 @@ function vAcquisti() {
     return `<button type="button" class="row" data-act="open-doc" data-id="${esc(d.id)}">${av(DOCAB[d.tipo] || 'DOC', noPrice ? 'amb' : '')}<span class="m"><b>${esc(docName(d))}</b><span>${esc(fornName(d.fornitoreId) || (d.tipo === 'inventario' ? 'Merce già in magazzino' : 'Fornitore non indicato'))} · ${n === 1 ? '1 riga' : `${n} righe`}${att ? ` · ${att === 1 ? '1 allegato' : `${att} allegati`}` : ''}${d.tipo === 'ddt' && d.fatturaRif ? ` · fattura ${esc(d.fatturaRif)}` : ''}</span><span class="mc">${d.soloPrezzi ? '<span class="chip">Solo storico prezzi</span>' : ''}${noPrice ? '<span class="chip amb">Prezzi da inserire</span>' : ''}</span></span><span class="s"><span class="q">${EUR(docTot(d))}</span></span></button>`;
   }).join('');
   return `<section id="v-acquisti"><div class="ph"><div><h1>Acquisti</h1><p>Fatture e DDT: ogni riga diventa un lotto di magazzino con lotto del fornitore, scadenza e costo.</p></div>
-    <div class="acts w"><button type="button" class="btn pri" data-act="new-doc">${IC.plus}Registra documento</button><button type="button" class="btn" data-act="fe-import">${IC.down}Importa fatture</button><button type="button" class="btn" data-act="new-forn">Nuovo fornitore</button></div></div>
+    <div class="acts w"><button type="button" class="btn pri" data-act="new-doc">${IC.plus}Registra documento</button><button type="button" class="btn" data-act="fe-import">${IC.down}Importa fatture${postaCoda().length ? ` <span class="chip amb">${postaMail(postaCoda())} dalla posta</span>` : ''}</button><button type="button" class="btn" data-act="new-forn">Nuovo fornitore</button></div></div>
     <div class="subnav">${acqNav('acquisti')}</div>
     <div class="bar">${search('acq', 'Cerca numero, fornitore, articolo o lotto')}</div>
     ${rows ? `<div class="list">${rows}</div>` : empty(q ? 'Nessun documento corrisponde alla ricerca.' : 'Nessun acquisto registrato. Registra la prima fattura o il primo DDT.', IC.receipt)}</section>`;
@@ -358,6 +358,7 @@ function vImpostazioni() {
       <p class="hint" style="margin:-4px 0 14px">L'IVA serve solo a calcolare il food cost sul prezzo di vendita. In «Oggi» compare un avviso quando un prodotto comprato negli ultimi 30 giorni costa più della soglia rispetto all'acquisto precedente.</p>
       <button type="submit" class="btn pri w">Salva impostazioni</button>
     </div></div></form>
+    ${postaCard()}
     <div class="setgrp"><h2>Backup ed esportazioni</h2><div class="card"><p class="muted">Il backup contiene tutto: schede, acquisti, lotti, movimenti. Serve anche per spostare i dati su un altro dispositivo o sistema.</p>
       <div class="acts"><button type="button" class="btn dl" data-act="dl-backup">${IC.down}Esporta backup</button><label class="btn w">Importa backup<input type="file" accept="application/json,.json" data-file="import"></label><button type="button" class="btn dl" data-act="dl-csv">${IC.down}Giacenze in CSV</button></div>
       ${S.mode !== 'local' && !S.downloads ? '<p class="hint" style="margin-top:10px">Il download dei file non è disponibile in questa vista.</p>' : ''}</div></div>

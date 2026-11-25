@@ -407,6 +407,7 @@ async function clearSample() {
   while (stack.length) closeSheet();
   const ok = await runOps('Cancello i dati di prova', items);
   toast(ok === items.length ? 'Dati di esempio cancellati' : `Cancellati ${ok} elementi su ${items.length}: riprova per gli altri.`, ok < items.length);
+  await postaRiparti();
 }
 function formRegistra() {
   const c = cfg(), st = {nome: c.nome, indirizzo: c.indirizzo, piva: c.piva};
@@ -425,7 +426,7 @@ function formRegistra() {
       if (!(await put('impostazioni', 'generale', {...(prev ? strip(prev) : {}), nome, indirizzo: st.indirizzo.trim().slice(0, 140), piva: st.piva.trim().slice(0, 20), registrato: Date.now()}))) return;
       o.dirty = false; closeSheet();
       const items = sampleOps();
-      if (items.length) { const ok = await runOps('Cancello i dati di prova', items); if (ok < items.length) { toast(`${items.length - ok} dati di prova non sono stati cancellati: riprova da Impostazioni.`, true); return; } }
+      if (items.length) { const ok = await runOps('Cancello i dati di prova', items); if (ok < items.length) { toast(`${items.length - ok} dati di prova non sono stati cancellati: riprova da Impostazioni.`, true); return; } await postaRiparti(); }
       goOggi();
       toast(`Benvenuto, ${nome}! Si comincia dai primi passi.`);
     }});

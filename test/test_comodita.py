@@ -31,7 +31,7 @@ with sync_playwright() as p:
     # pulsante + e azioni rapide
     pg.locator(".fab").click(); pg.wait_for_timeout(250)
     qa = [T(x) for x in pg.locator(".sheet .qa b").all_inner_texts()]
-    check(qa == ["Produzione", "Acquisto", "Scarico", "Scheda tecnica", "Articolo", "Fornitore"], f"azioni rapide {qa}")
+    check(qa == ["Produzione", "Acquisto", "Scarico", "Scheda tecnica", "Articolo", "Fornitore", "Importa fatture"], f"azioni rapide {qa}")
     pg.wait_for_timeout(200); pg.screenshot(path=str(SHOTS / "m_azioni_rapide.png"))
     pg.locator(".sheet .qa", has_text="Scarico").click(); pg.wait_for_timeout(250)
     check(pg.locator(".sheet-wrap").count() == 1 and "Registra uno scarico" in pg.locator(".sh-head h2").inner_text(), "scarico rapido aperto")

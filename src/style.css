@@ -404,6 +404,12 @@ button.sync{border:0;cursor:pointer}
 @media(max-width:959px){.dp-l{display:none}.dp-s{display:inline}}
 @media(max-width:959px){.topbar.scrolled .sync{opacity:0;pointer-events:none}}
 
+/* importazione delle fatture elettroniche */
+.fe-line .fe-d{margin:0 0 2px;line-height:1.35;overflow-wrap:anywhere}
+.fe-line .fe-q{margin:0 0 12px;font-size:14.5px}
+.fe-line .fe-h{margin:-4px 0 12px}
+.fe-line .fld>span .chip{margin-left:6px;vertical-align:1px}
+
 /* avvisi e caricamento */
 #toast{position:fixed;left:12px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:90;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;gap:8px;pointer-events:none}
 .toast{display:flex;align-items:center;gap:10px;width:max-content;max-width:min(100%,520px);padding:12px 12px 12px 16px;border-radius:16px;background:var(--ink);color:var(--bg);font-weight:650;font-size:15px;line-height:1.35;box-shadow:var(--sh2);pointer-events:auto;animation:up .22s cubic-bezier(.2,.85,.25,1)}

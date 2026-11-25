@@ -223,6 +223,9 @@ const ACT = {
   'dl-csv': () => saveFile(`Giacenze ${today()}.csv`, csvGiacenze()),
   'dl-backup': () => saveFile(`Backup Barista Flow ${today()}.json`, backupJSON()),
   'del-sample': () => { if (guard()) clearSample(); },
+  'fe-import': () => sheetFatture(),
+  'fe-open': b => { const e = FE.list[+b.dataset.i]; if (e?.f) sheetFattura(e); },
+  'fe-all': () => feAll(),
   'load-sample': () => loadSample(),
   'reset-sample': () => { if (guard()) resetSample(); },
   register: () => { if (!guard()) return; while (stack.length) closeSheet(); if (registered()) clearSample(); else formRegistra(); },
@@ -270,6 +273,7 @@ function onFile(t) {
   if (!files.length) return;
   if (t.dataset.file === 'import') { if (guard()) importBackup(files[0]); }
   else if (t.dataset.file === 'att') { const o = sheetOf(t); if (o) uploadAtt(o, files); }
+  else if (t.dataset.file === 'fe') { const o = sheetOf(t); if (o) feAddFiles(o, files); }
 }
 async function saveCfg(f) {
   if (!guard()) return;

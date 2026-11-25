@@ -10,6 +10,7 @@ function sheetQuick() {
       ${qa('new-ric', IC.doc, 'Scheda tecnica', 'Nuovo prodotto o semilavorato')}
       ${qa('new-art', IC.box, 'Articolo', 'Materia prima, rivendita, imballaggio')}
       ${qa('new-forn', IC.truck, 'Fornitore', 'Ragione sociale e contatti')}
+      ${qa('fe-import', IC.down, 'Importa fatture', 'File XML delle fatture elettroniche')}
     </div>`});
 }
 

@@ -23,6 +23,16 @@ Durante la prova si può fare tutto liberamente. Anche quello che si inserisce v
 
 Gli esempi si generano in `src/esempi.js` con una simulazione giorno per giorno. Gli acquisti seguono i consumi, si usano prima i lotti che scadono prima e quello che scade si smaltisce: così giacenze, lotti e fatture tornano sempre. `test/check_esempi.js` lo verifica su date diverse.
 
+## Fatture elettroniche
+
+In Acquisti, o dal pulsante **+**, «Importa fatture XML» legge le fatture elettroniche dei fornitori: file `.xml`, firmati `.p7m` o tanti insieme in uno `.zip`. Si scaricano dal portale Fatture e Corrispettivi dell'Agenzia delle Entrate, dal gestionale del commercialista o dalle mail dei fornitori. La lettura avviene nel browser, anche su GitHub Pages e senza rete.
+
+- Il fornitore si riconosce dalla partita IVA o dal nome; se manca, si crea con partita IVA, sede ed email.
+- La prima volta si abbina ogni riga a un articolo, con la conversione proposta dalla descrizione (per esempio «CT 24» diventa 24 pezzi, «6X0,5LT» 3 litri). Le righe che non sono merce, come trasporto e cauzioni, si saltano. Da quel momento le fatture di quel fornitore risultano «Pronte» e si importano con un tocco.
+- Se la fattura riporta lotto e scadenza, vengono letti; altrimenti si aggiungono a mano.
+- Una fattura differita sui DDT già registrati non carica di nuovo la merce: completa i prezzi dei DDT e li collega alla fattura.
+- Le note di credito, i file di ricevute e i metadati del Sistema di Interscambio vengono saltati, e le fatture già importate vengono riconosciute.
+
 ## Pensata per l'uso al banco
 
 - Il pulsante **+** al centro della barra in basso apre le registrazioni rapide: produzione, acquisto, scarico, scheda, articolo e fornitore.
@@ -61,6 +71,7 @@ src/
   details.js          dettagli: lotto, lotto del fornitore, articolo, scheda, documento, storico prezzi con grafico
   forms.js            moduli: articolo, fornitore, documento d'acquisto, scheda tecnica, produzione, scarichi
   quick.js            pulsante +, scarico rapido, ricerca globale, installazione sul telefono
+  fatture.js          lettura delle fatture elettroniche XML (anche .p7m e .zip) e abbinamento agli articoli
   esempi.js           bar di esempio (simulazione con date riferite a oggi), prova e registrazione del bar
   main.js             azioni, esportazioni, avvio e collegamento all'archivio
 manifest.webmanifest  nome, colori e icone per installare l'app
@@ -75,7 +86,7 @@ test/                 prove automatiche nel browser
 
 | Raccolta | Contenuto |
 |---|---|
-| `fornitori` | ragione sociale, P. IVA, contatti |
+| `fornitori` | ragione sociale, P. IVA, contatti, abbinamenti fra le righe delle sue fatture e gli articoli |
 | `articoli` | materie prime, prodotti da rivendere, imballaggi: unità (kg, l, pz), allergeni, nome in etichetta, scorta minima |
 | `documenti` | fatture, DDT, scontrini, inventario iniziale. Ogni riga è un lotto: quantità, importo, lotto del fornitore, scadenza. Con `soloPrezzi` alimenta solo lo storico prezzi. |
 | `ricette` | schede tecniche: ingredienti (articoli o semilavorati), resa, durata, tracce, prezzo |
@@ -105,6 +116,7 @@ python3 test/test_modes.py
 python3 test/test_prezzi.py
 python3 test/test_comodita.py
 python3 test/test_esempi.py
+python3 test/test_fatture.py
 ```
 
 ## Nota sulle etichette

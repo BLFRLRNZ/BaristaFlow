@@ -13,11 +13,11 @@ function artOptions(cur) {
 }
 
 /* articolo */
-function formArticolo(id, onSaved) {
+function formArticolo(id, onSaved, pre) {
   const ex = id ? S.data.articoli.get(id) : null;
   const st = ex
     ? {nome: ex.nome || '', categoria: CAT[ex.categoria] ? ex.categoria : 'materia', unita: unitOk(ex.unita) || 'kg', pesoPz: +ex.pesoPz > 0 ? fmtIn(+ex.pesoPz) : '', etichetta: ex.etichetta || '', allergeni: algSort(ex.allergeni || []), conservazione: CONS[ex.conservazione] ? ex.conservazione : 'ambiente', scortaMin: +ex.scortaMin > 0 ? fmtIn(+ex.scortaMin) : '', fornitoreId: ex.fornitoreId || '', note: ex.note || ''}
-    : {nome: '', categoria: 'materia', unita: 'kg', pesoPz: '', etichetta: '', allergeni: [], conservazione: 'ambiente', scortaMin: '', fornitoreId: '', note: ''};
+    : {nome: pre?.nome || '', categoria: CAT[pre?.categoria] ? pre.categoria : 'materia', unita: unitOk(pre?.unita) || 'kg', pesoPz: '', etichetta: '', allergeni: [], conservazione: 'ambiente', scortaMin: '', fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', note: ''};
   const locked = !!ex && ((drv().artLots.get(id) || []).length > 0 || [...S.data.ricette.values()].some(r => (r.ingredienti || []).some(g => g.tipo !== 'ric' && g.refId === id)));
   openSheet({form: true, st, title: ex ? 'Modifica articolo' : 'Nuovo articolo',
     body: () => `<label class="fld"><span>Nome</span><input type="text" data-k="nome" value="${esc(st.nome)}" placeholder="Es. Farina 00" autocomplete="off"></label>

@@ -455,6 +455,7 @@ ol.steps .acts{display:flex;margin-top:8px}
 .note.posta-bar .lnk{display:block;margin:4px 0 0}
 ol.steps a{color:var(--link);font-weight:700;text-decoration:none}
 .btn .chip{margin-left:4px;font-size:12px}
+.posta-link{white-space:pre-wrap;word-break:break-all;font-size:13px;background:var(--surf2,rgba(0,0,0,.04));padding:10px 12px;border-radius:12px;user-select:all}
 
 </style>
 </head>
@@ -2936,6 +2937,7 @@ const postaOn = () => { const p = postaCfg(); return postaOk() && !!(p && p.url 
 const postaCoda = () => (postaOn() && Array.isArray(postaCfg().coda) ? postaCfg().coda : []);
 const postaMail = coda => new Set(coda.map(x => String(x.id).split(':')[0])).size;   // una mail = una fattura, anche con XML e PDF allegati
 const postaScript = k => POSTA_GS.replace('__CHIAVE__', k);
+const postaLink = p => p.url + (p.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(p.chiave);   // per collegare un altro dispositivo senza rifare lo script
 const POSTA_TRENTA = 30 * 864e5;
 function postaChiave() {
   const b = crypto.getRandomValues(new Uint8Array(18));
@@ -3075,7 +3077,8 @@ function postaCard() {
   return `${head}<p>Collegata a <b>${esc(p.casella || 'Gmail')}</b>. La posta si controlla quando apri l’app e ogni 15 minuti mentre è aperta${p.controllata ? `; ultimo controllo ${esc(fmtWhen(p.controllata))}` : ''}.</p>
     ${p.errore ? `<p class="note warn">${IC.alert}<span>${esc(p.errore)}</span></p>` : ''}
     ${n ? `<p><button type="button" class="lnk" data-act="fe-import">${n === 1 ? 'Una fattura da importare' : n + ' fatture da importare'}</button></p>` : ''}
-    <div class="acts"><button type="button" class="btn" data-act="posta-sync" ${POSTA.busy ? 'disabled' : ''}>Controlla adesso</button><button type="button" class="btn" data-act="posta-setup">Modifica</button><button type="button" class="btn dan" data-act="posta-off">Scollega</button></div></div></div>`;
+    <div class="acts"><button type="button" class="btn" data-act="posta-sync" ${POSTA.busy ? 'disabled' : ''}>Controlla adesso</button><button type="button" class="btn" data-act="posta-link">${IC.copy}Link per un altro dispositivo</button><button type="button" class="btn" data-act="posta-setup">Modifica</button><button type="button" class="btn dan" data-act="posta-off">Scollega</button></div>
+    <p class="hint" style="margin-top:10px">I dati dell’app restano su questo dispositivo: per ricevere le fatture anche su un altro, copia il link e incollalo lì in «Collega la posta».</p></div></div>`;
 }
 function formPosta() {
   if (!guard() || !postaOk()) return;
@@ -3088,22 +3091,27 @@ function formPosta() {
         <li><b>La casella.</b> Meglio una casella Gmail solo per le fatture, per esempio fatture.nomedelbar@gmail.com. Nel servizio dove arrivano le fatture attiva l’invio di una copia via mail a quell’indirizzo, con il file allegato.</li>
         <li><b>Lo script.</b> Con l’account di quella casella apri <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a>: si apre un progetto nuovo. Cancella il testo che c’è e incolla lo script.<span class="acts"><button type="button" class="btn sm" data-act="posta-copia">${IC.copy}Copia lo script</button></span></li>
         <li><b>Il permesso.</b> Premi Esegui con la funzione «prova». Google avvisa che l’app non è verificata: è il tuo script, quindi scegli Avanzate, poi Vai al progetto, e consenti la lettura di Gmail.</li>
-        <li><b>La pubblicazione.</b> Esegui il deployment, Nuovo deployment, tipo App web. Esegui come: il tuo account; chi ha accesso: Chiunque. Copia l’URL dell’app web e incollalo qui sotto.</li>
+        <li><b>La pubblicazione.</b> In alto a destra: Esegui il deployment, Nuovo deployment. Accanto a «Seleziona tipo» tocca l’ingranaggio e scegli App web. Esegui come: Io; Chi ha accesso: Chiunque (non «Chiunque abbia un Account Google»). Poi Esegui il deployment, copia l’URL dell’app web e incollalo qui sotto.</li>
       </ol>
       <label class="fld"><span>URL dell’app web</span><input type="url" data-k="url" value="${esc(st.url)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false"></label>
+      <p class="hint" style="margin-top:-6px">Se la posta è già collegata su un altro dispositivo, incolla qui il link copiato da lì (Impostazioni → Fatture dalla posta): lo script non va rifatto.</p>
       <details class="fe-raw posta-gs"><summary>Vedi lo script</summary><pre>${esc(postaScript(key))}</pre></details>
       <p class="hint">Lo script copiato da qui contiene la chiave di questo collegamento. Chi ha l’URL e la chiave può leggere gli allegati delle fatture: non condividerli.</p>
       <p class="err" id="ferr" role="alert"></p>`,
     foot: () => foot(p.url ? 'Prova e salva' : 'Prova e collega'),
     onSave: async o => {
-      const url = st.url.trim();
+      let url = st.url.trim(), k = key;
       if (!/^https:\/\/\S+$/i.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/\S*$/i.test(url)) return ferr(o, 'Incolla l’URL dell’app web: comincia con https://script.google.com/ e finisce con /exec.');
+      try {   // link copiato da un altro dispositivo: contiene anche la chiave
+        const u = new URL(url), kk = u.searchParams.get('k');
+        if (kk != null) { if (kk.length < 16) return ferr(o, 'Il link non è completo: copialo di nuovo dall’altro dispositivo.'); k = kk; u.searchParams.delete('k'); url = u.href; }
+      } catch { return ferr(o, 'Questo URL non è valido.'); }
       let j;
-      try { j = await postaFetch({url, chiave: key}, {dal: Date.now() - POSTA_TRENTA}); }
+      try { j = await postaFetch({url, chiave: k}, {dal: Date.now() - POSTA_TRENTA}); }
       catch (e) { return ferr(o, postaErr(e)); }
       // stessa casella con un nuovo deployment: le mail già viste restano viste
       const cur = postaCfg() || p, casella = String(j.casella || '').slice(0, 120), same = !!cur.casella && cur.casella === casella;
-      const rec = {...strip(cur), url, chiave: key, casella, dal: same && cur.dal ? cur.dal : Date.now() - POSTA_TRENTA, visti: same ? cur.visti || {} : {}, coda: same ? cur.coda || [] : [], controllata: 0, errore: ''};
+      const rec = {...strip(cur), url, chiave: k, casella, dal: same && cur.dal ? cur.dal : Date.now() - POSTA_TRENTA, visti: same ? cur.visti || {} : {}, coda: same ? cur.coda || [] : [], controllata: 0, errore: ''};
       if (!(await put('impostazioni', 'posta', rec))) return;
       o.dirty = false; closeSheet();
       toast(rec.casella ? `Posta collegata: ${rec.casella}` : 'Posta collegata');
@@ -3117,6 +3125,14 @@ async function postaCopia(b) {
     const d = o && $('.posta-gs', o.el);
     if (d) { d.open = true; const r = document.createRange(); r.selectNodeContents($('pre', d)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
     toast('Non riesco a copiarlo da qui: ho selezionato il testo dello script, copialo tu.', true);
+  }
+}
+async function postaLinkCopia() {
+  const p = postaCfg(); if (!p?.url) return;
+  try { await navigator.clipboard.writeText(postaLink(p)); toast('Link copiato: sull’altro dispositivo incollalo in Impostazioni → Fatture dalla posta → Collega la posta.'); }
+  catch {
+    openSheet({title: 'Link per un altro dispositivo', small: true,
+      body: () => `<p>Copia questo link e incollalo sull’altro dispositivo, in Impostazioni → Fatture dalla posta → Collega la posta. Contiene la chiave: mandalo solo a te stesso.</p><pre class="posta-link">${esc(postaLink(p))}</pre>`});
   }
 }
 
@@ -3793,6 +3809,7 @@ const ACT = {
   'posta-sync': () => postaSync(true),
   'posta-off': () => postaOff(),
   'posta-copia': b => postaCopia(b),
+  'posta-link': () => postaLinkCopia(),
   'load-sample': () => loadSample(),
   'reset-sample': () => { if (guard()) resetSample(); },
   register: () => { if (!guard()) return; while (stack.length) closeSheet(); if (registered()) clearSample(); else formRegistra(); },

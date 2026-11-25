@@ -205,6 +205,23 @@ with sync_playwright() as p:
     check(len(docs(pg, "d.numero === '2002'")) == 1 and posta(pg)["coda"] == [], "importata con un tocco, coda vuota")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(250)
 
+    # un altro dispositivo si collega col link, senza rifare lo script
+    pg.goto(URL + "#impostazioni"); pg.wait_for_selector("#posta")
+    pg.locator("#posta .btn", has_text="Link per un altro dispositivo").click(); toast(pg, "Link copiato")
+    link = pg.evaluate("navigator.clipboard.readText()")
+    check(link == SCRIPT_URL + "?k=" + key, f"il link contiene indirizzo e chiave: {link}")
+    ctx2, pg2 = newpage(br, INIT)
+    pg2.goto(URL + "#impostazioni"); pg2.wait_for_selector("#posta")
+    pg2.locator("#posta .btn", has_text="Collega la posta").click(); pg2.wait_for_timeout(350)
+    t2 = top(pg2); t2.locator("[data-k=url]").fill(link[:-10]); t2.locator("[data-act=save]").click(); pg2.wait_for_timeout(250)
+    check("non è completo" in t2.locator("#ferr").inner_text(), "link tagliato: spiegato")
+    t2.locator("[data-k=url]").fill(link); t2.locator("[data-act=save]").click()
+    toast(pg2, "Posta collegata: fatture.bar@gmail.com"); toast(pg2, "Sono arrivate 4 fatture dalla posta")
+    p2 = posta(pg2)
+    check(p2["chiave"] == key and p2["url"] == SCRIPT_URL and len(p2["coda"]) == 5, "l'altro dispositivo usa la stessa chiave e riceve le sue fatture")
+    shot(pg2, "posta_secondo")
+    ctx2.close()
+
     # errori: chiave cambiata, poi di nuovo a posto al riavvio dell'app
     STATE["chiave"] = "un'altra chiave qualsiasi"
     pg.goto(URL + "#impostazioni"); pg.wait_for_selector("#posta"); pg.wait_for_timeout(400)

@@ -53,7 +53,9 @@ Fa da ponte `apps-script/fatture-dalla-posta.gs`, un piccolo script di Google Ap
 
 1. con l'account della casella si crea un progetto su script.google.com e si incolla lo script;
 2. si esegue la funzione `prova`, che chiede il permesso di leggere Gmail;
-3. si pubblica come app web (esegui come: il proprio account; accesso: chiunque) e si incolla nell'app l'URL che finisce con `/exec`.
+3. si pubblica come app web (Esegui il deployment → Nuovo deployment → App web; Esegui come: Io; Chi ha accesso: Chiunque) e si incolla nell'app l'URL che finisce con `/exec`.
+
+L'app salva il collegamento nel browser in cui lo fai, come il resto dei dati. Per un secondo dispositivo non si rifà lo script: in Impostazioni si copia il «link per un altro dispositivo», che contiene URL e chiave, e lo si incolla lì in «Collega la posta».
 
 L'app controlla la casella quando si apre, quando si torna su di essa e ogni 15 minuti mentre è aperta. Le fatture arrivate compaiono in «Oggi» e in Acquisti; «Importa fatture» le scarica e le legge come i file scelti a mano, quindi quelle dei fornitori già abbinati risultano pronte. Se una mail contiene la stessa fattura in XML e in PDF vale l'XML; le fatture che non sono merce, come luce e telefono, si tolgono con «Non importare». Lo script risponde solo a chi conosce l'URL e la chiave.
 

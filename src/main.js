@@ -231,6 +231,7 @@ const ACT = {
   'posta-sync': () => postaSync(true),
   'posta-off': () => postaOff(),
   'posta-copia': b => postaCopia(b),
+  'posta-link': () => postaLinkCopia(),
   'load-sample': () => loadSample(),
   'reset-sample': () => { if (guard()) resetSample(); },
   register: () => { if (!guard()) return; while (stack.length) closeSheet(); if (registered()) clearSample(); else formRegistra(); },

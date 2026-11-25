@@ -114,8 +114,8 @@ function feParse(text, file) {
 /* --- PDF delle fatture: testo letto con pdf.js (si scarica solo la prima volta che serve) --- */
 let fePdfJs = null;
 function fePdfLib() {
-  if (!fePdfJs) fePdfJs = import(new URL('vendor/pdfjs/pdf.min.mjs', location.href).href)
-    .then(m => { m.GlobalWorkerOptions.workerSrc = new URL('vendor/pdfjs/pdf.worker.min.mjs', location.href).href; return m; })
+  if (!fePdfJs) fePdfJs = import(new URL('vendor/pdfjs/pdf.min.js', location.href).href)
+    .then(m => { m.GlobalWorkerOptions.workerSrc = new URL('vendor/pdfjs/pdf.worker.min.js', location.href).href; return m; })
     .catch(e => { fePdfJs = null; throw e; });
   return fePdfJs;
 }

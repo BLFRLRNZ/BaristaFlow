@@ -9,7 +9,7 @@ Web app per gestire banco e laboratorio di un bar: schede tecniche dei prodotti,
 - **Tracciabilità nei due sensi**: dal lotto prodotto risali a ogni ingrediente, con lotto del fornitore, scadenza e fattura o DDT (anche la foto o il PDF allegato). Da un lotto del fornitore vedi in quali prodotti è finito, utile in caso di richiamo.
 - **Magazzino**: giacenze lotto per lotto di materie prime, prodotti da rivendere, imballaggi e prodotti propri. Si registrano vendite, scarti, uso interno e rettifiche d'inventario, e si impostano le scorte minime.
 - **Prezzi d'acquisto**: storico del prezzo al kg, al litro o al pezzo per ogni prodotto, con grafico e confronto fra fornitori. Mostra quanto si è speso in più nel periodo, quali prodotti sono rincarati o calati e quanto è cambiato il costo delle schede. In «Oggi» compare un avviso per i rincari recenti.
-- **Pagina «Oggi»**: lotti scaduti da smaltire, prodotti in scadenza, articoli sotto scorta e rincari.
+- **Pagina «Oggi»**: le cose da fare divise per urgenza (da smaltire, scade oggi, fatture da importare, prossimi giorni, da ordinare, prezzi in aumento). I riquadri in alto filtrano l'elenco.
 - **Esportazioni**: scheda tecnica e scheda lotto stampabili, libro ingredienti, giacenze e storico prezzi in CSV, backup completo in JSON.
 
 ## Primo avvio: dati di esempio e registrazione del bar
@@ -79,10 +79,13 @@ Lo script conosce i dati dell'ultima volta che l'app è stata usata: per le scad
 
 - Il pulsante **+** al centro della barra in basso apre le registrazioni rapide: produzione, acquisto, scarico, scheda, articolo e fornitore.
 - La **ricerca** in alto (o il tasto `/` sul computer) trova lotti, anche del fornitore, prodotti, articoli, fatture e fornitori.
-- Le azioni si fanno direttamente dalle righe: **Smaltisci** su un lotto scaduto, **Riordina** su un articolo sotto scorta (apre l'acquisto già compilato con fornitore e articolo). Quando i prodotti in scadenza sono tanti, «Oggi» ne mostra quattro e raccoglie gli altri in una riga.
-- Le operazioni veloci, come segnare un lotto esaurito o smaltire, partono subito e si possono **annullare** dall'avviso in basso.
-- Le schede si aprono dal basso e si chiudono trascinandole giù. Nella produzione c'è il contapezzi e l'anteprima del codice lotto.
-- Tema chiaro e scuro automatici, layout per telefono e barra laterale da computer.
+- Le azioni si fanno direttamente dalle righe: **Smaltisci** su un lotto scaduto (o **Smaltisci tutti** quando sono più di uno), **Riordina** su un articolo sotto scorta (apre l'acquisto già compilato con fornitore e articolo). Quando i prodotti in scadenza sono tanti, «Oggi» ne mostra quattro e raccoglie gli altri in una riga.
+- Le operazioni veloci, come segnare un lotto esaurito o smaltire, partono subito e si possono **annullare** dall'avviso in basso. La riga smaltita scivola via e l'elenco si richiude senza salti; sul telefono una vibrazione breve conferma (dove il browser lo permette).
+- Le schede si aprono dal basso e si chiudono trascinandole giù, con la X o con il tasto **Indietro** del telefono o del browser. Se un modulo ha modifiche non salvate, Indietro chiede prima conferma.
+- Ogni sezione ricorda il punto in cui eri; toccando di nuovo la sezione in cui sei torni in cima. Il passaggio tra le pagine è una dissolvenza breve (disattivata se nel telefono è attivo «riduci movimento»).
+- Nel pulsante **+**, «Produci di nuovo» propone le produzioni più frequenti delle ultime sei settimane: un tocco apre il modulo già compilato con la quantità fatta più spesso. Nella produzione c'è il contapezzi e l'anteprima del codice lotto.
+- Le date dei moduli hanno le scelte rapide **Oggi** e **Ieri**. Nei documenti d'acquisto i fornitori usati di recente stanno in cima, il tipo di documento segue l'ultima volta (chi manda il DDT, chi la fattura) e nelle righe compaiono per primi gli articoli che compri di solito da quel fornitore.
+- Stile: verde Alpi (il marmo dei banconi) per azioni e struttura, ottone come filo sottile, superfici di porcellana; la sera diventa verde quasi nero con dettagli champagne, in automatico. Un solo carattere, Instrument Sans, incluso nell'app: niente caratteri scaricati da Google, funziona anche senza rete. Layout per telefono e barra laterale da computer.
 
 ## Installarla sul telefono
 
@@ -104,7 +107,7 @@ Il backup JSON contiene tutto e si reimporta da Impostazioni. È anche il format
 
 ```
 index.html            l'app completa in un solo file (generato da build.py)
-build.py              unisce src/ in index.html
+build.py              unisce src/ e il carattere in index.html
 src/
   shell.html          struttura della pagina
   style.css           stile (tema chiaro e scuro)
@@ -121,6 +124,7 @@ src/
 manifest.webmanifest  nome, colori e icone per installare l'app
 sw.js                 funzionamento senza rete e notifiche
 icone/                icona dell'app (SVG e PNG)
+fonts/                Instrument Sans (WOFF2, solo caratteri latini) e la sua licenza OFL
 vendor/pdfjs/         pdf.js di Mozilla, per estrarre il testo dai PDF (licenza Apache 2.0)
 apps-script/          script di Google Apps Script: allegati delle mail con le fatture e notifiche sul telefono
 test/                 prove automatiche nel browser
@@ -164,6 +168,7 @@ python3 test/test_app.py
 python3 test/test_modes.py
 python3 test/test_prezzi.py
 python3 test/test_comodita.py
+python3 test/test_uso.py
 python3 test/test_esempi.py
 python3 test/test_fatture.py
 python3 test/test_fatture_pdf.py
@@ -172,7 +177,7 @@ python3 test/test_posta.py
 python3 test/test_notifiche.py
 ```
 
-`test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
+`test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
 
 ## Nota sulle etichette
 

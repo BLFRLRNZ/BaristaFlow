@@ -51,16 +51,17 @@ with sync_playwright() as p:
     tiles = [int(x) for x in pg.locator(".tile b").all_inner_texts()]
     check(tiles[0] >= 1 and tiles[1] >= 3 and tiles[2] >= 2 and tiles[3] == 3, f"indicatori di Oggi {tiles}")
     check(pg.locator(".lab").count() >= 6, f"etichette in vetrina {pg.locator('.lab').count()}")
-    todo = T(pg.locator("#da-controllare + .list").inner_text())
+    todo = T(pg.locator("#todo").inner_text())
     check("Smaltisci" in todo and "Riordina" in todo and "Rincaro" in todo, "da fare: smaltire, riordinare, rincari")
     check(pg.locator("#demoPill").is_visible() and pg.locator("#sync").is_hidden(), "in alto: dati di esempio")
     check(T(pg.locator("#demoPill").inner_text()) == "Esempio" and pg.locator("#topbar .tb-names b").bounding_box()["height"] < 26, "sul telefono la pillola è corta e il nome resta su una riga")
-    more = pg.locator("#da-controllare + .list .row", has_text="Altri")
+    more = pg.locator("#todo .row", has_text="Altri")
     check(more.count() == 1 and "in scadenza" in more.inner_text(), "le scadenze in più sono raccolte in una riga")
-    n_rows = pg.locator("#da-controllare + .list .row").count()
+    n_rows = pg.locator("#todo .row").count()
+    oggi_n = pg.locator("#g-oggi .row").count()
     shot(pg, "e_oggi")
     more.click(); pg.wait_for_timeout(150)
-    check(pg.locator("#da-controllare + .list .row").count() == n_rows - 1 + tiles[1] - 4, "toccando si vede tutto l'elenco")
+    check(pg.locator("#todo .row").count() == n_rows - 1 + (tiles[1] - oggi_n) - 4, "toccando si vede tutto l'elenco")
     check(pg.locator(".steps").count() == 0, "niente primi passi durante la prova")
 
     # 3. ogni sezione ha dati

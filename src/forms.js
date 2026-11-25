@@ -3,9 +3,30 @@ const opt = (v, t, cur) => `<option value="${esc(v)}"${String(v) === String(cur)
 const fseg = (k, cur, opts) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button type="button" data-act="fseg" data-k="${k}" data-v="${esc(v)}" aria-pressed="${cur === v}">${esc(t)}</button>`).join('')}</div>`;
 const algToggles = (k, arr) => `<div class="algrid">${ALG.map(([v, t]) => `<button type="button" class="altog" data-act="altog" data-k="${k}" data-v="${v}" aria-pressed="${arr.includes(v)}">${esc(t)}</button>`).join('')}</div>`;
 const fornOpts = cur => [...S.data.fornitori.values()].sort(byName).map(f => opt(f.id, f.nome, cur)).join('');
+/* nei documenti d'acquisto i fornitori usati di recente stanno in cima */
+function fornOptsRecenti(cur) {
+  const all = [...S.data.fornitori.values()].sort(byName), last = new Map();
+  for (const d of S.data.documenti.values()) if (d.fornitoreId && validIso(d.data) && d.tipo !== 'inventario' && (last.get(d.fornitoreId) || '') < d.data) last.set(d.fornitoreId, d.data);
+  const rec = all.filter(f => last.has(f.id)).sort((a, b) => last.get(b.id).localeCompare(last.get(a.id))).slice(0, 4);
+  if (all.length <= 5 || rec.length < 2) return all.map(f => opt(f.id, f.nome, cur)).join('');
+  return `<optgroup label="Usati di recente">${rec.map(f => opt(f.id, f.nome, cur)).join('')}</optgroup><optgroup label="Tutti i fornitori">${all.map(f => opt(f.id, f.nome, cur)).join('')}</optgroup>`;
+}
+/* gli articoli che compri di solito da un fornitore, dai più frequenti */
+function artAbituali(fornId) {
+  const n = new Map();
+  for (const d of S.data.documenti.values()) if (fornId && d.fornitoreId === fornId) for (const r of d.righe || []) n.set(r.articoloId, (n.get(r.articoloId) || 0) + 1);
+  return [...n.entries()].map(([id, k]) => ({a: S.data.articoli.get(id), k})).filter(x => x.a && !x.a.archiviato).sort((x, y) => y.k - x.k || byName(x.a, y.a)).slice(0, 8).map(x => x.a);
+}
+/* una data con le scelte rapide Oggi e Ieri */
+function dateFld(k, label, v) {
+  const t = today(), y = addDays(t, -1);
+  return `<div class="fld-d"><label class="fld"><span>${esc(label)}</span><input type="date" data-k="${k}" value="${esc(v)}"></label><span class="dchips">${[[t, 'Oggi'], [y, 'Ieri']].map(([d, n]) => `<button type="button" class="dchip" data-act="dset" data-k="${k}" data-v="${d}" aria-pressed="${v === d}" aria-label="${esc(label)}: ${n.toLowerCase()}">${n}</button>`).join('')}</span></div>`;
+}
 const strip = o => { const c = clone(o) || {}; delete c.id; return c; };
 const splitRef = ref => { const i = String(ref || '').indexOf(':'); return i < 0 ? ['art', ''] : [ref.slice(0, i), ref.slice(i + 1)]; };
 const foot = (label) => `<button type="button" class="btn" data-act="close">Annulla</button><button type="button" class="btn pri" data-act="save">${esc(label)}</button>`;
+/* ridisegna il modulo tenendo il punto in cui eri */
+function repaintKeep(o, el) { const k = el?.dataset?.k; paintSheet(o); if (k) $(`[data-k="${k}"]`, o.el)?.focus({preventScroll: true}); }
 function setPath(o, path, v) { const ks = path.split('.'); let x = o; for (let i = 0; i < ks.length - 1; i++) { x = x[ks[i]]; if (x == null) return; } x[ks[ks.length - 1]] = v; }
 function artOptions(cur) {
   const arts = [...S.data.articoli.values()].filter(a => !a.archiviato || a.id === cur).sort(byName);
@@ -78,14 +99,14 @@ function formDocumento(id, pre) {
   const newRiga = () => ({id: uid(), articoloId: '', qta: '', unita: '', importo: '', lotto: '', scadenza: ''});
   const st = ex
     ? {tipo: TIPI[ex.tipo] ? ex.tipo : 'fattura', numero: ex.numero || '', data: ex.data || today(), fornitoreId: ex.fornitoreId || '', fatturaRif: ex.fatturaRif || '', soloPrezzi: !!ex.soloPrezzi, note: ex.note || '', allegati: clone(ex.allegati || []), righe: (ex.righe || []).map(r => ({id: r.id, articoloId: r.articoloId, qta: fmtIn(+r.qta), unita: unitOk(S.data.articoli.get(r.articoloId)?.unita) || 'kg', importo: r.importo == null || r.importo === '' ? '' : fmtIn(+r.importo), lotto: r.lotto || '', scadenza: r.scadenza || ''}))}
-    : {tipo: TIPI[pre?.tipo] ? pre.tipo : 'fattura', numero: '', data: today(), fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', fatturaRif: '', soloPrezzi: false, note: '', allegati: [], righe: pre?.articoloId ? [{...newRiga(), articoloId: pre.articoloId, unita: unitOk(S.data.articoli.get(pre.articoloId)?.unita) || 'kg'}] : [newRiga()]};
+    : {tipo: TIPI[pre?.tipo] ? pre.tipo : 'fattura', tipoTouched: !!pre?.tipo, numero: '', data: today(), fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', fatturaRif: '', soloPrezzi: false, note: '', allegati: [], righe: pre?.articoloId ? [{...newRiga(), articoloId: pre.articoloId, unita: unitOk(S.data.articoli.get(pre.articoloId)?.unita) || 'kg'}] : [newRiga()]};
   if (!st.righe.length) st.righe.push(newRiga());
   const priceOnly = () => st.soloPrezzi && st.tipo !== 'inventario';
   const usedLot = rid => { if (!ex) return null; const l = drv().acq.get(`${id}:${rid}`); return l && (l.used.length || l.mov.length) ? l : null; };
   const rigaHTML = (r, i) => {
-    const a = S.data.articoli.get(r.articoloId), units = a ? buyUnits(a.unita) : ['kg'], used = usedLot(r.id);
+    const a = S.data.articoli.get(r.articoloId), units = a ? buyUnits(a.unita) : ['kg'], used = usedLot(r.id), abit = artAbituali(st.fornitoreId);
     return `<div class="card"><div class="card-h"><b>Riga ${i + 1}</b>${used ? '<span class="chip">Già usata o scaricata</span>' : st.righe.length > 1 ? `<button type="button" class="btn" data-act="del-riga" data-i="${i}">Togli riga</button>` : ''}</div>
-      <label class="fld"><span>Articolo</span><select data-k="righe.${i}.articoloId" ${used ? 'disabled' : ''}><option value="">Scegli l'articolo…</option>${artOptions(r.articoloId)}<option value="__new">+ Nuovo articolo…</option></select></label>
+      <label class="fld"><span>Articolo</span><select data-k="righe.${i}.articoloId" ${used ? 'disabled' : ''}><option value="">Scegli l'articolo…</option>${abit.length ? `<optgroup label="Di solito da ${esc(fornName(st.fornitoreId))}">${abit.map(a => opt(a.id, a.nome, r.articoloId)).join('')}</optgroup>` : ''}${artOptions(r.articoloId)}<option value="__new">+ Nuovo articolo…</option></select></label>
       <div class="g3"><label class="fld"><span>Quantità</span><input type="text" inputmode="decimal" data-k="righe.${i}.qta" value="${esc(r.qta)}" placeholder="0" autocomplete="off"></label>
       <label class="fld"><span>Unità</span><select data-k="righe.${i}.unita">${units.map(u => opt(u, u, units.includes(r.unita) ? r.unita : units[0])).join('')}</select></label>
       <label class="fld"><span>Importo € senza IVA</span><input type="text" inputmode="decimal" data-k="righe.${i}.importo" value="${esc(r.importo)}" placeholder="0,00" autocomplete="off"></label></div>
@@ -98,8 +119,9 @@ function formDocumento(id, pre) {
     body: () => { const o = stack.find(x => x.st === st); return `<div class="fld"><span>Tipo di documento</span>${fseg('tipo', st.tipo, [['fattura', 'Fattura'], ['ddt', 'DDT'], ['scontrino', 'Scontrino'], ['inventario', 'Inventario iniziale']])}</div>
       ${st.tipo === 'inventario' ? '<p class="note">«Inventario iniziale» serve a caricare la merce che hai già in magazzino quando cominci a usare Barista Flow.</p>' : ''}
       <div class="g2"><label class="fld"><span>Numero</span><input type="text" data-k="numero" value="${esc(st.numero)}" placeholder="${st.tipo === 'inventario' ? 'Facoltativo' : 'Es. 1187'}" autocomplete="off"></label>
-      <label class="fld"><span>Data</span><input type="date" data-k="data" value="${esc(st.data)}"></label></div>
-      <label class="fld"><span>Fornitore${st.tipo === 'inventario' ? ' (facoltativo)' : ''}</span><select data-k="fornitoreId"><option value="">Scegli il fornitore…</option>${fornOpts(st.fornitoreId)}<option value="__new">+ Nuovo fornitore…</option></select></label>
+      ${dateFld('data', 'Data', st.data)}</div>
+      <label class="fld"><span>Fornitore${st.tipo === 'inventario' ? ' (facoltativo)' : ''}</span><select data-k="fornitoreId"><option value="">Scegli il fornitore…</option>${fornOptsRecenti(st.fornitoreId)}<option value="__new">+ Nuovo fornitore…</option></select></label>
+      ${st.tipoAuto ? `<p class="hint" style="margin:-6px 0 14px">${esc(TIPI[st.tipo] || 'Documento')}, come l’ultimo documento di ${esc(fornName(st.fornitoreId))}.</p>` : ''}
       ${st.tipo === 'ddt' ? `<label class="fld"><span>Fattura collegata (facoltativa)</span><input type="text" data-k="fatturaRif" value="${esc(st.fatturaRif)}" placeholder="Es. n. 1203 del 30/11, quando arriva" autocomplete="off"></label>` : ''}
       ${st.tipo !== 'inventario' ? `<label class="chk"><input type="checkbox" data-k="soloPrezzi" ${st.soloPrezzi ? 'checked' : ''}>Solo storico prezzi: non carica merce in magazzino</label><p class="hint" style="margin:-4px 0 14px">Per inserire fatture vecchie e vedere subito l’andamento dei prezzi, senza toccare le giacenze.</p>` : ''}
       <div class="fld"><span>Foto o PDF del documento</span>${attHTML(o)}</div>
@@ -117,6 +139,14 @@ function formDocumento(id, pre) {
         r.unita = unitOk(S.data.articoli.get(r.articoloId)?.unita) || 'kg'; paintSheet(o); return;
       }
       if (k === 'fornitoreId' && st.fornitoreId === '__new') { st.fornitoreId = ''; el.value = ''; formFornitore(null, nid => { st.fornitoreId = nid; paintSheet(o); }); return; }
+      if (k === 'fornitoreId') {
+        // un fornitore nuovo per questo documento: il tipo segue l'ultima volta (chi manda sempre il DDT, chi la fattura)
+        const last = !ex && !st.tipoTouched ? [...S.data.documenti.values()].filter(d => d.fornitoreId === st.fornitoreId && ['fattura', 'ddt', 'scontrino'].includes(d.tipo)).sort((a, b) => String(b.data).localeCompare(String(a.data)) || (b.creato || 0) - (a.creato || 0))[0] : null;
+        if (last) st.tipo = last.tipo; else if (st.tipoAuto) st.tipo = 'fattura';
+        st.tipoAuto = !!last && last.tipo !== 'fattura';
+        repaintKeep(o, el); return;
+      }
+      if (k === 'tipo') { st.tipoTouched = true; st.tipoAuto = false; }
       if (k === 'tipo' || k === 'soloPrezzi') paintSheet(o);
     },
     onSave: async o => {
@@ -263,10 +293,10 @@ function formRicetta(id, fromId) {
 }
 
 /* produzione di un lotto con scelta dei lotti degli ingredienti (prima quelli che scadono prima) */
-function formProduzione(ricId) {
+function formProduzione(ricId, pre) {
   const recs = [...S.data.ricette.values()].filter(r => !r.archiviato).sort(byName);
   if (!recs.length) { toast('Prima crea una scheda tecnica.', true); return; }
-  const st = {ricettaId: ricId && S.data.ricette.has(ricId) ? ricId : '', data: today(), qta: '', scadenza: '', scadTouched: false, operatore: lsGet('bf-operatore') || '', note: '', forza: false, righe: []};
+  const st = {ricettaId: ricId && S.data.ricette.has(ricId) ? ricId : '', data: today(), qta: pre?.qta ? String(pre.qta) : '', scadenza: '', scadTouched: false, operatore: lsGet('bf-operatore') || '', note: '', forza: false, righe: []};
   const alloc = rg => {
     let rem = rg.valid ? rg.needBase : 0;
     for (const l of rg.lots) { const q = Math.min(l.res, Math.max(0, rem)); l.q = q > EPS ? fmtIn(q / rg.fct) : ''; rem = r6(rem - q); }
@@ -315,7 +345,7 @@ function formProduzione(ricId) {
     body: () => {
       const r = S.data.ricette.get(st.ricettaId), u = unitOk(r?.resaUnita);
       return `<label class="fld"><span>Prodotto da scheda tecnica</span><select data-k="ricettaId"><option value="">Scegli il prodotto…</option>${recs.map(x => opt(x.id, x.nome, st.ricettaId)).join('')}</select></label>
-      ${r ? `<div class="g3"><label class="fld"><span>Data di produzione</span><input type="date" data-k="data" value="${esc(st.data)}"></label>
+      ${r ? `<div class="g3">${dateFld('data', 'Data di produzione', st.data)}
         <label class="fld"><span>Quantità prodotta (${u === 'pz' ? 'pezzi' : u})</span>${u === 'pz' ? `<span class="stepper"><button type="button" class="btn" data-act="step" data-d="-1" aria-label="Un pezzo in meno">${IC.minus}</button><input type="text" inputmode="decimal" data-k="qta" value="${esc(st.qta)}" autocomplete="off"><button type="button" class="btn" data-act="step" data-d="1" aria-label="Un pezzo in più">${IC.plus}</button></span>` : `<input type="text" inputmode="decimal" data-k="qta" value="${esc(st.qta)}" autocomplete="off">`}</label>
         <label class="fld"><span>${esc(scadLabel(r.tipoScadenza))}</span><input type="date" data-k="scadenza" value="${esc(st.scadenza)}"></label></div>
         <p class="hint" style="margin:-6px 0 12px">Resa della scheda: ${fmtQ(+r.resaQta, u)}. Scadenza calcolata con la durata della scheda (${esc(shelfTxt(r))}): puoi cambiarla.</p>
@@ -438,7 +468,7 @@ function formMov(t) {
       ${st.tipo === 'rettifica'
         ? `<label class="fld"><span>Quantità contata davvero (${esc(u)})</span><input type="text" inputmode="decimal" data-k="contata" value="${esc(st.contata)}" placeholder="${esc(fmtIn(lot.res))}" autocomplete="off"><small class="hint">La giacenza del lotto viene portata a questo valore.</small></label>`
         : `<label class="fld"><span>Quantità (${esc(u)})</span><input type="text" inputmode="decimal" data-k="qta" value="${esc(st.qta)}" placeholder="0" autocomplete="off"></label>${totRes > EPS ? `<p><button type="button" class="btn" data-act="mov-all">Tutto il residuo: ${fmtQ(totRes, u)}</button></p>` : ''}`}
-      <div class="g2"><label class="fld"><span>Data</span><input type="date" data-k="data" value="${esc(st.data)}"></label></div>
+      <div class="g2">${dateFld('data', 'Data', st.data)}</div>
       <label class="fld"><span>Nota</span><input type="text" data-k="nota" value="${esc(st.nota)}" placeholder="Facoltativa" autocomplete="off"></label>
       <p class="err" id="ferr" role="alert"></p>`,
     foot: () => foot('Registra'),

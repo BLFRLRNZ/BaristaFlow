@@ -108,7 +108,11 @@ const ACT = {
   },
   seg: b => { UI[b.dataset.k] = b.dataset.v; renderMain(); },
   'todo-all': () => { UI.todoAll = true; renderMain(); },
-  jump: b => { if (b.dataset.all && !UI.todoAll) { UI.todoAll = true; renderMain(); } const el = document.getElementById(b.dataset.to); if (el) el.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); },
+  'todo-f': b => {
+    UI.todoF = UI.todoF === b.dataset.f ? '' : b.dataset.f; renderMain();
+    if (UI.todoF) document.getElementById('da-controllare')?.scrollIntoView({behavior: calm() ? 'auto' : 'smooth', block: 'start'});
+  },
+  'todo-tutto': () => { UI.todoF = ''; renderMain(); },
   fseg: b => { const o = sheetOf(b); if (!o) return; setPath(o.st, b.dataset.k, b.dataset.v); o.dirty = true; $$(`[data-act=fseg][data-k="${b.dataset.k}"]`, o.el).forEach(x => x.setAttribute('aria-pressed', x === b)); o.onField?.(b.dataset.k, o, 'change', b); },
   altog: b => { const o = sheetOf(b); if (!o) return; const arr = o.st[b.dataset.k], v = b.dataset.v, i = arr.indexOf(v); if (i < 0) arr.push(v); else arr.splice(i, 1); o.dirty = true; b.setAttribute('aria-pressed', i < 0); o.onField?.(b.dataset.k, o, 'change', b); },
   'toggle-arch': () => { UI.schArch = !UI.schArch; renderMain(); },
@@ -127,6 +131,13 @@ const ACT = {
   nav: b => { if (route() !== b.dataset.to) location.hash = b.dataset.to; },
   quick: () => sheetQuick(),
   qgo: b => { const a = b.dataset.go; closeSheet(); if (a === 'scarico') sheetScarico(); else ACT[a]?.(b); },
+  qprod: b => { closeSheet(); if (guard()) formProduzione(b.dataset.ric, {qta: b.dataset.qta}); },
+  dset: b => {
+    const o = sheetOf(b); if (!o?.st) return;
+    const k = b.dataset.k, i = $(`[data-k="${k}"]`, o.el);
+    setPath(o.st, k, b.dataset.v); o.dirty = true; if (i) i.value = b.dataset.v;
+    dchips(o.el, k, b.dataset.v); o.onField?.(k, o, 'change', i);
+  },
   'scarico-go': b => { const t = {item: true, tipo: b.dataset.tipo, id: b.dataset.id}; closeSheet(); formMov(t); },
   search: () => sheetSearch(),
   car: b => scrollLabels(+b.dataset.dir),
@@ -146,10 +157,23 @@ const ACT = {
     const l = drv().prod.get(b.dataset.id); if (!l || l.res <= EPS) return;
     movWithUndo({data: today(), tipo: 'vendita', lotKind: 'prod', lotId: l.key, delta: -l.res, nota: 'Lotto esaurito', creato: Date.now()}, `Lotto ${l.p.lotto} esaurito: ${nb(fmtQ(l.res, lotUnit(l)))} venduti`);
   },
-  smaltisci: b => {
+  smaltisci: async b => {
     if (!guard()) return;
     const l = drv()[b.dataset.kind === 'prod' ? 'prod' : 'acq'].get(b.dataset.id); if (!l || l.res <= EPS) return;
-    movWithUndo({data: today(), tipo: 'scarto', lotKind: l.kind, lotId: l.key, delta: -l.res, nota: 'Smaltito perché scaduto', creato: Date.now()}, `Smaltiti ${nb(fmtQ(l.res, lotUnit(l)))} di ${lotName(l)}`);
+    const row = b.closest('#main .row'), g = row?.closest('.todo-g');
+    // se è l'ultima riga del gruppo esce tutto il gruppo, intestazione compresa
+    const out = rowOut(g && g.querySelectorAll('.row').length === 1 ? g : row);
+    await out?.finished.catch(() => {});
+    if (!(await movWithUndo({data: today(), tipo: 'scarto', lotKind: l.kind, lotId: l.key, delta: -l.res, nota: 'Smaltito perché scaduto', creato: Date.now()}, `Smaltiti ${nb(fmtQ(l.res, lotUnit(l)))} di ${lotName(l)}`))) rowBack(out);
+  },
+  'smaltisci-tutti': async () => {
+    if (!guard()) return;
+    const t = today(), Dd = drv(), lots = [...Dd.acq.values(), ...Dd.prod.values()].filter(l => l.res > EPS && l.scad && l.scad < t);
+    if (!lots.length) return;
+    const outs = [rowOut($('#g-scaduti'))].filter(Boolean);
+    await Promise.all(outs.map(a => a.finished.catch(() => {})));
+    const ms = lots.map(l => ({data: t, tipo: 'scarto', lotKind: l.kind, lotId: l.key, delta: -l.res, nota: 'Smaltito perché scaduto', creato: Date.now()}));
+    if (!(await movsWithUndo(ms, lots.length === 1 ? 'Smaltito 1 lotto scaduto' : `Smaltiti ${lots.length} lotti scaduti`))) outs.forEach(rowBack);
   },
   'del-mov': async b => {
     if (!guard()) return;
@@ -244,10 +268,25 @@ const ACT = {
 };
 
 const nb = t => String(t).replace(/\u00a0/g, ' ');
-async function movWithUndo(m, msg) {
-  const id = uid();
-  if (await put('movimenti', id, m)) toast(msg, false, {label: 'Annulla', fn: async () => { if (await del('movimenti', id)) toast('Operazione annullata'); }});
+async function movWithUndo(m, msg) { return movsWithUndo([m], msg); }
+async function movsWithUndo(ms, msg) {
+  const ids = [];
+  for (const m of ms) { const id = uid(); if (!(await put('movimenti', id, m))) break; ids.push(id); }
+  if (ids.length) { buzz(); toast(msg, false, {label: 'Annulla', fn: async () => { let ok = true; for (const id of ids) ok = (await del('movimenti', id)) && ok; if (ok) toast('Operazione annullata'); }}); }
+  return ids.length === ms.length;
 }
+/* la riga (o il gruppo) esce di lato e si richiude: quando i dati cambiano, l'elenco è già al suo posto */
+function rowOut(el) {
+  if (!el || !el.animate || calm()) return null;
+  const h = el.offsetHeight, cs = getComputedStyle(el), full = {height: h + 'px', minHeight: h + 'px', paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginBottom: cs.marginBottom};
+  el.style.overflow = 'hidden'; el.style.pointerEvents = 'none';
+  return el.animate([{opacity: 1, transform: 'none', ...full}, {opacity: 0, transform: 'translateX(-32px)', ...full, offset: .45}, {opacity: 0, transform: 'translateX(-32px)', height: '0px', minHeight: '0px', paddingTop: '0px', paddingBottom: '0px', marginBottom: el.classList.contains('todo-g') ? '-20px' : cs.marginBottom}], {duration: 380, easing: 'cubic-bezier(.3,.7,.2,1)', fill: 'forwards'});
+}
+function rowBack(a) { if (!a) return; a.cancel(); const el = a.effect?.target; if (el) { el.style.overflow = ''; el.style.pointerEvents = ''; } }
+/* una vibrazione brevissima conferma le operazioni sul telefono (dove il browser la permette) */
+const buzz = () => { try { navigator.vibrate?.(12); } catch { /* non disponibile */ } };
+/* le scelte rapide Oggi e Ieri sotto le date dei moduli */
+function dchips(root, k, v) { $$(`[data-act=dset][data-k="${k}"]`, root).forEach(x => x.setAttribute('aria-pressed', x.dataset.v === v)); }
 
 /* ---------- eventi ---------- */
 function onClick(e) {
@@ -276,6 +315,7 @@ function onFieldEvent(e, kind) {
   if ((kind === 'input') !== isText) return;
   setPath(o.st, k, t.type === 'checkbox' ? t.checked : t.value);
   o.dirty = true;
+  if (t.type === 'date') dchips(o.el, k, t.value);
   o.onField?.(k, o, kind, t);
 }
 function onFile(t) {
@@ -308,9 +348,32 @@ function wire() {
     if (((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) && !stack.length) { e.preventDefault(); sheetSearch(); return; }
     if (document.activeElement?.id === 'labels' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); scrollLabels(e.key === 'ArrowRight' ? 1 : -1); }
   });
-  window.addEventListener('hashchange', () => { while (stack.length) closeSheet(); paint(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', goRoute);
+  // toccare la sezione in cui sei già riporta in cima, come nelle app del telefono
+  $('#tabs').addEventListener('click', e => {
+    const a = e.target.closest('a[data-tab]');
+    if (!a || a.getAttribute('href') !== '#' + route()) return;
+    e.preventDefault(); window.scrollTo({top: 0, behavior: calm() ? 'auto' : 'smooth'});
+  });
   const tb = $('#topbar'); let ticking = false;
   window.addEventListener('scroll', () => { if (ticking) return; ticking = true; requestAnimationFrame(() => { tb.classList.toggle('scrolled', window.scrollY > 36); ticking = false; }); }, {passive: true});
+}
+
+/* cambio di pagina: ogni sezione ricorda dove eri arrivato, e la pagina nuova entra con una dissolvenza breve */
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const scrollMem = {};
+let curRoute = null;
+function goRoute() {
+  const prev = curRoute ?? route(), next = route();
+  if (prev !== next) scrollMem[prev] = window.scrollY;
+  while (stack.length) closeSheet();
+  let done = false;
+  const apply = () => { if (done) return; done = true; curRoute = next; paint(); window.scrollTo(0, prev === next ? 0 : scrollMem[next] || 0); };
+  if (!document.startViewTransition || calm() || prev === next || document.visibilityState !== 'visible') { apply(); return; }
+  // se il passaggio animato non parte (scheda in secondo piano, browser occupato) la pagina cambia lo stesso
+  const vt = document.startViewTransition(apply);
+  vt.updateCallbackDone.catch(apply); vt.ready.catch(() => {}); vt.finished.catch(() => {});
+  setTimeout(apply, 400);
 }
 
 /* ---------- avvio ---------- */
@@ -333,7 +396,7 @@ function subscribe() {
   }
 }
 async function init() {
-  wire(); paint();
+  wire(); paint(); curRoute = route();
   const w = window.claude;
   if (!w || typeof w.use !== 'function') { S.db = localDB('barista-flow-v1'); S.mode = 'local'; document.body.classList.remove('nodl'); }
   else {

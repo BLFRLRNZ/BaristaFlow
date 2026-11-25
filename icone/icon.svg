@@ -1,9 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a3022"/><stop offset="1" stop-color="#1f140f"/></linearGradient></defs>
+  <defs>
+    <radialGradient id="g" cx="0.3" cy="0.2" r="1"><stop offset="0" stop-color="#2f5d4e"/><stop offset="0.55" stop-color="#1b382f"/><stop offset="1" stop-color="#10241e"/></radialGradient>
+    <linearGradient id="o" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e6cf9d"/><stop offset="0.5" stop-color="#c9a464"/><stop offset="1" stop-color="#a9843f"/></linearGradient>
+  </defs>
   <rect width="512" height="512" fill="url(#g)"/>
-  <g transform="translate(256 262) scale(14) translate(-12.25 -11.5)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9">
-    <path d="M4.5 11h12v3.5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5z" stroke="#f3e5d3"/>
-    <path d="M16.5 12.5h1.2a2.3 2.3 0 0 1 0 4.6h-1.6" stroke="#f3e5d3"/>
-    <path d="M8 3.5c1.2 1.1-1.2 2.4 0 3.6M11.5 3.5c1.2 1.1-1.2 2.4 0 3.6" stroke="#e0a25f"/>
+  <circle cx="256" cy="256" r="178" fill="none" stroke="url(#o)" stroke-width="3" opacity="0.75"/>
+  <g transform="translate(256 252) scale(12.6) translate(-11.5 -11.7)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.15">
+    <path d="M6.1 9.6l.55 4.3a4.3 4.3 0 0 0 4.27 3.8h1.16a4.3 4.3 0 0 0 4.27-3.8l.55-4.3M16.6 11.1h.9a1.85 1.85 0 0 1 0 3.7h-1.45M4.6 19.8c2.6.85 11.2.85 13.8 0" stroke="#f1e8d8"/>
+    <path d="M6.1 9.6h10.8M10 3.6c.95.85-.95 1.85 0 2.75M13 3.6c.95.85-.95 1.85 0 2.75" stroke="url(#o)"/>
   </g>
 </svg>

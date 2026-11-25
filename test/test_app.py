@@ -65,7 +65,7 @@ with sync_playwright() as p:
     check(labs == ["CRE-231126-1", "TAR-241126-1", "BIS-211126-1"], f"etichette in vetrina {labs}")
     res = page.locator(".lab").nth(0).locator(".lab-grid b").all_inner_texts()
     check(res[2].replace(" ", " ") == "600 g", f"residuo crema {res}")
-    da = page.locator("#da-controllare + .list .row").all_inner_texts()
+    da = page.locator("#todo .row").all_inner_texts()
     check(len(da) == 7, f"righe da controllare = {len(da)}")
     check("Burro" in da[0] and "Scaduto ieri" in da[0], "primo da controllare: burro scaduto ieri")
     page.screenshot(path=str(SHOTS / "m_oggi.png"), full_page=True)
@@ -137,7 +137,7 @@ with sync_playwright() as p:
     page.locator(".sheet .btn.pri", has_text="Registra lotto").click()
     page.wait_for_selector(".sheet .big:has-text('BIS-241126-1')", timeout=4000)
     check(True, "lotto BIS-241126-1 creato e aperto")
-    check(page.evaluate("document.fonts.check('700 16px Archivo')"), "font Archivo caricato")
+    check(page.evaluate("document.fonts.ready.then(() => [...document.fonts].some(f => f.family.replace(/\"/g, '') === 'Instrument Sans' && f.status === 'loaded'))"), "carattere Instrument Sans caricato dall'app, senza rete")
     pid = [w for w in page.evaluate("window.__writes") if w[1] == "produzioni"][-1][2]
     prod = page.evaluate(f"window.__store.produzioni['{pid}']")
     check([ (c['lotId'], c['qta']) for c in prod['consumi']] == [("d-fatt1187:r1", 0.5), ("d-ddt452:r1", 0.25), ("d-fatt889:r1", 0.2), ("d-fatt889:r2", 2)], f"consumi salvati {prod['consumi']}")
@@ -177,9 +177,9 @@ with sync_playwright() as p:
     page.keyboard.press("Escape"); page.keyboard.press("Escape")
     # smaltimento burro scaduto dalla home
     page.goto(URL + "#oggi"); page.wait_for_selector("#v-oggi")
-    page.locator("#da-controllare + .list .row", has_text="Burro").locator(".btn", has_text="Smaltisci").click()
-    page.wait_for_timeout(300)
-    check("Annulla" in page.locator("#toast").inner_text(), "smaltimento immediato con Annulla")
+    page.locator("#todo .row", has_text="Burro").locator(".btn", has_text="Smaltisci").click()
+    page.wait_for_timeout(800)
+    check("Annulla" in page.locator("#toast").inner_text(), "smaltimento con Annulla, dopo che la riga è scivolata via")
     tiles = page.locator(".tile b").all_inner_texts()
     check(tiles[0] == "0", f"dopo lo smaltimento nessun lotto scaduto: {tiles}")
 

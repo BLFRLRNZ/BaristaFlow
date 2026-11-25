@@ -63,7 +63,7 @@ with sync_playwright() as p:
     pg.keyboard.press("Escape"); pg.wait_for_timeout(100)
 
     # riordina dalla riga sotto scorta
-    pg.locator("#da-controllare + .list .row", has_text="Acqua").locator(".btn", has_text="Riordina").click(); pg.wait_for_timeout(250)
+    pg.locator("#todo .row", has_text="Acqua").locator(".btn", has_text="Riordina").click(); pg.wait_for_timeout(250)
     f = pg.locator(".sheet-wrap").last
     check(f.locator("[data-k=fornitoreId]").input_value() == "f-ingrosso" and f.locator("[data-k='righe.0.articoloId']").input_value() == "a-acqua", "riordina precompila fornitore e articolo")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(120)

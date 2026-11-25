@@ -11,6 +11,7 @@ function openSheet(o) {
   o.el = wrap; stack.push(o);
   $('#sheets').append(wrap);
   document.documentElement.style.overflow = 'hidden';
+  holdHistory();
   paintSheet(o);
   o.mount?.(o);
   const f = o.form && matchMedia('(pointer: fine)').matches ? $('.sh-body input:not([type=file]):not([disabled]), .sh-body select:not([disabled])', wrap) : null;
@@ -37,17 +38,58 @@ function dragToClose(wrap) {
   const up = () => {
     if (y0 == null) return; y0 = null;
     const fast = dy > 60 && dy / Math.max(1, Date.now() - t0) > 0.6;
-    sheet.style.transition = 'transform .22s ease-out'; sheet.style.transform = '';
-    if (dy > 140 || fast) requestClose();
+    sheet.style.transition = 'transform .22s ease-out';
+    // chiudendo, il foglio riparte da dove l'ha lasciato il dito; se la chiusura non avviene torna su
+    if (!(dy > 140 || fast)) { sheet.style.transform = ''; return; }
+    const o = stack.find(x => x.el === wrap);
+    requestClose().then(() => { if (stack.includes(o)) sheet.style.transform = ''; });
   };
   for (const z of zones) { z.addEventListener('pointerdown', down); z.addEventListener('pointermove', move); z.addEventListener('pointerup', up); z.addEventListener('pointercancel', up); }
 }
 function closeSheet() {
   const o = stack.pop(); if (!o) return;
-  o.el.remove(); o.onClose?.();
+  leaveSheet(o.el); o.onClose?.();
   if (!stack.length) document.documentElement.style.overflow = '';
   if (o.prevFocus && document.contains(o.prevFocus)) o.prevFocus.focus({preventScroll: true});
+  releaseHistory();
 }
+/* il foglio chiuso esce subito dal DOM; al suo posto scende una copia inerte, così nessuna logica aspetta l'animazione */
+function leaveSheet(wrap) {
+  if (!wrap.isConnected || !wrap.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) { wrap.remove(); return; }
+  const body = $('.sh-body', wrap), y = body ? body.scrollTop : 0;
+  const ghost = wrap.cloneNode(true), panel = ghost.firstElementChild;
+  ghost.className = 'sheet-ghost'; ghost.inert = true; ghost.setAttribute('aria-hidden', 'true');
+  panel.className = panel.className.replace(/\bsheet\b/, 'sheet-g');
+  panel.removeAttribute('role'); panel.removeAttribute('aria-modal');
+  for (const el of [ghost, ...ghost.querySelectorAll('[id],[data-act]')]) { el.removeAttribute('id'); el.removeAttribute('data-act'); }
+  wrap.replaceWith(ghost);
+  const gb = $('.sh-body', ghost); if (gb) gb.scrollTop = y;
+  const wide = matchMedia('(min-width: 760px)').matches;
+  const pa = panel.animate(wide ? [{opacity: 1, transform: 'none'}, {opacity: 0, transform: 'scale(.97) translateY(8px)'}] : [{}, {transform: 'translateY(105%)'}], {duration: wide ? 160 : 240, easing: 'cubic-bezier(.4,0,.9,.6)', fill: 'forwards'});
+  ghost.animate([{opacity: 1}, {opacity: 0}], {duration: wide ? 160 : 240, easing: 'ease-in', fill: 'forwards'});
+  pa.finished.catch(() => {}).then(() => ghost.remove());
+}
+/* il tasto Indietro (del telefono o del browser) chiude il foglio in cima invece di lasciare la pagina:
+   finché c'è un foglio aperto la cronologia ha una voce in più, che si consuma quando l'ultimo si chiude */
+const hist = {held: false, hash: '', skip: 0};
+function holdHistory() {
+  if (hist.held) return;
+  try { history.pushState({barista: 'foglio'}, ''); hist.held = true; hist.hash = location.hash; } catch { /* cronologia non disponibile */ }
+}
+function releaseHistory() {
+  queueMicrotask(() => {
+    if (stack.length || !hist.held) return;
+    hist.held = false;
+    if (location.hash !== hist.hash) return; // nel frattempo si è cambiata pagina: la voce resta indietro, innocua
+    hist.skip++; history.back();
+  });
+}
+window.addEventListener('popstate', () => {
+  if (hist.skip) { hist.skip--; return; }
+  if (!hist.held) return;
+  hist.held = false;
+  if (stack.length) { holdHistory(); requestClose(); }
+});
 async function requestClose() {
   const o = top(); if (!o) return;
   if (o.form && o.dirty && !(await ask('Chiudere senza salvare le modifiche?', 'Chiudi senza salvare', true))) return;
@@ -225,11 +267,11 @@ function prezziBody(id) {
   const cheapest = bySup.length > 1 ? [...bySup].sort((x, y) => x.last.p - y.last.p)[0] : null;
   const rows = [...s].reverse().map((x, j, arr) => {
     const pv = arr[j + 1], ch = pv && pv.p > 0 ? (x.p - pv.p) / pv.p : null, d = S.data.documenti.get(x.docId);
-    return `<tr><td data-l="Data">${fmtD(x.date)}</td><td data-l="Fornitore">${esc(fornName(x.forn) || '—')}${d ? `<small><button type="button" class="lnk" data-act="open-doc" data-id="${esc(d.id)}">${esc(docName(d))}</button></small>` : ''}</td><td class="n" data-l="Quantità">${fmtQ(x.q, u)}</td><td class="n" data-l="Importo">${EUR(x.imp)}</td><td class="n" data-l="Prezzo">${EUR(x.p)}</td><td class="n" data-l="Variazione">${ch == null ? '—' : `<span class="${dcls(ch)}">${Math.abs(ch) < 0.005 ? '=' : (ch > 0 ? '▲ ' : '▼ ') + pct(ch)}</span>`}</td></tr>`;
+    return `<tr><td data-l="Data">${fmtD(x.date)}</td><td data-l="Fornitore">${esc(fornName(x.forn) || '—')}${d ? `<small><button type="button" class="lnk" data-act="open-doc" data-id="${esc(d.id)}">${esc(docName(d))}</button></small>` : ''}</td><td class="n" data-l="Quantità">${fmtQ(x.q, u)}</td><td class="n" data-l="Importo">${EUR(x.imp)}</td><td class="n" data-l="Prezzo">${EUR(x.p)}</td><td class="n" data-l="Variazione">${ch == null ? '—' : `<span class="${dcls(ch)}">${Math.abs(ch) < 0.005 ? '=' : arw(ch > 0) + ' ' + pct(ch)}</span>`}</td></tr>`;
   }).join('');
   const label = `Andamento del prezzo ${perU(u)} di ${a.nome}, ${months}: da ${EUR(s[0].p)} a ${EUR(ps.last.p)}`;
   return `<div class="kv"><div><small>Ultimo prezzo ${perU(u)}</small><b>${EUR(ps.last.p)}</b><small>${fmtD(ps.last.date)}</small></div>
-      <div><small>Rispetto all'acquisto prima</small><b class="${dcls(ps.chgPrev)}">${ps.prev ? (Math.abs(ps.chgPrev) < 0.005 ? 'uguale' : (ps.chgPrev > 0 ? '▲ ' : '▼ ') + pct(ps.chgPrev)) : '—'}</b><small>${ps.prev ? `prima ${EUR(ps.prev.p)}` : 'primo acquisto registrato'}</small></div>
+      <div><small>Rispetto all'acquisto prima</small><b class="${dcls(ps.chgPrev)}">${ps.prev ? (Math.abs(ps.chgPrev) < 0.005 ? 'uguale' : arw(ps.chgPrev > 0) + ' ' + pct(ps.chgPrev)) : '—'}</b><small>${ps.prev ? `prima ${EUR(ps.prev.p)}` : 'primo acquisto registrato'}</small></div>
       <div><small>Più basso – più alto</small><b>${numP(ps.min.p)}–${EUR(ps.max.p)}</b><small>${fmtDs(ps.min.date)} – ${fmtDs(ps.max.date)}</small></div>
       <div><small>Prezzo medio pagato</small><b>${EUR(ps.avg)}</b><small>su ${s.length === 1 ? '1 acquisto' : s.length + ' acquisti'}</small></div></div>
     <div class="chartcard">

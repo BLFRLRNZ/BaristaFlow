@@ -25,7 +25,7 @@ with sync_playwright() as p:
 
     # --- Oggi: avvisi di rincaro
     pg.goto(URL); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(300)
-    da = [T(x) for x in pg.locator("#da-controllare + .list .row").all_inner_texts()]
+    da = [T(x) for x in pg.locator("#todo .row").all_inner_texts()]
     rin = [x for x in da if "Rincaro" in x]
     check(len(rin) == 2 and "Nocciole tostate" in rin[0] and "+9,8%" in rin[0] and "Uova" in rin[1] and "+8,7%" in rin[1], f"avvisi rincaro in Oggi {rin}")
 
@@ -125,7 +125,7 @@ with sync_playwright() as p:
     pg.fill("#cfg-sr", "9")
     pg.locator("main .btn.pri", has_text="Salva impostazioni").click(); pg.wait_for_timeout(250)
     pg.goto(URL + "#oggi"); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(200)
-    rin = [x for x in pg.locator("#da-controllare + .list .row").all_inner_texts() if "Rincaro" in x]
+    rin = [x for x in pg.locator("#todo .row").all_inner_texts() if "Rincaro" in x]
     check(len(rin) == 1 and "Nocciole" in rin[0], f"con soglia 9% resta solo nocciole {len(rin)}")
 
     # --- CSV dello storico

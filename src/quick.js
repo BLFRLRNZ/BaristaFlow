@@ -2,17 +2,39 @@
 function sheetQuick() {
   if (!guard()) return;
   const qa = (act, ic, t, d, cls = '') => `<button type="button" class="qa ${cls}" data-act="qgo" data-go="${act}"><span class="ti">${ic}</span><span><b>${esc(t)}</b><br><span>${esc(d)}</span></span></button>`;
+  const rep = x => `<button type="button" class="row" data-act="qprod" data-ric="${esc(x.r.id)}" data-qta="${esc(fmtIn(x.qta))}">${av(esc(x.r.sigla || autoSigla(x.r.nome)), 'pri')}<span class="m"><b>${esc(x.r.nome)}</b><span>${x.n === 1 ? `Fatto ${quando(x.last.data)}` : `Fatto ${x.n} volte in sei settimane, l’ultima ${quando(x.last.data)}`}</span></span><span class="s"><span class="q">${fmtQ(x.qta, unitOk(x.r.resaUnita))}</span></span></button>`;
   openSheet({title: 'Nuova registrazione', small: true,
-    body: () => `<div class="qgrid">
+    body: () => { const ab = prodAbituali(); return `<div class="qgrid">
       ${qa('new-prod', IC.chef, 'Produzione', 'Registra un lotto da una scheda tecnica', 'main')}
+      ${ab.length ? `<div class="qrep"><h3>Produci di nuovo</h3><div class="list">${ab.map(rep).join('')}</div></div>` : ''}
       ${qa('new-doc', IC.receipt, 'Acquisto', 'Fattura, DDT o scontrino')}
       ${qa('scarico', IC.sell, 'Scarico', 'Vendita, scarto o uso interno')}
       ${qa('new-ric', IC.doc, 'Scheda tecnica', 'Nuovo prodotto o semilavorato')}
       ${qa('new-art', IC.box, 'Articolo', 'Materia prima, rivendita, imballaggio')}
       ${qa('new-forn', IC.truck, 'Fornitore', 'Ragione sociale e contatti')}
       ${qa('fe-import', IC.down, 'Importa fatture', 'XML o PDF dei fornitori')}
-    </div>`});
+    </div>`; }});
 }
+/* le produzioni delle ultime sei settimane, dalle più frequenti, con la quantità fatta più spesso:
+   un tocco e il modulo è già compilato */
+function prodAbituali(n = 3) {
+  const t = today(), from = addDays(t, -42), m = new Map();
+  for (const p of S.data.produzioni.values()) {
+    const r = S.data.ricette.get(p.ricettaId);
+    if (!r || r.archiviato || !validIso(p.data) || p.data < from || p.data > t || !(+p.qta > 0)) continue;
+    const x = m.get(r.id) || {r, n: 0, last: p, qs: new Map()};
+    x.n++;
+    if (p.data > x.last.data || (p.data === x.last.data && (p.creato || 0) > (x.last.creato || 0))) x.last = p;
+    const q = r6(+p.qta); x.qs.set(q, (x.qs.get(q) || 0) + 1);
+    m.set(r.id, x);
+  }
+  return [...m.values()].map(x => {
+    const lq = r6(+x.last.qta);
+    x.qta = [...x.qs.entries()].sort((a, b) => b[1] - a[1] || (b[0] === lq) - (a[0] === lq))[0][0];
+    return x;
+  }).sort((a, b) => b.n - a.n || b.last.data.localeCompare(a.last.data)).slice(0, n);
+}
+const quando = d => { const n = daysBetween(d, today()); return n <= 0 ? 'oggi' : n === 1 ? 'ieri' : `${n} giorni fa`; };
 
 /* scarico rapido: scegli cosa, poi quanto */
 function sheetScarico() {

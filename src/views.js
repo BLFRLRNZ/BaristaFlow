@@ -46,7 +46,8 @@ const search = (k, ph) => `<label class="srch">${IC.search}<input type="search" 
 const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button type="button" data-act="seg" data-k="${k}" data-v="${esc(v)}" aria-pressed="${UI[k] === v}">${esc(t)}</button>`).join('')}</div>`;
 const navSeg = (cur, opts) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button type="button" data-act="nav" data-to="${v}" aria-pressed="${cur === v}">${esc(t)}</button>`).join('')}</div>`;
 const algChips = (al, tr) => `<div class="chips">${al.length ? al.map(a => `<span class="chip al">${esc(ALGN[a])}</span>`).join('') : '<span class="chip">Nessuno dei 14 allergeni</span>'}${(tr || []).map(a => `<span class="chip">Tracce: ${esc(ALGN[a].toLowerCase())}</span>`).join('')}</div>`;
-const tile = (cls, n, label, to, ic, all) => `<button type="button" class="tile ${n ? cls : ''}" data-act="jump" data-to="${to}"${all ? ' data-all="1"' : ''}><span class="ti">${ic}</span><b>${n}</b><span>${esc(label)}</span></button>`;
+/* i riquadri di «Oggi» filtrano l'elenco delle cose da fare; toccati di nuovo lo riaprono tutto */
+const tile = (cls, n, label, f, ic) => `<button type="button" class="tile ${n ? cls : ''}" id="tile-${f}" data-act="todo-f" data-f="${f}" aria-pressed="${UI.todoF === f}" aria-controls="todo"><span class="ti">${ic}</span><b>${n}</b><span>${esc(label)}</span></button>`;
 const av = (content, tone = '') => `<span class="av ${tone}" aria-hidden="true">${content}</span>`;
 const catIc = c => c === 'rivendita' ? IC.bottle : c === 'imballaggio' ? IC.bag : IC.wheat;
 const sigOf = l => esc(String(l.p?.lotto || '').split('-')[0].slice(0, 4) || 'LOT');
@@ -97,7 +98,8 @@ function spark(s) {
   return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${s.map(x => `${X(x).toFixed(1)},${Y(x.p).toFixed(1)}`).join(' ')}"/><circle cx="${X(l).toFixed(1)}" cy="${Y(l.p).toFixed(1)}" r="3.5"/></svg>`;
 }
 const dcls = x => x == null || !isFinite(x) || Math.abs(x) < 0.005 ? '' : x > 0 ? 'up' : 'down';
-const delta = (x, label) => (x == null || !isFinite(x)) ? '' : `<span class="chip ${dcls(x)}">${Math.abs(x) < 0.005 ? 'Stabile' : `${x > 0 ? '▲' : '▼'} ${pct(x)}`}${label ? ' ' + esc(label) : ''}</span>`;
+const arw = up => `<span class="arw" aria-hidden="true">${up ? '▲' : '▼'}</span>`;
+const delta = (x, label) => (x == null || !isFinite(x)) ? '' : `<span class="chip ${dcls(x)}"><span>${Math.abs(x) < 0.005 ? 'Stabile' : `${arw(x > 0)} ${pct(x)}`}${label ? ' ' + esc(label) : ''}</span></span>`;
 
 /* ---------- Oggi ---------- */
 function rincariRecenti() {
@@ -139,10 +141,11 @@ function primiPassi() {
 }
 function vOggi() {
   if (showWelcome()) return vBenvenuto();
-  const Dd = drv(), t = today(), w = cfg().giorniAvviso;
+  const Dd = drv(), t = today(), w = cfg().giorniAvviso, F = UI.todoF;
   const lots = [...Dd.acq.values(), ...Dd.prod.values()].filter(l => l.res > EPS && l.scad);
   const exp = lots.filter(l => l.scad < t).sort(byScad);
   const soon = lots.filter(l => l.scad >= t && daysBetween(t, l.scad) <= w).sort(byScad);
+  const dueToday = soon.filter(l => l.scad === t), later = soon.filter(l => l.scad > t);
   const under = [...S.data.articoli.values()].filter(a => !a.archiviato && +a.scortaMin > 0 && artStock(a.id).usable < +a.scortaMin).sort(byName);
   const rincari = rincariRecenti();
   const nToday = [...S.data.produzioni.values()].filter(p => p.data === t).length;
@@ -150,20 +153,34 @@ function vOggi() {
   const h = new Date().getHours(), greet = h < 13 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera';
   const dateStr = cap(new Date().toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long'}));
   const smal = l => `<button type="button" class="btn sm dan w" data-act="smaltisci" data-kind="${l.kind}" data-id="${esc(l.key)}">Smaltisci</button>`;
-  // con tanti prodotti freschi l'elenco delle scadenze diventa lungo: se ne vedono quattro, gli altri a richiesta
-  const more = !UI.todoAll && soon.length > 5 ? soon.length - 4 : 0;
-  const soonRows = (more ? soon.slice(0, 4) : soon).map(l => lotRow(l));
-  if (more) soonRows.push(`<button type="button" class="row" data-act="todo-all">${av(IC.clock, 'amb')}<span class="m"><b>Altri ${more} in scadenza</b><span>Mostra tutto l’elenco</span></span></button>`);
-  const todo = [postaRow(), ...exp.map(l => lotRow(l, smal(l))), ...soonRows, ...under.map(underRow),
-    ...rincari.map(x => `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(x.a.id)}">${av(IC.trend, 'red')}<span class="m"><b>${esc(x.a.nome)}</b><span>Rincaro: pagato ${EUR(x.l.p)} ${perU(x.a.unita)} il ${fmtD(x.l.date)}, prima ${EUR(x.pv.p)}</span><span class="mc">${delta(x.ch)}</span></span></button>`)].filter(Boolean);
+  // con tanti prodotti freschi l'elenco diventa lungo: se ne vedono quattro, gli altri a richiesta
+  const more = !UI.todoAll && F !== 'scadenza' && later.length > 5 ? later.length - 4 : 0;
+  const laterRows = (more ? later.slice(0, 4) : later).map(l => lotRow(l));
+  if (more) laterRows.push(`<button type="button" class="row" data-act="todo-all">${av(IC.clock, 'amb')}<span class="m"><b>Altri ${more} in scadenza</b><span>Mostra tutto l’elenco</span></span></button>`);
+  const posta = postaRow();
+  // le cose da fare per urgenza: prima quello che non si può vendere, poi le scadenze, gli ordini e i prezzi
+  const groups = [
+    {id: 'scaduti', f: 'scaduti', t: 'Da smaltire', tone: 'red', rows: exp.map(l => lotRow(l, smal(l))), act: exp.length > 1 && !S.ro ? '<button type="button" class="btn sm dan w" data-act="smaltisci-tutti">Smaltisci tutti</button>' : ''},
+    {id: 'oggi', f: 'scadenza', t: 'Scade oggi', tone: 'amb', rows: dueToday.map(l => lotRow(l))},
+    {id: 'posta', f: '', t: 'Fatture da importare', tone: 'amb', rows: posta ? [posta] : []},
+    {id: 'prossimi', f: 'scadenza', t: w === 1 ? 'Scade domani' : `Scade nei prossimi ${w} giorni`, tone: 'amb', rows: laterRows, n: later.length},
+    {id: 'scorta', f: 'scorta', t: 'Da ordinare', tone: 'amb', rows: under.map(underRow)},
+    {id: 'rincari', f: 'rincari', t: 'Prezzi in aumento', tone: 'red', rows: rincari.map(x => `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(x.a.id)}">${av(IC.trend, 'red')}<span class="m"><b>${esc(x.a.nome)}</b><span>Rincaro: pagato ${EUR(x.l.p)} ${perU(x.a.unita)} il ${fmtD(x.l.date)}, prima ${EUR(x.pv.p)}</span><span class="mc">${delta(x.ch)}</span></span></button>`)}
+  ].filter(g => g.rows.length && (!F || g.f === F));
+  const grp = g => `<section class="todo-g" id="g-${g.id}" aria-label="${esc(g.t)}"><div class="todo-h"><i class="dot ${g.tone}" aria-hidden="true"></i><h3>${esc(g.t)}</h3><span class="todo-n">${g.n ?? g.rows.length}</span>${g.act || ''}</div><div class="list">${g.rows.join('')}</div></section>`;
+  const FT = {scaduti: 'Lotti scaduti', scadenza: 'In scadenza', scorta: 'Sotto scorta', rincari: 'Rincari'};
+  const VUOTO = {scaduti: 'Nessun lotto scaduto da smaltire.', scadenza: `Nessun prodotto scade ${w === 1 ? 'entro domani' : `nei prossimi ${w} giorni`}.`, scorta: 'Tutti gli articoli sono sopra la scorta minima.', rincari: 'Nessun rincaro negli ultimi 30 giorni.'};
+  const todo = groups.length ? groups.map(grp).join('')
+    : F ? empty(VUOTO[F], IC.check)
+    : `<div class="empty done"><span class="ei">${IC.check}</span><b>Tutto in ordine</b><span>Nessuna scadenza vicina, scorte a posto e nessun rincaro.</span></div>`;
   const sample = countSample();
   return `<section id="v-oggi"><div class="ph"><div><p class="kick">${esc(dateStr)}</p><h1>${greet}</h1></div>
     <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div></div>
     ${sample && S.mode === 'local' ? '' : modeNote()}
     ${sample ? demoBanner() : primiPassi()}
-    <div class="tiles">${tile('red', exp.length, 'Lotti scaduti da smaltire', 'da-controllare', IC.alert)}${tile('amb', soon.length, w === 1 ? 'In scadenza entro domani' : `In scadenza entro ${w} giorni`, 'da-controllare', IC.clock, true)}${tile('amb', under.length, 'Articoli sotto scorta', 'da-controllare', IC.box)}${tile('amb', rincari.length, 'Rincari recenti', 'da-controllare', IC.trend)}</div>
-    <h2 id="da-controllare">Da fare</h2>
-    ${todo.length ? `<div class="list">${todo.join('')}</div>` : empty('Niente da fare: nessuna scadenza vicina, scorte a posto e nessun rincaro.', IC.check)}
+    <div class="tiles">${tile('red', exp.length, 'Lotti scaduti da smaltire', 'scaduti', IC.alert)}${tile('amb', soon.length, w === 1 ? 'In scadenza entro domani' : `In scadenza entro ${w} giorni`, 'scadenza', IC.clock)}${tile('amb', under.length, 'Articoli sotto scorta', 'scorta', IC.box)}${tile('amb', rincari.length, 'Rincari recenti', 'rincari', IC.trend)}</div>
+    <h2 id="da-controllare"><span>${F ? `Da fare: ${FT[F].toLowerCase()}` : 'Da fare'}</span>${F ? '<button type="button" class="lnk" data-act="todo-tutto">Mostra tutto</button>' : ''}</h2>
+    <div class="todo" id="todo">${todo}</div>
     <h2 id="vetrina"><span>In vetrina e in frigo${active.length ? ` <span class="chip">${active.length}</span>` : ''}${nToday ? ` <span class="chip okk">${nToday === 1 ? '1 prodotto oggi' : nToday + ' prodotti oggi'}</span>` : ''}</span>${active.length > 1 ? `<span class="h2a carnav"><button type="button" class="btn icon" data-act="car" data-dir="-1" aria-label="Etichette precedenti">${IC.left}</button><button type="button" class="btn icon" data-act="car" data-dir="1" aria-label="Etichette successive">${IC.right}</button></span>` : ''}</h2>
     ${active.length ? `<div class="labels" id="labels" tabindex="0" aria-label="Lotti in giacenza">${active.map(labelCard).join('')}</div>` : empty('Nessun prodotto in giacenza. Quando registri una produzione, il lotto compare qui con la sua etichetta.', IC.chef)}</section>`;
 }

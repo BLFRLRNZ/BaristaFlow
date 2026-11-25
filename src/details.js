@@ -115,7 +115,7 @@ function toast(msg, bad, action) {
   }
   box.append(t);
   while (box.children.length > 2) box.firstElementChild.remove();
-  setTimeout(() => t.remove(), action ? 7000 : bad ? 6500 : 2800);
+  if (!action?.stay) setTimeout(() => t.remove(), action ? 7000 : bad ? 6500 : 2800);
 }
 const ferr = (o, msg) => { const e = $('#ferr', o.el); if (e) { e.textContent = msg; e.scrollIntoView({block: 'nearest'}); } else toast(msg, true); return false; };
 

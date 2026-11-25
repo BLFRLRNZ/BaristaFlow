@@ -1,5 +1,5 @@
 """Assembla src/ in un unico file index.html (HTML, CSS e JavaScript insieme), pronto da aprire o pubblicare."""
-import base64, json, pathlib, re, sys, urllib.parse
+import base64, hashlib, json, pathlib, re, sys, urllib.parse
 
 root = pathlib.Path(__file__).resolve().parent
 src = root / "src"
@@ -23,5 +23,7 @@ if re.search(r"</script|<!--", js, re.I):
 script = '"use strict";\n{\n' + js + "\n}\n"
 fav = "data:image/svg+xml," + urllib.parse.quote(" ".join((root / "icone" / "icon.svg").read_text(encoding="utf-8").split()), safe=" =:/,;'")
 out = shell.replace("/*FAVICON*/", fav).replace("/*STYLE*/", css).replace("/*LOGO*/", logo).replace("/*SCRIPT*/", script)
+# impronta della versione: l'app la confronta con quella pubblicata per proporre l'aggiornamento
+out = out.replace("/*VERSIONE*/", hashlib.sha256(out.encode("utf-8")).hexdigest()[:12])
 (root / "index.html").write_text(out, encoding="utf-8")
 print("index.html:", len(out), "byte,", out.count("\n"), "righe")

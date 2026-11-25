@@ -141,6 +141,34 @@ try:
 finally:
     srv.terminate()
 
+# una versione nuova pubblicata sul sito: l'app già aperta propone di aggiornare, e l'aggiornamento arriva subito
+import shutil, tempfile
+site = pathlib.Path(tempfile.mkdtemp())
+for f in ["index.html", "sw.js", "manifest.webmanifest"]: shutil.copy(ROOT / f, site / f)
+shutil.copytree(ROOT / "icone", site / "icone")
+srv = subprocess.Popen([sys.executable, "-m", "http.server", "8766", "--bind", "127.0.0.1"], cwd=str(site), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+try:
+    time.sleep(0.8)
+    with sync_playwright() as p:
+        br = p.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True, args=["--no-sandbox"])
+        pg = br.new_page()
+        pg.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
+        pg.goto("http://localhost:8766/"); pg.wait_for_selector("#v-oggi")
+        pg.evaluate("navigator.serviceWorker.ready"); pg.reload(); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(3000)
+        cur = pg.evaluate("document.querySelector('meta[name=barista-versione]').content")
+        check(len(cur) == 12 and pg.locator(".toast", has_text="versione nuova").count() == 0, f"versione {cur}: nessun avviso finché il sito non cambia")
+        time.sleep(1.2)
+        html = (site / "index.html").read_text(encoding="utf-8")
+        (site / "index.html").write_text(html.replace(f'name="barista-versione" content="{cur}"', 'name="barista-versione" content="0123456789ab"', 1), encoding="utf-8")
+        pg.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+        pg.wait_for_selector(".toast >> text=versione nuova", timeout=6000)
+        check(True, "tornando all'app con una versione nuova sul sito compare l'avviso")
+        pg.locator(".toast button", has_text="Aggiorna").click(); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(300)
+        check(pg.evaluate("document.querySelector('meta[name=barista-versione]').content") == "0123456789ab", "«Aggiorna» carica subito la versione nuova, senza aspettare la cache del browser")
+        br.close()
+finally:
+    srv.terminate(); shutil.rmtree(site, ignore_errors=True)
+
 print("\nERRORI:" if errors else "\nNessun errore in console")
 for e in errors: print("  ", e)
 print(f"{len(fails)} controlli falliti")

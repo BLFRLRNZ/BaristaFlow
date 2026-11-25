@@ -94,7 +94,7 @@ Quando l'app è pubblicata su un sito, per esempio con GitHub Pages, si può ins
 - **iPhone (Safari)**: Condividi → Aggiungi alla schermata Home.
 - **Android (Chrome)**: menu ⋮ → Installa app.
 
-Si apre a tutto schermo con la sua icona e funziona anche senza rete, grazie a `sw.js`. Prima prova la rete, quindi mostra sempre l'ultima versione pubblicata.
+Si apre a tutto schermo con la sua icona e funziona anche senza rete, grazie a `sw.js`. Prima prova la rete e chiede sempre al sito se i file sono cambiati, invece di fidarsi della copia del browser: un aggiornamento arriva alla prima apertura. Se l'app è già aperta quando esce una versione nuova (per esempio è rimasta in sottofondo sul telefono), tornandoci compare l'avviso «Aggiorna». `build.py` scrive in `index.html` un'impronta della versione, che l'app confronta con quella del sito.
 
 ## Dove salva i dati
 

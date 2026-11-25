@@ -96,5 +96,24 @@ function setupPWA() {
   if (S.mode !== 'local' || !/^https?:$/.test(location.protocol)) return;
   const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.append(l);
   const ic = document.createElement('link'); ic.rel = 'apple-touch-icon'; ic.href = 'icone/icon-180.png'; document.head.append(ic);
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { /* senza lavoro offline */ });
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    const had = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // l'app installata può restare aperta per giorni: quando torna in primo piano controlla se c'è una versione nuova
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { reg.update().catch(() => {}); checkVersion(); } });
+    }).catch(() => { /* senza lavoro offline */ });
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) checkVersion(); });
+  }
+  setTimeout(checkVersion, 2500);
+}
+/* se sul sito c'è una versione diversa da quella aperta, un avviso propone di ricaricare */
+let versionAsked = false;
+async function checkVersion() {
+  const cur = $('meta[name=barista-versione]')?.content;
+  if (versionAsked || !cur || !navigator.onLine) return;
+  try {
+    const html = await (await fetch('index.html', {cache: 'no-cache'})).text();
+    const v = html.match(/name="barista-versione" content="([0-9a-f]+)"/)?.[1];
+    if (v && v !== cur && !versionAsked) { versionAsked = true; toast('C’è una versione nuova di Barista Flow.', false, {label: 'Aggiorna', stay: true, fn: () => location.reload()}); }
+  } catch { /* senza rete: si riprova la prossima volta */ }
 }

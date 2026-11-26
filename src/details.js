@@ -174,6 +174,7 @@ function lottoBody(id) {
     <div class="kv"><div><small>Prodotto il</small><b>${fmtD(p.data)}</b></div><div><small>${esc(scadLabel(p.tipoScadenza))}</small><b>${fmtD(l.scad)}</b></div><div><small>Quantità prodotta</small><b>${fmtQ(l.qta, u)}</b></div>${l.vetrina ? `<div><small>Stato</small><b>${l.res > EPS ? 'In vetrina' : 'In archivio'}</b><small>${l.res > EPS ? 'fino alla scadenza' : 'scaduto, senza scarico'}</small></div>` : `<div><small>Residuo</small><b>${fmtQ(l.res, u)}</b></div>`}</div>
     ${l.vetrina ? '<p class="hint">Lo scarico delle vendite è spento (Impostazioni): il lotto resta in vetrina fino alla scadenza e poi va in archivio.</p>' : ''}
     <p class="muted">${p.operatore ? `Operatore: ${esc(p.operatore)} · ` : ''}${r ? `Scheda: <button type="button" class="lnk" data-act="open-ric" data-id="${esc(r.id)}">${esc(r.nome)}</button>` : 'Scheda tecnica eliminata'}</p>
+    <p class="dl"><button type="button" class="btn" data-act="pdf-lotto" data-id="${esc(id)}">${IC.down}Scheda di produzione PDF</button></p>
     <h3>Allergeni</h3>${algChips(al, tr)}
     <h3>Materie prime e lotti utilizzati</h3>
     <div class="trace">${(p.consumi || []).map(c => consumoItem(c, [id])).join('') || empty('Nessun ingrediente registrato.')}</div>
@@ -182,7 +183,7 @@ function lottoBody(id) {
     ${l.used.length ? `<h3>Usato come ingrediente in</h3>${fwdTree(l)}` : ''}
     ${l.vetrina && !l.mov.length ? '' : `<h3>Scarichi e rettifiche</h3>${movList(l)}`}
     ${p.note ? `<h3>Note</h3><div class="prose">${esc(p.note)}</div>` : ''}
-    <div class="morebar"><button type="button" class="btn dl" data-act="dl-lotto" data-id="${esc(id)}">${IC.down}Scarica scheda lotto</button><button type="button" class="btn w" data-act="edit-prod" data-id="${esc(id)}">Modifica</button><button type="button" class="btn dan w" data-act="del-prod" data-id="${esc(id)}">Elimina lotto</button></div>`;
+    <div class="morebar"><button type="button" class="btn w" data-act="edit-prod" data-id="${esc(id)}">Modifica</button><button type="button" class="btn dan w" data-act="del-prod" data-id="${esc(id)}">Elimina lotto</button></div>`;
 }
 function lottoFoot(id) {
   const l = drv().prod.get(id); if (!l || S.ro || l.vetrina) return '';

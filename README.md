@@ -11,7 +11,7 @@ Web app per gestire banco e laboratorio di un bar: schede tecniche dei prodotti,
 - **Magazzino**: giacenze lotto per lotto di materie prime, prodotti da rivendere, imballaggi e prodotti propri. Si registrano vendite, scarti, uso interno e rettifiche d'inventario, e si impostano le scorte minime.
 - **Prezzi d'acquisto**: storico del prezzo al kg, al litro o al pezzo per ogni prodotto, con grafico e confronto fra fornitori. Mostra quanto si è speso in più nel periodo, quali prodotti sono rincarati o calati e quanto è cambiato il costo delle schede. In «Oggi» compare un avviso per i rincari recenti.
 - **Pagina «Oggi»**: le cose da fare divise per urgenza (da smaltire, scade oggi, fatture da importare, prossimi giorni, da ordinare, prezzi in aumento). I riquadri in alto filtrano l'elenco.
-- **Esportazioni**: scheda tecnica e scheda lotto stampabili, libro ingredienti, giacenze e storico prezzi in CSV, backup completo in JSON.
+- **Esportazioni**: scheda tecnica stampabile, scheda di produzione di un lotto in PDF (quando la chiedi), libro ingredienti, giacenze e storico prezzi in CSV, backup completo in JSON.
 
 ## Primo avvio: dati di esempio e registrazione del bar
 
@@ -105,6 +105,19 @@ Battere ogni vendita anche nell'app non sempre si può fare: con la coda al banc
 
 I dati non cambiano: riaccendendo lo scarico al Banco, giacenze e movimenti tornano come prima.
 
+## Scheda di produzione in PDF
+
+Ogni lotto prodotto ha, in alto nella sua scheda, il pulsante **«Scheda di produzione PDF»**. Il PDF si crea solo quando lo premi e solo per quel lotto: niente viene preparato o salvato prima, e il file non entra nei dati dell'app. Contiene:
+
+- nome, indirizzo e partita IVA del bar;
+- prodotto e codice del lotto;
+- data di produzione, scadenza («da consumarsi entro» o «preferibilmente entro»), quantità prodotta, operatore, conservazione e categoria della scheda;
+- allergeni e tracce;
+- ogni ingrediente con quantità usata, lotto, scadenza e provenienza (fornitore e fattura o DDT); per i semilavorati c'è il loro lotto e, sotto, i loro ingredienti;
+- le note e lo spazio per la firma dell'operatore e la data.
+
+Una produzione lunga continua sulle pagine dopo, con l'intestazione della tabella ripetuta e «Pagina 1 di 2» in fondo. Su claude.ai il file si scarica dopo la conferma; fuori da claude.ai si scarica sul computer e su Android, mentre su iPhone e iPad si apre il foglio di condivisione (Salva su File, Stampa, Mail, WhatsApp). Il PDF è scritto dall'app stessa, senza librerie né servizi esterni: usa i caratteri standard Helvetica, che ogni lettore di PDF ha.
+
 ## Codice dei lotti
 
 In Impostazioni → Codice dei lotti si sceglie come si chiamano i lotti di produzione. Di partenza è il codice di sempre: sigla del prodotto, giorno-mese-anno e numero del giorno (`BIS-241126-1`). Si può scegliere:
@@ -169,6 +182,7 @@ src/
   fatture.js          lettura delle fatture XML (anche .p7m e .zip) e PDF, abbinamento agli articoli
   posta.js            fatture dalla posta: collegamento allo script di Google, controllo della casella, fatture arrivate
   notifiche.js        notifiche sul telefono: iscrizione, ora e temi, riepilogo di scadenze e scorte per lo script
+  pdf.js              PDF senza librerie (A4, Helvetica, tabelle su più pagine) e scheda di produzione del lotto
   esempi.js           bar di esempio (simulazione con date riferite a oggi), prova e registrazione del bar
   main.js             azioni, esportazioni, avvio e collegamento all'archivio
 manifest.webmanifest  nome, colori e icone per installare l'app
@@ -224,6 +238,7 @@ python3 test/test_anno.py
 python3 test/test_tema.py
 python3 test/test_scadenze.py
 python3 test/test_lotti.py
+python3 test/test_pdf.py
 python3 test/test_esempi.py
 python3 test/test_fatture.py
 python3 test/test_fatture_pdf.py
@@ -232,7 +247,7 @@ python3 test/test_posta.py
 python3 test/test_notifiche.py
 ```
 
-`test_lotti.py` prova il codice dei lotti: di partenza quello di sempre, l'anteprima che segue le scelte prima di salvare, lettere fisse e progressivo con «Parti da», separatori e cifre, la numerazione per prodotto con la sigla e per tutti senza, l'anno nuovo che riparte da 1, la data giuliana e la sola lettura. `test_scadenze.py` prova «Solo scadenze»: Banco spento, lotti di produzione in vetrina e poi in archivio, semilavorati e materie prime da smaltire come sempre, rivendita solo negli acquisti, e il ritorno allo scarico al Banco. `test_tema.py` prova il tema in Impostazioni: automatico, chiaro e scuro, la barra del browser e il ritorno senza lampi. `test_anno.py` carica un anno di lavoro (più di 500 documenti) e controlla che Acquisti e Produzione restino leggere, che la ricerca trovi anche i documenti più vecchi e che il passaggio tra le pagine fotografi solo lo schermo. `test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
+`test_pdf.py` prova la scheda di produzione in PDF: si crea solo quando la si chiede e non entra nei dati, è un PDF valido (con `qpdf` e `pypdf`) con intestazione, date, quantità, operatore, allergeni e ingredienti con i lotti anche dei semilavorati; una produzione lunga va su più pagine con l'intestazione ripetuta; parentesi, virgolette, accenti e barre rovesciate escono giusti; funziona in sola lettura; fuori da claude.ai si scarica sul computer e su iPhone passa dal foglio di condivisione. `test_lotti.py` prova il codice dei lotti: di partenza quello di sempre, l'anteprima che segue le scelte prima di salvare, lettere fisse e progressivo con «Parti da», separatori e cifre, la numerazione per prodotto con la sigla e per tutti senza, l'anno nuovo che riparte da 1, la data giuliana e la sola lettura. `test_scadenze.py` prova «Solo scadenze»: Banco spento, lotti di produzione in vetrina e poi in archivio, semilavorati e materie prime da smaltire come sempre, rivendita solo negli acquisti, e il ritorno allo scarico al Banco. `test_tema.py` prova il tema in Impostazioni: automatico, chiaro e scuro, la barra del browser e il ritorno senza lampi. `test_anno.py` carica un anno di lavoro (più di 500 documenti) e controlla che Acquisti e Produzione restino leggere, che la ricerca trovi anche i documenti più vecchi e che il passaggio tra le pagine fotografi solo lo schermo. `test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
 
 ## Nota sulle etichette
 

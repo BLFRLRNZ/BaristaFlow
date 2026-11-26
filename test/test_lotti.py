@@ -23,7 +23,7 @@ def prev(pg): return T(pg.locator("#cfg-lprev b").inner_text())
 def lex(pg): return {v: T(pg.locator(f"[data-lex={v}]").inner_text()) for v in ["data", "giuliana", "anno", "progressivo"]}
 def salva(pg):
     pg.locator("#cfgForm button[type=submit]").click(); pg.wait_for_timeout(450)
-    return T(pg.locator("#toast").inner_text())
+    return T(pg.locator("#toast .toast").last.inner_text())   # l'ultimo avviso: quelli di prima possono essere ancora lì
 def num(pg, v): pg.locator(f".opt:has(input[name=lotNumero][value={v}])").click(); pg.wait_for_timeout(100)
 ORA = [datetime.datetime.fromisoformat("2026-11-24T10:00:00+01:00")]
 def orologio(pg, iso=None):

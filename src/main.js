@@ -1,9 +1,20 @@
 /* ---------- file scaricabili ---------- */
+const MIME = {pdf: 'application/pdf', html: 'text/html', csv: 'text/csv', json: 'application/json'};
 async function saveFile(filename, data) {
   filename = filename.replace(/[\\/:*?"<>|]+/g, '-');
   if (S.mode === 'local') {
+    const type = MIME[filename.split('.').pop().toLowerCase()] || 'application/octet-stream', blob = new Blob([data], {type});
+    // su iPhone e iPad il PDF passa dal foglio di condivisione (Salva su File, Stampa, Mail, WhatsApp): dall'app
+    // aggiunta alla schermata Home un download diretto si aprirebbe in un riquadro senza uscita
+    if (type === 'application/pdf' && notifIos() && navigator.canShare) {
+      const file = new File([blob], filename, {type});
+      if (navigator.canShare({files: [file]})) {
+        try { await navigator.share({files: [file], title: filename.replace(/\.pdf$/i, '')}); return; }
+        catch (e) { if (e?.name === 'AbortError') return; }
+      }
+    }
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([data])); a.download = filename;
+    a.href = URL.createObjectURL(blob); a.download = filename;
     document.body.append(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
     return;
@@ -31,23 +42,6 @@ function schedaDoc(r) {
     <h2>Allergeni</h2><p>${info.al.length ? esc(info.al.map(k => ALGN[k]).join(', ')) : 'Nessuno dei 14 allergeni principali'}${info.tr.length ? `<br>Può contenere tracce di: ${esc(info.tr.map(k => ALGN[k].toLowerCase()).join(', '))}` : ''}</p>
     <h2>Elenco ingredienti per il cartello</h2><div class="box">${emph(esc(labelPlain(r, [r.id]))).replace(/\n/g, '<br>')}</div>
     ${r.procedimento ? `<h2>Procedimento</h2><p style="white-space:pre-wrap">${esc(r.procedimento)}</p>` : ''}${r.note ? `<h2>Note</h2><p style="white-space:pre-wrap">${esc(r.note)}</p>` : ''}`);
-}
-function lottoDoc(id) {
-  const l = drv().prod.get(id); if (!l) return '';
-  const p = l.p, u = lotUnit(l), al = algSort(p.allergeni || []), tr = algSort((p.tracce || []).filter(x => !al.includes(x)));
-  const rows = (cs, depth, path) => cs.map(c => {
-    const it = itemOf(c.tipo, c.refId), q = fmtQ(+c.qta, it ? baseOf(c.tipo, it) : ''), cls = depth ? ' class="sub"' : '', pre = depth ? '— '.repeat(depth) : '';
-    if (!c.lotId) return `<tr${cls}><td>${pre}${esc(it?.nome || c.nome)}</td><td class="n">${q}</td><td colspan="4">senza lotto registrato</td></tr>`;
-    if (c.tipo === 'ric') { const lp = drv().prod.get(c.lotId); if (!lp) return `<tr${cls}><td>${pre}${esc(it?.nome || c.nome)}</td><td class="n">${q}</td><td colspan="4">lotto eliminato</td></tr>`; return `<tr${cls}><td>${pre}${esc(it?.nome || c.nome)}</td><td class="n">${q}</td><td class="nw">${esc(lp.p.lotto)}</td><td>${fmtD(lp.scad)}</td><td>produzione interna</td><td>prodotto il ${fmtD(lp.data)}</td></tr>${path.includes(c.lotId) ? '' : rows(lp.p.consumi || [], depth + 1, [...path, c.lotId])}`; }
-    const la = drv().acq.get(c.lotId);
-    if (!la) return `<tr${cls}><td>${pre}${esc(it?.nome || c.nome)}</td><td class="n">${q}</td><td colspan="4">documento eliminato</td></tr>`;
-    return `<tr${cls}><td>${pre}${esc(it?.nome || c.nome)}</td><td class="n">${q}</td><td class="nw">${esc(la.lottoF || '—')}</td><td>${fmtD(la.scad)}</td><td>${esc(fornName(la.doc.fornitoreId) || '—')}</td><td>${esc(docName(la.doc))}</td></tr>`;
-  }).join('');
-  return printable(`Lotto ${p.lotto}`, `<h1>Lotto ${esc(p.lotto)}</h1><p class="muted">${esc(lotName(l))}</p>
-    <table class="kv"><tr><th>Prodotto il</th><td>${fmtD(p.data)}</td></tr><tr><th>${esc(scadLabel(p.tipoScadenza))}</th><td>${fmtD(l.scad)}</td></tr><tr><th>Quantità prodotta</th><td>${fmtQ(l.qta, u)}</td></tr>${l.vetrina ? '' : `<tr><th>Residuo</th><td>${fmtQ(l.res, u)}</td></tr>`}${p.operatore ? `<tr><th>Operatore</th><td>${esc(p.operatore)}</td></tr>` : ''}</table>
-    <h2>Allergeni</h2><p>${al.length ? esc(al.map(k => ALGN[k]).join(', ')) : 'Nessuno dei 14 allergeni principali'}${tr.length ? `<br>Può contenere tracce di: ${esc(tr.map(k => ALGN[k].toLowerCase()).join(', '))}` : ''}</p>
-    <h2>Materie prime e lotti utilizzati</h2><table><tr><th>Ingrediente</th><th class="n">Quantità</th><th>Lotto</th><th>Scadenza</th><th>Fornitore</th><th>Documento</th></tr>${rows(p.consumi || [], 0, [id])}</table>
-    ${p.note ? `<h2>Note</h2><p style="white-space:pre-wrap">${esc(p.note)}</p>` : ''}`);
 }
 function libroDoc() {
   const rs = [...S.data.ricette.values()].filter(r => !r.archiviato && !r.semilavorato).sort(byName);
@@ -252,7 +246,7 @@ const ACT = {
     catch { toast('Copia non riuscita: seleziona il testo e copialo a mano.', true); }
   },
   'dl-scheda': b => { const r = S.data.ricette.get(b.dataset.id); if (r) saveFile(`Scheda tecnica - ${r.nome}.html`, schedaDoc(r)); },
-  'dl-lotto': b => { const p = S.data.produzioni.get(b.dataset.id); if (p) saveFile(`Lotto ${p.lotto}.html`, lottoDoc(p.id)); },
+  'pdf-lotto': b => { const p = S.data.produzioni.get(b.dataset.id), pdf = p && schedaProduzionePdf(p.id); if (pdf) saveFile(`Scheda di produzione ${p.lotto}.pdf`, pdf); },
   'dl-libro': () => saveFile(`Libro ingredienti ${today()}.html`, libroDoc()),
   'dl-csv': () => saveFile(`Giacenze ${today()}.csv`, csvGiacenze()),
   'dl-backup': () => saveFile(`Backup Barista Flow ${today()}.json`, backupJSON()),

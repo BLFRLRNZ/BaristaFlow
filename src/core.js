@@ -20,6 +20,7 @@ const IC = {
   right: svg('<path d="m9.5 6 6 6-6 6"/>'),
   alert: svg('<path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.3"/>'),
   clock: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  cal: svg('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
   box: svg('<path d="m3.5 7.5 8.5-4 8.5 4v9l-8.5 4-8.5-4z"/><path d="m3.5 7.5 8.5 4 8.5-4M12 11.5v9"/>'),
   trend: svg('<path d="m4 16 5.5-5.5 4 4L20 8"/><path d="M15 8h5v5"/>'),
   chef: svg('<path d="M7 17.5h10V21H7z"/><path d="M7 17.5v-4a4 4 0 1 1 1.8-7.6 4 4 0 0 1 6.4 0A4 4 0 1 1 17 13.5v4"/>'),
@@ -96,7 +97,7 @@ const buyUnits = base => base === 'kg' ? ['kg', 'g'] : base === 'l' ? ['l', 'ml'
 
 /* ---------- stato ---------- */
 const S = {db: null, mode: 'loading', ro: false, assets: null, downloads: null, user: null, got: new Set(), fresh: new Set(), slow: false, ver: 0, errShown: false, data: Object.fromEntries(COLS.map(c => [c, new Map()]))};
-const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: '', banco: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false, todoF: '', bancoCat: '', pag: {}};
+const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: '', banco: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false, todoF: '', bancoCat: '', pag: {}, per: {prod: null, acq: null}};
 const cfg = () => {
   const c = S.data.impostazioni.get('generale') || {};
   const g = Math.round(pnum(c.giorniAvviso)), iva = pnum(c.iva), sr = pnum(c.sogliaRincaro);

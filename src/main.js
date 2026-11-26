@@ -101,6 +101,9 @@ const ACT = {
     try { await o.onSave(o); } finally { o.saving = false; if (stack.includes(o)) $$('.sh-foot .btn', o.el).forEach(x => { x.disabled = false; }); }
   },
   seg: b => { UI[b.dataset.k] = b.dataset.v; renderMain(); },
+  periodo: b => sheetPeriodo(b.dataset.k),
+  'per-rapido': b => perImposta(b.dataset.k, b.dataset.da, b.dataset.a),
+  'per-togli': b => perImposta(b.dataset.k, '', ''),
   'todo-all': () => { UI.todoAll = true; renderMain(); },
   'todo-f': b => {
     UI.todoF = UI.todoF === b.dataset.f ? '' : b.dataset.f; renderMain();

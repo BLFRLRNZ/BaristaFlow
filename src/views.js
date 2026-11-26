@@ -57,6 +57,44 @@ function altri(k, items, cosa, ic, hint = '') {
   const rest = items.length - UI.pag[k].n; if (rest <= 0) return '';
   return `<button type="button" class="row" id="${k}-altri" data-act="altri" data-k="${k}">${av(ic)}<span class="m"><b>Mostra altri ${Math.min(rest, PAG)} ${cosa}</b><span>${rest === 1 ? 'Ne resta 1 più vecchio' : `Ne restano ${rest} più vecchi`}${hint}</span></span></button>`;
 }
+/* periodo (dal… al…) di Produzione e Acquisti: si sceglie dal pulsante «Periodo» e resta finché non lo togli, anche
+   cambiando pagina. Basta anche una data sola: «dal» fino a oggi, o tutto «fino al» */
+const perOk = k => { const x = UI.per[k]; return x && (x.da || x.a) ? x : null; };
+const inPer = (k, iso) => { const x = perOk(k); return !x || (validIso(iso) && (!x.da || iso >= x.da) && (!x.a || iso <= x.a)); };
+const perKey = k => { const x = perOk(k); return x ? `${x.da}~${x.a}` : ''; };
+const perTxt = x => x.da && x.a ? (x.da === x.a ? `il ${fmtD(x.da)}` : `dal ${fmtD(x.da)} al ${fmtD(x.a)}`) : x.da ? `dal ${fmtD(x.da)}` : `fino al ${fmtD(x.a)}`;
+const perShort = x => x.da && x.a ? (x.da === x.a ? fmtDs(x.da) : `${fmtDs(x.da)} – ${fmtDs(x.a)}`) : x.da ? `Dal ${fmtDs(x.da)}` : `Fino al ${fmtDs(x.a)}`;
+function perBtn(k) {
+  const x = perOk(k);
+  if (!x) return `<button type="button" class="btn per" id="per-${k}" data-act="periodo" data-k="${k}">${IC.cal}<span>Periodo</span></button>`;
+  return `<span class="perbox"><button type="button" class="btn per on" id="per-${k}" data-act="periodo" data-k="${k}" aria-label="Periodo ${esc(perTxt(x))}: cambia">${IC.cal}<span>${esc(perShort(x))}</span></button><button type="button" class="btn icon per-x" data-act="per-togli" data-k="${k}" aria-label="Togli il periodo">${IC.x}</button></span>`;
+}
+const perSum = t => `<p class="persum" id="persum" role="status">${t}</p>`;
+/* il foglio del periodo: due date e alcune scelte rapide (che si applicano subito) */
+function sheetPeriodo(k) {
+  const x = perOk(k) || {da: '', a: ''}, st = {da: x.da, a: x.a}, t = today();
+  const pm1 = addDays(t.slice(0, 8) + '01', -1), pm0 = pm1.slice(0, 8) + '01';
+  const rapide = [['Ultimi 7 giorni', addDays(t, -6), t], ['Questo mese', t.slice(0, 8) + '01', t], ['Mese scorso', pm0, pm1], ['Quest’anno', t.slice(0, 4) + '-01-01', t]];
+  openSheet({small: true, st, title: k === 'prod' ? 'Periodo dei lotti prodotti' : 'Periodo degli acquisti',
+    body: () => `<div class="g2"><label class="fld"><span>Dal</span><input type="date" id="per-da" data-k="da" value="${esc(st.da)}"></label><label class="fld"><span>Al</span><input type="date" id="per-a" data-k="a" value="${esc(st.a)}"></label></div>
+      <p class="hint" style="margin:-6px 0 14px">${k === 'prod' ? 'Conta la data di produzione del lotto' : 'Conta la data del documento'}. Basta anche una data sola: «dal» fino a oggi, oppure tutto «fino al».</p>
+      <div class="fld"><span>Scelte rapide</span><div class="dchips">${rapide.map(([l, da, a]) => `<button type="button" class="dchip" data-act="per-rapido" data-k="${k}" data-da="${da}" data-a="${a}" aria-pressed="${x.da === da && x.a === a}">${esc(l)}</button>`).join('')}</div></div>
+      <p class="err" id="ferr" role="alert"></p>`,
+    foot: () => `${perOk(k) ? `<button type="button" class="btn" data-act="per-togli" data-k="${k}">Togli il periodo</button>` : '<button type="button" class="btn" data-act="close">Annulla</button>'}<button type="button" class="btn pri" data-act="save">Mostra</button>`,
+    onField: (_, o) => { o.dirty = false; },
+    onSave: o => {
+      if ((st.da && !validIso(st.da)) || (st.a && !validIso(st.a))) return ferr(o, 'Data non valida.');
+      perImposta(k, st.da, st.a);
+    }});
+}
+/* applica il periodo: chi cerca i lotti di un periodo vuole vederli tutti, anche quelli finiti */
+function perImposta(k, da, a) {
+  if (da && a && da > a) [da, a] = [a, da];
+  UI.per[k] = da || a ? {da: da || '', a: a || ''} : null;
+  if (k === 'prod' && UI.per[k] && UI.prodF === 'attivi') UI.prodF = 'tutti';
+  if (top()?.title?.startsWith?.('Periodo')) closeSheet();
+  renderMain();
+}
 const av = (content, tone = '') => `<span class="av ${tone}" aria-hidden="true">${content}</span>`;
 const catIc = c => c === 'rivendita' ? IC.bottle : c === 'imballaggio' ? IC.bag : IC.wheat;
 const sigOf = l => esc(String(l.item?.sigla || autoSigla(l.item?.nome || l.p?.ricettaNome)).slice(0, 4));
@@ -203,14 +241,17 @@ function vProduzione() {
   if (UI.prodF === 'attivi') lots = lots.filter(l => l.res > EPS);
   else if (UI.prodF === 'esauriti') lots = lots.filter(l => l.res <= EPS);
   if (q) lots = lots.filter(l => `${l.p.lotto} ${lotName(l)} ${l.p.operatore || ''}`.toLowerCase().includes(q));
+  const per = perOk('prod'); if (per) lots = lots.filter(l => inPer('prod', l.data));
   lots.sort((a, b) => b.data.localeCompare(a.data) || (b.p.creato || 0) - (a.p.creato || 0));
+  const flOf = n => UI.prodF === 'tutti' ? '' : UI.prodF === 'attivi' ? (vendite() ? 'con giacenza' : n === 1 ? 'attivo' : 'attivi') : vendite() ? (n === 1 ? 'esaurito' : 'esauriti') : 'in archivio', fl = flOf(lots.length);
   const nRic = [...S.data.ricette.values()].filter(r => !r.archiviato).length;
   return `<section id="v-produzione"><div class="ph"><div><h1>Produzione</h1><p>Ogni lotto conserva gli ingredienti usati, i lotti dei fornitori con le loro fatture e la scadenza.</p></div>
     <div class="acts w"><button type="button" class="btn pri" data-act="new-prod" ${nRic ? '' : 'disabled'}>${IC.plus}Nuova produzione</button></div></div>
     ${prodNav('produzione')}
     ${nRic ? '' : `<p class="note w">${IC.info}<span>Per produrre serve almeno una scheda tecnica. <button type="button" class="lnk" data-act="new-ric">Crea la prima scheda</button></span></p>`}
-    <div class="bar">${search('prod', 'Cerca lotto, prodotto o operatore')}${seg('prodF', vendite() ? [['attivi', 'Con giacenza'], ['esauriti', 'Esauriti'], ['tutti', 'Tutti']] : [['attivi', 'Attivi'], ['esauriti', 'In archivio'], ['tutti', 'Tutti']])}</div>
-    ${lots.length ? `<div class="list">${pagina('prod', lots, q + '|' + UI.prodF).map(prodRow).join('')}${altri('prod', lots, 'lotti', IC.chef)}</div>` : empty(q ? 'Nessun lotto corrisponde alla ricerca.' : 'Nessun lotto in questo elenco.', IC.chef)}</section>`;
+    <div class="bar">${search('prod', 'Cerca lotto, prodotto o operatore')}${perBtn('prod')}${seg('prodF', vendite() ? [['attivi', 'Con giacenza'], ['esauriti', 'Esauriti'], ['tutti', 'Tutti']] : [['attivi', 'Attivi'], ['esauriti', 'In archivio'], ['tutti', 'Tutti']])}</div>
+    ${per ? perSum(`${lots.length === 1 ? '1 lotto' : `${lots.length} lotti`}${fl ? ' ' + fl : ''}${q ? (lots.length === 1 ? ' trovato' : ' trovati') : ''}, prodott${lots.length === 1 ? 'o' : 'i'} <b>${esc(perTxt(per))}</b>`) : ''}
+    ${lots.length ? `<div class="list">${pagina('prod', lots, q + '|' + UI.prodF + '|' + perKey('prod')).map(prodRow).join('')}${altri('prod', lots, 'lotti', IC.chef)}</div>` : empty(q ? 'Nessun lotto corrisponde alla ricerca.' : per ? `Nessun lotto${flOf(1) ? ' ' + flOf(1) : ''} prodotto ${perTxt(per)}.` : 'Nessun lotto in questo elenco.', IC.chef)}</section>`;
 }
 function ricCard(r) {
   const al = algSort([...recAllergensOf(r, [r.id])]);
@@ -292,17 +333,20 @@ function vAcquisti() {
   const q = UI.q.acq.trim().toLowerCase();
   let docs = [...S.data.documenti.values()];
   if (q) docs = docs.filter(d => [d.numero, fornName(d.fornitoreId), TIPI[d.tipo], d.fatturaRif, ...(d.righe || []).flatMap(r => [S.data.articoli.get(r.articoloId)?.nome, r.lotto])].join(' ').toLowerCase().includes(q));
+  const per = perOk('acq'); if (per) docs = docs.filter(d => inPer('acq', d.data));
   docs.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (b.creato || 0) - (a.creato || 0));
-  const rows = pagina('acq', docs, q).map(d => {
+  const rows = pagina('acq', docs, q + '|' + perKey('acq')).map(d => {
     const n = (d.righe || []).length, att = (d.allegati || []).length;
     const noPrice = d.tipo !== 'inventario' && (d.righe || []).some(r => r.importo == null || r.importo === '');
     return `<button type="button" class="row" data-act="open-doc" data-id="${esc(d.id)}">${av(DOCAB[d.tipo] || 'DOC', noPrice ? 'amb' : '')}<span class="m"><b>${esc(docName(d))}</b><span>${esc(fornName(d.fornitoreId) || (d.tipo === 'inventario' ? 'Merce già in magazzino' : 'Fornitore non indicato'))} · ${n === 1 ? '1 riga' : `${n} righe`}${att ? ` · ${att === 1 ? '1 allegato' : `${att} allegati`}` : ''}${d.tipo === 'ddt' && d.fatturaRif ? ` · fattura ${esc(d.fatturaRif)}` : ''}</span><span class="mc">${d.soloPrezzi ? '<span class="chip">Solo storico prezzi</span>' : ''}${noPrice ? '<span class="chip amb">Prezzi da inserire</span>' : ''}</span></span><span class="s"><span class="q">${EUR(docTot(d))}</span></span></button>`;
-  }).join('') + altri('acq', docs, 'documenti', IC.receipt, q ? '' : '. Per trovarne uno, cerca il numero o il fornitore.');
+  }).join('') + altri('acq', docs, 'documenti', IC.receipt, q || per ? '' : '. Per trovarne uno, cerca il numero o il fornitore, o scegli il periodo.');
+  const tot = per ? docs.reduce((t, d) => t + docTot(d), 0) : 0;
   return `<section id="v-acquisti"><div class="ph"><div><h1>Acquisti</h1><p>Fatture e DDT: ogni riga diventa un lotto di magazzino con lotto del fornitore, scadenza e costo.</p></div>
     <div class="acts w"><button type="button" class="btn pri" data-act="new-doc">${IC.plus}Registra documento</button><button type="button" class="btn" data-act="fe-import">${IC.down}Importa fatture${postaCoda().length ? ` <span class="chip amb">${postaMail(postaCoda())} dalla posta</span>` : ''}</button><button type="button" class="btn" data-act="new-forn">Nuovo fornitore</button></div></div>
     <div class="subnav">${acqNav('acquisti')}</div>
-    <div class="bar">${search('acq', 'Cerca numero, fornitore, articolo o lotto')}</div>
-    ${rows ? `<div class="list">${rows}</div>` : empty(q ? 'Nessun documento corrisponde alla ricerca.' : 'Nessun acquisto registrato. Registra la prima fattura o il primo DDT.', IC.receipt)}</section>`;
+    <div class="bar">${search('acq', 'Cerca numero, fornitore, articolo o lotto')}${perBtn('acq')}</div>
+    ${per ? perSum(`${docs.length === 1 ? '1 documento' : `${docs.length} documenti`}${q ? (docs.length === 1 ? ' trovato' : ' trovati') : ''} <b>${esc(perTxt(per))}</b>${docs.length ? ` · ${EUR(tot)} senza IVA` : ''}`) : ''}
+    ${rows ? `<div class="list">${rows}</div>` : empty(q ? 'Nessun documento corrisponde alla ricerca.' : per ? `Nessun documento ${perTxt(per)}.` : 'Nessun acquisto registrato. Registra la prima fattura o il primo DDT.', IC.receipt)}</section>`;
 }
 function vFornitori() {
   const q = UI.q.forn.trim().toLowerCase();

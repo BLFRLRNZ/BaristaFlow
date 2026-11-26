@@ -40,11 +40,20 @@ function formArticolo(id, onSaved, pre) {
     ? {nome: ex.nome || '', categoria: CAT[ex.categoria] ? ex.categoria : 'materia', unita: unitOk(ex.unita) || 'kg', pesoPz: +ex.pesoPz > 0 ? fmtIn(+ex.pesoPz) : '', etichetta: ex.etichetta || '', allergeni: algSort(ex.allergeni || []), conservazione: CONS[ex.conservazione] ? ex.conservazione : 'ambiente', scortaMin: +ex.scortaMin > 0 ? fmtIn(+ex.scortaMin) : '', fornitoreId: ex.fornitoreId || '', prezzoVendita: +ex.prezzoVendita > 0 ? fmtIn(+ex.prezzoVendita) : '', note: ex.note || ''}
     : {nome: pre?.nome || '', categoria: CAT[pre?.categoria] ? pre.categoria : 'materia', unita: unitOk(pre?.unita) || 'kg', pesoPz: '', etichetta: '', allergeni: [], conservazione: 'ambiente', scortaMin: '', fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', prezzoVendita: '', note: ''};
   const locked = !!ex && ((drv().artLots.get(id) || []).length > 0 || [...S.data.ricette.values()].some(r => (r.ingredienti || []).some(g => g.tipo !== 'ric' && g.refId === id)));
+  /* un articolo nuovo creato da solo (Magazzino, +, Banco) può avere subito la quantità comprata: poi si apre
+     l'acquisto già compilato. Dentro un acquisto, una fattura o una scheda la quantità si scrive già lì. */
+  const buy = !ex && !onSaved;
+  if (buy) { st.qtaAcq = ''; st.unitaAcq = st.unita; }
+  const qtaRow = () => buy ? `<div class="g2"><label class="fld"><span>Quantità comprata</span><input type="text" inputmode="decimal" data-k="qtaAcq" value="${esc(st.qtaAcq)}" placeholder="Facoltativa" autocomplete="off"></label>
+      <label class="fld"><span>Unità</span><select data-k="unitaAcq" id="f-qu">${buyUnits(st.unita).map(u => opt(u, u, st.unitaAcq)).join('')}</select></label></div>
+      <p class="hint" style="margin:-6px 0 14px">Se la scrivi, con «Crea e continua» si apre l’acquisto già compilato: aggiungi fornitore, prezzo, lotto e scadenza.</p>` : '';
+  const label = () => ex ? 'Salva modifiche' : buy && String(st.qtaAcq).trim() ? 'Crea e continua' : 'Crea articolo';
   openSheet({form: true, st, title: ex ? 'Modifica articolo' : 'Nuovo articolo',
     body: () => `<label class="fld"><span>Nome</span><input type="text" data-k="nome" value="${esc(st.nome)}" placeholder="Es. Farina 00" autocomplete="off"></label>
       <div class="fld"><span>Tipo di articolo</span>${fseg('categoria', st.categoria, [['materia', 'Materia prima'], ['rivendita', 'Rivendita'], ['imballaggio', 'Imballaggio']])}</div>
       <div class="g2"><label class="fld"><span>Unità di giacenza</span><select data-k="unita" ${locked ? 'disabled' : ''}>${opt('kg', 'Chili (kg)', st.unita)}${opt('l', 'Litri (l)', st.unita)}${opt('pz', 'Pezzi (pz)', st.unita)}</select>${locked ? '<small class="hint">Bloccata: l’articolo ha già lotti o è in una scheda.</small>' : ''}</label>
       <label class="fld" id="f-pz" ${st.unita === 'pz' ? '' : 'hidden'}><span>Peso di un pezzo (g)</span><input type="text" inputmode="decimal" data-k="pesoPz" value="${esc(st.pesoPz)}" placeholder="Es. 55"><small class="hint">Permette di usarlo in grammi nelle ricette.</small></label></div>
+      ${qtaRow()}
       <label class="fld" id="f-pv" ${st.categoria === 'rivendita' ? '' : 'hidden'}><span>Prezzo di vendita € IVA inclusa, <span id="f-pv-u">${perU(st.unita)}</span></span><input type="text" inputmode="decimal" data-k="prezzoVendita" value="${esc(st.prezzoVendita)}" placeholder="Facoltativo" autocomplete="off"><small class="hint">Compare sul tasto del Banco e fa il totale dello scontrino.</small></label>
       <label class="fld"><span>Nome nell'elenco ingredienti</span><input type="text" data-k="etichetta" value="${esc(st.etichetta)}" placeholder="Es. farina di GRANO tenero tipo 00" autocomplete="off"><small class="hint">Scrivi in MAIUSCOLO la parola dell'allergene. Se lo lasci vuoto viene usato il nome, con l'allergene tra parentesi.</small></label>
       <div class="fld"><span>Allergeni contenuti</span>${algToggles('allergeni', st.allergeni)}</div>
@@ -53,9 +62,13 @@ function formArticolo(id, onSaved, pre) {
       <label class="fld"><span>Fornitore abituale</span><select data-k="fornitoreId"><option value="">Nessuno</option>${fornOpts(st.fornitoreId)}</select></label>
       <label class="fld"><span>Note</span><textarea data-k="note" rows="3">${esc(st.note)}</textarea></label>
       <p class="err" id="ferr" role="alert"></p>`,
-    foot: () => foot(ex ? 'Salva modifiche' : 'Crea articolo'),
+    foot: () => foot(label()),
     onField: (k, o) => {
-      if (k === 'unita') { $('#f-pz', o.el).hidden = st.unita !== 'pz'; $('#f-pv-u', o.el).textContent = perU(st.unita); }
+      if (k === 'unita') {
+        $('#f-pz', o.el).hidden = st.unita !== 'pz'; $('#f-pv-u', o.el).textContent = perU(st.unita);
+        const qu = $('#f-qu', o.el); if (qu) { st.unitaAcq = st.unita; qu.innerHTML = buyUnits(st.unita).map(u => opt(u, u, st.unitaAcq)).join(''); }
+      }
+      if (k === 'qtaAcq') { const f = $('.sh-foot', o.el), ft = o.foot(); if (f._h !== ft) { f.innerHTML = ft; f._h = ft; } }
       if (k === 'categoria') $('#f-pv', o.el).hidden = st.categoria !== 'rivendita';
     },
     onSave: async o => {
@@ -69,9 +82,15 @@ function formArticolo(id, onSaved, pre) {
       // il prezzo di vendita serve solo a quello che si rivende al banco
       let pv = null;
       if (st.categoria === 'rivendita' && String(st.prezzoVendita).trim()) { pv = pnum(st.prezzoVendita); if (!(pv >= 0)) return ferr(o, 'Prezzo di vendita non valido.'); pv = pv > 0 ? r6(pv) : null; }
+      let qa = null;
+      if (buy && String(st.qtaAcq).trim()) { qa = pnum(st.qtaAcq); if (!(qa > 0)) return ferr(o, 'Quantità comprata non valida.'); }
       const doc = {...(ex ? strip(ex) : {}), nome, categoria: st.categoria, unita: locked ? ex.unita : st.unita, pesoPz, etichetta: st.etichetta.trim(), allergeni: algSort(st.allergeni), conservazione: st.conservazione, scortaMin: sm, fornitoreId: st.fornitoreId, prezzoVendita: pv, note: st.note.trim(), archiviato: !!ex?.archiviato, creato: ex?.creato || Date.now()};
       const nid = id || uid();
-      if (await put('articoli', nid, doc)) { o.dirty = false; closeSheet(); toast(ex ? 'Articolo aggiornato' : `Articolo «${nome}» creato`); onSaved?.(nid); }
+      if (!(await put('articoli', nid, doc))) return;
+      o.dirty = false; closeSheet();
+      toast(ex ? 'Articolo aggiornato' : qa ? `Articolo «${nome}» creato: completa l’acquisto` : `Articolo «${nome}» creato`);
+      onSaved?.(nid);
+      if (qa) formDocumento(null, {fornitoreId: st.fornitoreId, articoloId: nid, qta: fmtIn(qa), unita: st.unitaAcq});
     }});
 }
 
@@ -106,7 +125,7 @@ function formDocumento(id, pre) {
   const newRiga = () => ({id: uid(), articoloId: '', qta: '', unita: '', importo: '', lotto: '', scadenza: ''});
   const st = ex
     ? {tipo: TIPI[ex.tipo] ? ex.tipo : 'fattura', numero: ex.numero || '', data: ex.data || today(), fornitoreId: ex.fornitoreId || '', fatturaRif: ex.fatturaRif || '', soloPrezzi: !!ex.soloPrezzi, note: ex.note || '', allegati: clone(ex.allegati || []), righe: (ex.righe || []).map(r => ({id: r.id, articoloId: r.articoloId, qta: fmtIn(+r.qta), unita: unitOk(S.data.articoli.get(r.articoloId)?.unita) || 'kg', importo: r.importo == null || r.importo === '' ? '' : fmtIn(+r.importo), lotto: r.lotto || '', scadenza: r.scadenza || ''}))}
-    : {tipo: TIPI[pre?.tipo] ? pre.tipo : 'fattura', tipoTouched: !!pre?.tipo, numero: '', data: today(), fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', fatturaRif: '', soloPrezzi: false, note: '', allegati: [], righe: pre?.articoloId ? [{...newRiga(), articoloId: pre.articoloId, unita: unitOk(S.data.articoli.get(pre.articoloId)?.unita) || 'kg'}] : [newRiga()]};
+    : {tipo: TIPI[pre?.tipo] ? pre.tipo : 'fattura', tipoTouched: !!pre?.tipo, numero: '', data: today(), fornitoreId: pre?.fornitoreId && S.data.fornitori.has(pre.fornitoreId) ? pre.fornitoreId : '', fatturaRif: '', soloPrezzi: false, note: '', allegati: [], righe: pre?.articoloId ? [{...newRiga(), articoloId: pre.articoloId, qta: pre.qta || '', unita: unitOk(pre.unita) || unitOk(S.data.articoli.get(pre.articoloId)?.unita) || 'kg'}] : [newRiga()]};
   if (!st.righe.length) st.righe.push(newRiga());
   const priceOnly = () => st.soloPrezzi && st.tipo !== 'inventario';
   const usedLot = rid => { if (!ex) return null; const l = drv().acq.get(`${id}:${rid}`); return l && (l.used.length || l.mov.length) ? l : null; };
@@ -122,7 +141,7 @@ function formDocumento(id, pre) {
   };
   const attHTML = o => `<div class="att">${st.allegati.map((a, i) => `<span class="chip">${esc(a.nome || 'Allegato')}<button type="button" class="attx" data-act="del-att" data-i="${i}" aria-label="Togli ${esc(a.nome || 'allegato')}">×</button></span>`).join('')}</div>
     ${S.assets ? `<label class="btn">${IC.plus}Allega foto o PDF<input type="file" accept="image/*,application/pdf" data-file="att" multiple></label>${o?.uploading ? ' <span class="hint">Caricamento in corso…</span>' : ''}` : '<small class="hint">Gli allegati si possono aggiungere aprendo la pagina su claude.ai come proprietario o editor.</small>'}`;
-  openSheet({form: true, st, title: ex ? 'Modifica documento' : 'Registra acquisto',
+  openSheet({form: true, st, dirty: !ex && !!pre?.qta, title: ex ? 'Modifica documento' : 'Registra acquisto',
     body: () => { const o = stack.find(x => x.st === st); return `<div class="fld"><span>Tipo di documento</span>${fseg('tipo', st.tipo, [['fattura', 'Fattura'], ['ddt', 'DDT'], ['scontrino', 'Scontrino'], ['inventario', 'Inventario iniziale']])}</div>
       ${st.tipo === 'inventario' ? '<p class="note">«Inventario iniziale» serve a caricare la merce che hai già in magazzino quando cominci a usare Barista Flow.</p>' : ''}
       <div class="g2"><label class="fld"><span>Numero</span><input type="text" data-k="numero" value="${esc(st.numero)}" placeholder="${st.tipo === 'inventario' ? 'Facoltativo' : 'Es. 1187'}" autocomplete="off"></label>

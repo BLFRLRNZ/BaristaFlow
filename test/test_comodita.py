@@ -70,6 +70,61 @@ with sync_playwright() as p:
     if pg.locator(".sheet-wrap").count() > 0:
         pg.locator(".sheet-wrap").last.locator(".btn.dan").click(); pg.wait_for_timeout(120)
 
+    # articolo nuovo dal +: la quantità comprata, poi l'acquisto già compilato
+    units = lambda loc: loc.evaluate("e => [...e.options].map(o => o.value)")
+    pg.locator(".fab").click(); pg.wait_for_timeout(250)
+    pg.locator(".sheet .qa", has_text="Articolo").click(); pg.wait_for_timeout(300)
+    f = pg.locator(".sheet-wrap").last
+    check(f.locator("[data-k=qtaAcq]").is_visible() and units(f.locator("#f-qu")) == ["kg", "g"], "nuovo articolo: c'è la quantità comprata, in kg o g")
+    check(T(f.locator(".sh-foot .btn.pri").inner_text()) == "Crea articolo", "senza quantità il pulsante resta «Crea articolo»")
+    f.locator("[data-k=nome]").fill("Farina di farro")
+    f.locator("[data-k=unita]").select_option("l"); pg.wait_for_timeout(100)
+    check(units(f.locator("#f-qu")) == ["l", "ml"], "le unità della quantità seguono l'unità di giacenza")
+    f.locator("[data-k=unita]").select_option("kg"); pg.wait_for_timeout(100)
+    f.locator("[data-k=qtaAcq]").fill("abc"); pg.wait_for_timeout(100)
+    check(T(f.locator(".sh-foot .btn.pri").inner_text()) == "Crea e continua", "con la quantità il pulsante dice che si continua")
+    f.locator(".sh-foot .btn.pri").click(); pg.wait_for_timeout(300)
+    check("Quantità comprata non valida" in f.locator("#ferr").inner_text() and not any(a.get("nome") == "Farina di farro" for a in pg.evaluate("Object.values(window.__store.articoli)")), "quantità non valida: l'articolo non si crea")
+    f.locator("[data-k=qtaAcq]").fill("12,5"); f.locator("[data-k=fornitoreId]").select_option("f-molino")
+    f.locator("[data-k=qtaAcq]").scroll_into_view_if_needed(); pg.wait_for_timeout(150); pg.screenshot(path=str(SHOTS / "m_articolo_quantita.png"))
+    f.locator(".sh-foot .btn.pri").click(); pg.wait_for_timeout(450)
+    d = pg.locator(".sheet-wrap").last
+    art = [k for k, a in pg.evaluate("window.__store.articoli").items() if a["nome"] == "Farina di farro"]
+    check(len(art) == 1 and pg.locator(".sheet-wrap").count() == 1 and "Registra acquisto" in d.locator(".sh-head h2").inner_text(), "creato l'articolo, si apre l'acquisto")
+    check(d.locator("[data-k='righe.0.articoloId']").input_value() == art[0] and d.locator("[data-k='righe.0.qta']").input_value() == "12,5"
+          and d.locator("[data-k='righe.0.unita']").input_value() == "kg" and d.locator("[data-k=fornitoreId]").input_value() == "f-molino", "acquisto già compilato: articolo, 12,5 kg e fornitore")
+    pg.screenshot(path=str(SHOTS / "m_articolo_acquisto.png"))
+    pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
+    check("Chiudere senza salvare" in pg.locator(".sheet").last.inner_text(), "la quantità già scritta non si perde senza conferma")
+    pg.locator(".sheet-wrap").last.locator(".btn", has_text="Annulla").click(); pg.wait_for_timeout(250)
+    d.locator("[data-k='righe.0.importo']").fill("18,75"); d.locator(".sh-foot .btn.pri").click(); pg.wait_for_timeout(450)
+    docs = [x for x in pg.evaluate("Object.values(window.__store.documenti)") if any(r["articoloId"] == art[0] for r in x["righe"])]
+    check(len(docs) == 1 and docs[0]["righe"][0]["qta"] == 12.5 and docs[0]["fornitoreId"] == "f-molino" and pg.locator(".sheet-wrap").count() == 0, f"acquisto registrato: 12,5 kg ({docs[:1]})")
+    # in grammi: la quantità passa all'acquisto in grammi e si carica in chili
+    pg.locator(".fab").click(); pg.wait_for_timeout(250); pg.locator(".sheet .qa", has_text="Articolo").click(); pg.wait_for_timeout(300)
+    f = pg.locator(".sheet-wrap").last
+    f.locator("[data-k=nome]").fill("Cannella in polvere"); f.locator("[data-k=qtaAcq]").fill("250"); f.locator("#f-qu").select_option("g")
+    f.locator(".sh-foot .btn.pri").click(); pg.wait_for_timeout(450)
+    d = pg.locator(".sheet-wrap").last
+    check(d.locator("[data-k='righe.0.qta']").input_value() == "250" and d.locator("[data-k='righe.0.unita']").input_value() == "g", "in grammi: 250 g nell'acquisto")
+    d.locator("[data-k=fornitoreId]").select_option("f-ingrosso"); d.locator(".sh-foot .btn.pri").click(); pg.wait_for_timeout(450)
+    can = [k for k, a in pg.evaluate("window.__store.articoli").items() if a["nome"] == "Cannella in polvere"][0]
+    q = [r["qta"] for x in pg.evaluate("Object.values(window.__store.documenti)") for r in x["righe"] if r["articoloId"] == can]
+    check(q == [0.25], f"si carica 0,25 kg ({q})")
+    # senza quantità si crea solo l'articolo; dentro un acquisto la quantità sta già nella riga
+    pg.locator(".fab").click(); pg.wait_for_timeout(250); pg.locator(".sheet .qa", has_text="Articolo").click(); pg.wait_for_timeout(300)
+    f = pg.locator(".sheet-wrap").last
+    f.locator("[data-k=nome]").fill("Vaniglia in bacche"); f.locator("[data-k=unita]").select_option("pz"); f.locator(".sh-foot .btn.pri").click(); pg.wait_for_timeout(450)
+    check(pg.locator(".sheet-wrap").count() == 0 and "Articolo «Vaniglia in bacche» creato" == T(pg.locator("#toast").inner_text().split("\n")[-1]), "senza quantità si crea solo l'articolo")
+    pg.goto(URL + "#acquisti"); pg.wait_for_selector("#v-acquisti"); pg.wait_for_timeout(200)
+    pg.locator('#v-acquisti [data-act="new-doc"]').first.click(); pg.wait_for_timeout(300)
+    pg.select_option(".sheet [data-k='righe.0.articoloId']", "__new"); pg.wait_for_timeout(300)
+    check(pg.locator(".sheet-wrap").count() == 2 and pg.locator(".sheet-wrap").last.locator("[data-k=qtaAcq]").count() == 0, "dentro un acquisto il nuovo articolo non chiede la quantità (c'è nella riga)")
+    while pg.locator(".sheet-wrap").count():
+        pg.keyboard.press("Escape"); pg.wait_for_timeout(200)
+        if pg.locator(".sheet-wrap .btn.dan", has_text="Chiudi senza salvare").count(): pg.locator(".sheet-wrap .btn.dan", has_text="Chiudi senza salvare").click(); pg.wait_for_timeout(200)
+    pg.goto(URL + "#oggi"); pg.wait_for_selector("#v-oggi"); pg.wait_for_timeout(250)
+
     # esaurito con annulla
     pg.locator(".lab", has_text="BIS-211126-1").click(); pg.wait_for_timeout(250)
     pg.locator(".sheet .btn", has_text="Segna esaurito").click(); pg.wait_for_timeout(300)

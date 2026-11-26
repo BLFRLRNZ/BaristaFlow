@@ -25,7 +25,7 @@ function printable(title, body) {
 function schedaDoc(r) {
   const u = unitOk(r.resaUnita), info = labelInfo(r, [r.id]), c = recCostOf(r, [r.id]);
   const rows = (r.ingredienti || []).map(g => { const it = itemOf(g.tipo, g.refId); return `<tr><td>${esc(it?.nome || 'Ingrediente eliminato')}${g.tipo === 'ric' ? ' (semilavorato)' : ''}</td><td class="n">${fmtQ(+g.qta, g.unita)}</td></tr>`; }).join('');
-  return printable(`Scheda tecnica ${r.nome}`, `<h1>Scheda tecnica: ${esc(r.nome)}</h1><p class="muted">${esc(r.categoria || '')}${r.semilavorato ? ' · semilavorato' : ''} · sigla lotti ${esc(r.sigla || autoSigla(r.nome))}</p>
+  return printable(`Scheda tecnica ${r.nome}`, `<h1>Scheda tecnica: ${esc(r.nome)}</h1><p class="muted">${esc(r.categoria || '')}${r.semilavorato ? ' · semilavorato' : ''} · ${cfg().lotti.sigla ? 'sigla lotti' : 'sigla'} ${esc(r.sigla || autoSigla(r.nome))}</p>
     <table class="kv"><tr><th>Resa</th><td>${fmtQ(+r.resaQta, u)}${u === 'pz' && +r.pesoPz > 0 ? ` da ${num(+r.pesoPz)} g` : ''}</td></tr><tr><th>Durata</th><td>${esc(shelfTxt(r))} · ${esc(scadLabel(r.tipoScadenza).toLowerCase())}</td></tr><tr><th>Conservazione</th><td>${esc(r.conservazione || 'Non indicata')}</td></tr><tr><th>Costo ingredienti</th><td>${EUR(c.tot)}${+r.resaQta > 0 && !c.miss.length ? ` · ${EUR(c.tot / +r.resaQta)} ${u === 'pz' ? 'al pezzo' : 'al ' + u}` : ''}</td></tr></table>
     <h2>Ingredienti</h2><table><tr><th>Ingrediente</th><th class="n">Quantità</th></tr>${rows}</table>
     <h2>Allergeni</h2><p>${info.al.length ? esc(info.al.map(k => ALGN[k]).join(', ')) : 'Nessuno dei 14 allergeni principali'}${info.tr.length ? `<br>Può contenere tracce di: ${esc(info.tr.map(k => ALGN[k].toLowerCase()).join(', '))}` : ''}</p>
@@ -310,6 +310,7 @@ function onFieldEvent(e, kind) {
   const t = e.target;
   if (t.dataset && t.dataset.notif !== undefined) { if (kind === 'change') notifImposta(t.dataset.notif, t.type === 'checkbox' ? t.checked : t.value); return; }
   if (t.dataset && t.dataset.q !== undefined) { if (kind === 'input') { UI.q[t.dataset.q] = t.value; renderMain(); } return; }
+  if (/^lot[A-Z]/.test(t.name || '') && t.closest?.('#cfgForm')) { lotAnteprima(); return; }
   if (t.name === 'vendite' && t.closest?.('#cfgForm')) { const n = $('#cfg-ven-nota'); if (n) n.hidden = (t.value !== 'scadenze') === cfg().vendite; return; }
   if (t.dataset && t.dataset.bq !== undefined) { if (kind === 'input') BANCO.draft = {k: t.dataset.bq, v: t.value}; else bancoSet(t.dataset.bq, t.value, true); return; }
   if (t.dataset && (t.dataset.gq || t.dataset.sq)) {
@@ -348,8 +349,18 @@ async function saveCfg(f) {
   if (!(sr >= 0 && sr <= 100)) { toast('Soglia dei rincari: scrivi una percentuale da 0 a 100.', true); return; }
   const reg = prev?.registrato || (nome && !countSample() ? Date.now() : null);
   const ven = fd.has('vendite') ? fd.get('vendite') !== 'scadenze' : c.vendite;
-  if (!(await put('impostazioni', 'generale', {...(prev ? strip(prev) : {}), nome, indirizzo, piva, giorniAvviso: g, iva, sogliaRincaro: sr, scaricoVendite: ven, ...(reg ? {registrato: reg} : {})}))) return;
-  toast(ven === c.vendite ? 'Impostazioni salvate' : ven ? 'Impostazioni salvate: il Banco è di nuovo acceso.' : 'Impostazioni salvate: il Banco è spento, dei prodotti si seguono solo le scadenze.');
+  // codice dei lotti: «Parti da» conta solo con anno e progressivo; con l'anno vale per quest'anno
+  let lotti = c.lotti;
+  if (f.elements.lotNumero) {
+    const lc = lotDalForm(f), conta = contaLotti(lc), pdTxt = String(fd.get('lotPartiDa') ?? '').trim(), pd = pdTxt === '' ? 1 : pnum(pdTxt);
+    if (conta && !(Number.isInteger(pd) && pd >= 1 && pd <= 999999)) { toast('Parti da: scrivi un numero intero da 1 a 999999.', true); return; }
+    lotti = {...lc, partiDa: conta ? pd : 1, partiDaAnno: lc.numero === 'anno' ? today().slice(0, 4) : ''};
+  }
+  const lotNuovi = JSON.stringify(lotCfg(lotti)) !== JSON.stringify(c.lotti);
+  if (!(await put('impostazioni', 'generale', {...(prev ? strip(prev) : {}), nome, indirizzo, piva, giorniAvviso: g, iva, sogliaRincaro: sr, scaricoVendite: ven, lotti, ...(reg ? {registrato: reg} : {})}))) return;
+  const x = lotRicEsempio();
+  toast(ven !== c.vendite ? (ven ? 'Impostazioni salvate: il Banco è di nuovo acceso.' : 'Impostazioni salvate: il Banco è spento, dei prodotti si seguono solo le scadenze.')
+    : lotNuovi ? `Impostazioni salvate: il prossimo lotto sarà ${lotCode(x.r, today(), lotCfg(lotti))}` : 'Impostazioni salvate');
 }
 function wire() {
   document.addEventListener('click', onClick);

@@ -100,7 +100,7 @@ const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: '', banco: '
 const cfg = () => {
   const c = S.data.impostazioni.get('generale') || {};
   const g = Math.round(pnum(c.giorniAvviso)), iva = pnum(c.iva), sr = pnum(c.sogliaRincaro);
-  return {nome: c.nome || '', indirizzo: c.indirizzo || '', piva: c.piva || '', giorniAvviso: g >= 0 ? g : 3, iva: iva >= 0 ? iva : 10, sogliaRincaro: sr >= 0 ? sr : 5, vendite: c.scaricoVendite !== false};
+  return {nome: c.nome || '', indirizzo: c.indirizzo || '', piva: c.piva || '', giorniAvviso: g >= 0 ? g : 3, iva: iva >= 0 ? iva : 10, sogliaRincaro: sr >= 0 ? sr : 5, vendite: c.scaricoVendite !== false, lotti: lotCfg(c.lotti)};
 };
 /* scarico delle vendite: con il Banco (di partenza) i prodotti venduti escono dal magazzino; spento, dei lotti di
    produzione si seguono solo le scadenze e la rivendita resta negli acquisti e nei prezzi */
@@ -358,11 +358,43 @@ function lotCost(prodId, stack = []) {
   Dd.costMemo.set(prodId, res);
   return res;
 }
-function lotCode(sigla, iso) {
-  const base = `${String(sigla || 'LOT').toUpperCase().replace(/[^A-Z0-9]/g, '') || 'LOT'}-${iso.slice(8, 10)}${iso.slice(5, 7)}${iso.slice(2, 4)}`;
-  const codes = new Set([...S.data.produzioni.values()].map(p => p.lotto));
-  let n = 1; while (codes.has(`${base}-${n}`)) n++;
-  return `${base}-${n}`;
+/* ---------- codice dei lotti di produzione ----------
+   Come si scrive lo sceglie il bar in Impostazioni: lettere fisse (es. L), la sigla del prodotto, una parte di data e il
+   numero. Di partenza è come è sempre stato: sigla, giorno-mese-anno e numero del giorno (CRO-261126-1).
+   Il numero va avanti dal più alto già usato con lo stesso inizio: non si ripete e non riprende i numeri dei lotti
+   eliminati. «Parti da» serve a continuare una numerazione tenuta prima a mano; con «anno» vale solo per l'anno in cui
+   è stato scritto. */
+const NUMERAZIONI = ['data', 'giuliana', 'anno', 'progressivo'];
+const SEPARATORI = ['-', '/', '.', ''];
+const lotLettere = s => String(s || '').normalize('NFD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+function lotCfg(x) {
+  x = x && typeof x === 'object' ? x : {};
+  const cifre = Math.round(+x.cifre), da = Math.round(+x.partiDa);
+  return {lettere: lotLettere(x.lettere), sigla: x.sigla !== false, numero: NUMERAZIONI.includes(x.numero) ? x.numero : 'data',
+    cifre: cifre >= 1 && cifre <= 5 ? cifre : 1, sep: SEPARATORI.includes(x.sep) ? x.sep : '-',
+    partiDa: da >= 1 && da <= 999999 ? da : 1, partiDaAnno: /^\d{4}$/.test(x.partiDaAnno) ? x.partiDaAnno : ''};
+}
+/* la parte di data: 261126 (giorno, mese, anno), 26330 (anno e giorno dell'anno), 26 (anno) o niente */
+function lotPeriodo(numero, iso) {
+  if (numero === 'data') return iso.slice(8, 10) + iso.slice(5, 7) + iso.slice(2, 4);
+  if (numero === 'anno') return iso.slice(2, 4);
+  if (numero === 'giuliana') return iso.slice(2, 4) + String(Math.round((parseIso(iso) - parseIso(iso.slice(0, 4) + '-01-01')) / 864e5) + 1).padStart(3, '0');
+  return '';
+}
+const reEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/* il prossimo codice per un prodotto (la scheda r) prodotto il giorno iso; lc e codes servono all'anteprima */
+function lotCode(r, iso, lc = cfg().lotti, codes = null) {
+  const sig = lc.sigla ? (r?.sigla || autoSigla(r?.nome)) : '';
+  const pre = [lc.lettere, sig, lotPeriodo(lc.numero, iso)].filter(Boolean).map(s => s + lc.sep).join('');
+  const all = codes || new Set([...S.data.produzioni.values()].map(p => String(p.lotto || '')));
+  const re = new RegExp('^' + reEsc(pre) + '(\\d+)$');
+  let n = 0;
+  for (const c of all) { const m = re.exec(c); if (m) n = Math.max(n, +m[1]); }
+  n++;
+  if (lc.partiDa > n && (lc.numero === 'progressivo' || (lc.numero === 'anno' && lc.partiDaAnno === iso.slice(0, 4)))) n = lc.partiDa;
+  const code = k => pre + String(k).padStart(lc.cifre, '0');
+  while (all.has(code(n))) n++;
+  return code(n);
 }
 const autoSigla = nome => String(nome || '').normalize('NFD').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'LOT';
 function docName(d) {

@@ -231,7 +231,7 @@ function formRicetta(id, fromId) {
   openSheet({form: true, st, title: ex ? 'Modifica scheda tecnica' : 'Nuova scheda tecnica',
     body: () => `<label class="fld"><span>Nome del prodotto</span><input type="text" data-k="nome" value="${esc(st.nome)}" placeholder="Es. Biscotti al burro" autocomplete="off"></label>
       <div class="g3"><label class="fld"><span>Categoria</span><input type="text" data-k="categoria" value="${esc(st.categoria)}" list="catlist" placeholder="Es. Dolci" autocomplete="off"></label>
-      <label class="fld"><span>Sigla dei lotti</span><input type="text" data-k="sigla" value="${esc(st.sigla)}" placeholder="${esc(autoSigla(st.nome))}" maxlength="6" autocomplete="off"></label>
+      <label class="fld"><span>${cfg().lotti.sigla ? 'Sigla dei lotti' : 'Sigla'}</span><input type="text" data-k="sigla" value="${esc(st.sigla)}" placeholder="${esc(autoSigla(st.nome))}" maxlength="6" autocomplete="off"></label>
       <label class="chk" style="align-self:end;margin-bottom:14px"><input type="checkbox" data-k="semilavorato" ${st.semilavorato ? 'checked' : ''}>Semilavorato</label></div>
       <datalist id="catlist">${cats.map(c => `<option value="${esc(c)}"></option>`).join('')}</datalist>
       <p class="hint" style="margin:-6px 0 14px">Semilavorato: una preparazione (crema, frolla, impasto) che puoi usare come ingrediente in altre schede, con il suo lotto.</p>
@@ -356,7 +356,7 @@ function formProduzione(ricId, pre) {
         <label class="fld"><span>Quantità prodotta (${u === 'pz' ? 'pezzi' : u})</span>${u === 'pz' ? `<span class="stepper"><button type="button" class="btn" data-act="step" data-d="-1" aria-label="Un pezzo in meno">${IC.minus}</button><input type="text" inputmode="decimal" data-k="qta" value="${esc(st.qta)}" autocomplete="off"><button type="button" class="btn" data-act="step" data-d="1" aria-label="Un pezzo in più">${IC.plus}</button></span>` : `<input type="text" inputmode="decimal" data-k="qta" value="${esc(st.qta)}" autocomplete="off">`}</label>
         <label class="fld"><span>${esc(scadLabel(r.tipoScadenza))}</span><input type="date" data-k="scadenza" value="${esc(st.scadenza)}"></label></div>
         <p class="hint" style="margin:-6px 0 12px">Resa della scheda: ${fmtQ(+r.resaQta, u)}. Scadenza calcolata con la durata della scheda (${esc(shelfTxt(r))}): puoi cambiarla.</p>
-        ${validIso(st.data) ? `<div class="lotcode">${IC.tag}<span>Codice del lotto</span><b>${esc(lotCode(r.sigla || autoSigla(r.nome), st.data))}</b></div>` : ''}
+        ${validIso(st.data) ? `<div class="lotcode">${IC.tag}<span>Codice del lotto</span><b>${esc(lotCode(r, st.data))}</b></div>` : ''}
         <p class="note" id="scadwarn" hidden></p>
         <h3>Ingredienti e lotti usati</h3>
         <p class="hint" style="margin:-4px 0 10px">Per ogni ingrediente sono proposti per primi i lotti che scadono prima. Correggi le quantità se hai usato lotti diversi.</p>
@@ -402,7 +402,7 @@ function formProduzione(ricId, pre) {
         }
       }
       if (missing.length) { const f = $('#forza', o.el); if (f) f.hidden = false; return ferr(o, `Mancano: ${missing.join(', ')}. Registra l'acquisto mancante oppure spunta «Registra comunque».`); }
-      const doc = {lotto: lotCode(r.sigla || autoSigla(r.nome), st.data), ricettaId: r.id, ricettaNome: r.nome, data: st.data, qta: r6(qta), unita: unitOk(r.resaUnita) || 'pz', scadenza: st.scadenza, tipoScadenza: r.tipoScadenza === 'entro' ? 'entro' : 'preferibilmente', operatore: st.operatore.trim(), note: st.note.trim(), consumi, allergeni: algSort([...recAllergensOf(r, [r.id])]), tracce: algSort([...recTracceOf(r, [r.id])]), creato: Date.now()};
+      const doc = {lotto: lotCode(r, st.data), ricettaId: r.id, ricettaNome: r.nome, data: st.data, qta: r6(qta), unita: unitOk(r.resaUnita) || 'pz', scadenza: st.scadenza, tipoScadenza: r.tipoScadenza === 'entro' ? 'entro' : 'preferibilmente', operatore: st.operatore.trim(), note: st.note.trim(), consumi, allergeni: algSort([...recAllergensOf(r, [r.id])]), tracce: algSort([...recTracceOf(r, [r.id])]), creato: Date.now()};
       if (doc.operatore) lsSet('bf-operatore', doc.operatore);
       const nid = uid();
       if (await put('produzioni', nid, doc)) { o.dirty = false; closeSheet(); toast(`Lotto ${doc.lotto} registrato`); sheetLotto(nid); }

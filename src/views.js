@@ -59,7 +59,7 @@ function altri(k, items, cosa, ic, hint = '') {
 }
 const av = (content, tone = '') => `<span class="av ${tone}" aria-hidden="true">${content}</span>`;
 const catIc = c => c === 'rivendita' ? IC.bottle : c === 'imballaggio' ? IC.bag : IC.wheat;
-const sigOf = l => esc(String(l.p?.lotto || '').split('-')[0].slice(0, 4) || 'LOT');
+const sigOf = l => esc(String(l.item?.sigla || autoSigla(l.item?.nome || l.p?.ricettaNome)).slice(0, 4));
 const initials = s => esc(String(s || '?').replace(/[^\p{L}\p{N} ]/gu, '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?');
 function modeNote() {
   if (S.mode === 'temp') return `<p class="note warn">${IC.alert}<span>In questa vista l'archivio non è disponibile: puoi provare l'app, ma quello che inserisci non viene salvato. Aprila da claude.ai con l'accesso effettuato.</span></p>`;
@@ -383,6 +383,55 @@ function temaCard() {
   return `<div class="setgrp"><h2>Aspetto</h2><div class="card"><div class="fld"><span>Tema</span><div class="seg seg-w" role="group" aria-label="Tema">${TEMI.map(([v, l]) => `<button type="button" data-act="tema" data-v="${v}" aria-pressed="${t === v}">${l}</button>`).join('')}</div></div>
     <p class="hint" style="margin:-4px 0 0">${esc(nota)} Vale solo su questo dispositivo.</p></div></div>`;
 }
+/* codice dei lotti di produzione: lettere, sigla, numerazione con un esempio sotto ogni scelta e, in fondo, il prossimo
+   codice di un prodotto vero (l'ultimo prodotto), che cambia mentre si sceglie, prima ancora di salvare */
+const NUM_LOTTO = {
+  data: ['Data e numero del giorno', () => 'Giorno, mese e anno della produzione, poi il numero: riparte da 1 ogni giorno.'],
+  giuliana: ['Giorno dell’anno e numero', iso => `Anno e giorno dell’anno (oggi è il ${+lotPeriodo('giuliana', iso).slice(2)}°), poi il numero: riparte da 1 ogni giorno. È la «data giuliana» di molti produttori.`],
+  anno: ['Anno e numero', () => 'Anno, poi il numero: riparte da 1 ogni anno.'],
+  progressivo: ['Numero progressivo', () => 'Solo il numero, che va sempre avanti.']};
+const SEP_LOTTO = [['-', 'Trattino (-)'], ['/', 'Barra (/)'], ['.', 'Punto (.)'], ['', 'Nessuno']];
+const CIFRE_LOTTO = [[1, 'Senza zeri (1)'], [2, '2 cifre (01)'], [3, '3 cifre (001)'], [4, '4 cifre (0001)'], [5, '5 cifre (00001)']];
+const contaLotti = lc => lc.numero === 'anno' || lc.numero === 'progressivo';
+function lotEsempio(n, lc, iso) {
+  const per = lotPeriodo(n, iso), x = k => (per ? per + lc.sep : '') + String(k).padStart(lc.cifre, '0');
+  return n === 'progressivo' ? `${x(1)}, ${x(2)}, ${x(3)}…` : `${x(1)}, ${x(2)}…`;
+}
+function lotRicEsempio() {
+  const ps = [...S.data.produzioni.values()].filter(p => S.data.ricette.has(p.ricettaId)).sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (b.creato || 0) - (a.creato || 0));
+  const r = ps.length ? S.data.ricette.get(ps[0].ricettaId) : [...S.data.ricette.values()].filter(x => !x.archiviato).sort(byName)[0];
+  return r ? {r, t: `Prossimo lotto di ${r.nome}`} : {r: {nome: 'Crostata', sigla: 'CRO'}, t: 'Per esempio, una crostata'};
+}
+const lotPdHint = lc => lc.numero === 'anno' ? 'Se quest’anno numeravate già i lotti a mano, scrivi il numero del prossimo. Dall’anno nuovo si riparte da 1.' : 'Se numeravate già i lotti a mano, scrivi il numero del prossimo: poi si va avanti da lì.';
+/* le scelte come sono nel modulo, anche non salvate: per l'anteprima */
+function lotDalForm(f) {
+  const e = f.elements;
+  return lotCfg({lettere: e.lotLettere?.value, sigla: !!e.lotSigla?.checked, numero: e.lotNumero?.value, cifre: e.lotCifre?.value, sep: e.lotSep?.value, partiDa: Math.round(pnum(e.lotPartiDa?.value)), partiDaAnno: today().slice(0, 4)});
+}
+function lotAnteprima() {
+  const f = $('#cfgForm'); if (!f?.elements.lotNumero) return;
+  const lc = lotDalForm(f), iso = today(), x = lotRicEsempio();
+  $('#cfg-lprev b').textContent = lotCode(x.r, iso, lc);
+  $$('[data-lex]', f).forEach(el => { el.textContent = lotEsempio(el.dataset.lex, lc, iso); });
+  $('#cfg-lpd-f').hidden = $('#cfg-lpd-h').hidden = !contaLotti(lc);
+  $('#cfg-lpd-h').textContent = lotPdHint(lc);
+}
+function lotCard(c, dis) {
+  const lc = c.lotti, iso = today(), x = lotRicEsempio(), conta = contaLotti(lc);
+  const pd = lc.numero === 'anno' && lc.partiDaAnno !== iso.slice(0, 4) ? 1 : lc.partiDa;
+  return `<div class="setgrp"><h2>Codice dei lotti</h2><div class="card">
+      <div class="g2"><label class="fld"><span>Lettere all’inizio</span><input type="text" id="cfg-llet" name="lotLettere" value="${esc(lc.lettere)}" placeholder="Nessuna" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase" ${dis}></label>
+      <label class="fld"><span>Separatore</span><select id="cfg-lsep" name="lotSep" ${dis}>${SEP_LOTTO.map(([v, l]) => `<option value="${esc(v)}" ${lc.sep === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label></div>
+      <label class="chk"><input type="checkbox" id="cfg-lsig" name="lotSigla" ${lc.sigla ? 'checked' : ''} ${dis}><span>Aggiungi la sigla del prodotto <small class="muted">(CRO, BIS…: si sceglie nella scheda tecnica)</small></span></label>
+      <div class="fld"><span>Numerazione</span><div class="opts" role="radiogroup" aria-label="Numerazione dei lotti">
+        ${Object.entries(NUM_LOTTO).map(([v, [t, d]]) => `<label class="opt"><input type="radio" name="lotNumero" value="${v}" ${lc.numero === v ? 'checked' : ''} ${dis}><span><b>${t}</b><small class="lex" data-lex="${v}">${esc(lotEsempio(v, lc, iso))}</small><small>${esc(d(iso))}</small></span></label>`).join('')}
+      </div></div>
+      <div class="g2"><label class="fld"><span>Cifre del numero</span><select id="cfg-lcif" name="lotCifre" ${dis}>${CIFRE_LOTTO.map(([v, l]) => `<option value="${v}" ${lc.cifre === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+      <label class="fld" id="cfg-lpd-f" ${conta ? '' : 'hidden'}><span>Parti da</span><input type="text" id="cfg-lpd" name="lotPartiDa" inputmode="numeric" value="${pd}" autocomplete="off" ${dis}></label></div>
+      <p class="hint" id="cfg-lpd-h" style="margin:-6px 0 14px" ${conta ? '' : 'hidden'}>${esc(lotPdHint(lc))}</p>
+      <div class="lotprev" id="cfg-lprev" aria-live="polite"><span>${IC.tag}${esc(x.t)}</span><b>${esc(lotCode(x.r, iso, lc))}</b></div>
+      <p class="hint" style="margin:10px 0 0">Vale per i lotti nuovi: quelli già registrati tengono il loro codice. Con la sigla ogni prodotto ha la sua numerazione, senza si contano tutti insieme. Il numero non si ripete mai: si va avanti dal più alto già usato.</p></div></div>`;
+}
 function vImpostazioni() {
   const c = cfg(), n = countSample(), reg = registered();
   const where = S.mode === 'cloud' ? 'I dati sono salvati nell’archivio di questa pagina su claude.ai e si vedono da ogni dispositivo con cui la apri.' : S.mode === 'local' ? 'I dati sono salvati solo in questo browser: esporta spesso un backup.' : 'In questa vista i dati non vengono salvati.';
@@ -406,6 +455,7 @@ function vImpostazioni() {
         <label class="opt"><input type="radio" name="vendite" value="scadenze" ${c.vendite ? '' : 'checked'} ${dis}><span><b>Solo scadenze</b><small>Il Banco si spegne. Dei lotti di produzione si seguono solo le scadenze: l’avviso prima, poi vanno in archivio. La rivendita resta negli acquisti e nei prezzi, senza giacenza. Le materie prime si scaricano sempre con le produzioni.</small></span></label>
       </div>
       <p class="hint" id="cfg-ven-nota" hidden>Premi «Salva impostazioni» qui sotto per applicare la scelta.</p></div></div>
+    ${lotCard(c, dis)}
     <div class="setgrp"><h2>Avvisi e calcoli</h2><div class="card">
       <div class="g2"><label class="fld"><span>Avviso scadenze (giorni prima)</span><input type="text" id="cfg-gg" name="giorniAvviso" inputmode="numeric" value="${esc(c.giorniAvviso)}" ${dis}></label>
       <label class="fld"><span>Segnala rincari oltre (%)</span><input type="text" id="cfg-sr" name="sogliaRincaro" inputmode="decimal" value="${esc(fmtIn(c.sogliaRincaro))}" ${dis}></label></div>

@@ -5,7 +5,7 @@ Web app per gestire banco e laboratorio di un bar: schede tecniche dei prodotti,
 ## Cosa fa
 
 - **Schede tecniche**: ricetta e grammature, resa, durata, conservazione, procedimento e prezzo di vendita. I 14 allergeni si calcolano dagli ingredienti. L'elenco ingredienti per il cartello è in ordine di peso, con gli allergeni in maiuscolo. Costo e food cost si calcolano dalle fatture. Un semilavorato (per esempio la crema pasticcera) si può usare come ingrediente di altre schede.
-- **Produzione a lotti**: da ogni scheda si registra un lotto, con codice tipo `BIS-241126-1`. L'app propone per primi i lotti di ingredienti che scadono prima e scarta quelli scaduti. La scadenza del lotto si calcola dalla durata della scheda.
+- **Produzione a lotti**: da ogni scheda si registra un lotto, con codice tipo `BIS-241126-1` (come si scrive il codice si sceglie in Impostazioni). L'app propone per primi i lotti di ingredienti che scadono prima e scarta quelli scaduti. La scadenza del lotto si calcola dalla durata della scheda.
 - **Tracciabilità nei due sensi**: dal lotto prodotto risali a ogni ingrediente, con lotto del fornitore, scadenza e fattura o DDT (anche la foto o il PDF allegato). Da un lotto del fornitore vedi in quali prodotti è finito, utile in caso di richiamo.
 - **Banco, lo scontrino interno**: i prodotti in vendita a tasti grandi. Si toccano quelli venduti, si preme Invio e il magazzino si aggiorna subito (dettagli più sotto).
 - **Magazzino**: giacenze lotto per lotto di materie prime, prodotti da rivendere, imballaggi e prodotti propri. Si registrano vendite, scarti, uso interno e rettifiche d'inventario, e si impostano le scorte minime.
@@ -105,6 +105,23 @@ Battere ogni vendita anche nell'app non sempre si può fare: con la coda al banc
 
 I dati non cambiano: riaccendendo lo scarico al Banco, giacenze e movimenti tornano come prima.
 
+## Codice dei lotti
+
+In Impostazioni → Codice dei lotti si sceglie come si chiamano i lotti di produzione. Di partenza è il codice di sempre: sigla del prodotto, giorno-mese-anno e numero del giorno (`BIS-241126-1`). Si può scegliere:
+
+- **Lettere all'inizio**: fisse per tutti i lotti, per esempio `L` (fino a 6 lettere o cifre).
+- **Sigla del prodotto**: sì o no. La sigla si sceglie nella scheda tecnica (di partenza sono le prime tre lettere del nome). Con la sigla ogni prodotto ha la sua numerazione; senza, i lotti di tutti i prodotti si contano insieme.
+- **Numerazione**:
+  - data e numero del giorno: `241126-1`;
+  - giorno dell'anno (data giuliana) e numero del giorno: `26328-1`;
+  - anno e numero, che riparte ogni anno: `26-1`;
+  - numero progressivo, che non riparte mai: `1`, `2`, `3`…
+- **Cifre del numero**: senza zeri davanti o da 2 a 5 cifre (`0001`).
+- **Separatore**: trattino, barra, punto o niente.
+- **Parti da**, con anno e numero o con il progressivo: per continuare una numerazione tenuta prima a mano. Con l'anno vale solo per l'anno in cui si scrive; dall'anno dopo si riparte da 1.
+
+Un riquadro mostra il prossimo codice dell'ultimo prodotto fatto e cambia mentre si sceglie, prima di salvare. Le scelte valgono per i lotti nuovi: quelli già registrati tengono il loro codice. Il numero va avanti dal più alto già usato con lo stesso inizio, quindi non si ripete e non riprende i numeri dei lotti eliminati.
+
 ## Pensata per l'uso al banco
 
 - Il pulsante **+** al centro della barra in basso apre le registrazioni rapide: produzione, acquisto, scarico, scheda, articolo e fornitore.
@@ -177,7 +194,7 @@ test/                 prove automatiche nel browser
 | `ricette` | schede tecniche: ingredienti (articoli o semilavorati), resa, durata, tracce, prezzo |
 | `produzioni` | lotti prodotti con i consumi: quale lotto di ogni ingrediente e quanto |
 | `movimenti` | vendite, scarti, uso interno, rettifiche (variazione con segno su un lotto); quelle del Banco hanno anche `banco` (lo scontrino) e `prezzo` |
-| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari, scarico delle vendite (`scaricoVendite`: falso con «Solo scadenze»); nel documento `posta` il collegamento alla casella (URL dello script, chiave, mail già viste, fatture arrivate da importare) e le notifiche di questo dispositivo (ora, temi, ultimo riepilogo mandato) |
+| `impostazioni` | nome, indirizzo e partita IVA del bar, data di registrazione, giorni di preavviso, IVA, soglia dei rincari, scarico delle vendite (`scaricoVendite`: falso con «Solo scadenze»), codice dei lotti (`lotti`: lettere, sigla, numerazione, cifre, separatore, «Parti da» e il suo anno); nel documento `posta` il collegamento alla casella (URL dello script, chiave, mail già viste, fatture arrivate da importare) e le notifiche di questo dispositivo (ora, temi, ultimo riepilogo mandato) |
 
 Gli elementi dei dati di esempio, e quelli inseriti durante la prova, hanno `esempio: true`.
 
@@ -205,6 +222,7 @@ python3 test/test_banco.py
 python3 test/test_anno.py
 python3 test/test_tema.py
 python3 test/test_scadenze.py
+python3 test/test_lotti.py
 python3 test/test_esempi.py
 python3 test/test_fatture.py
 python3 test/test_fatture_pdf.py
@@ -213,7 +231,7 @@ python3 test/test_posta.py
 python3 test/test_notifiche.py
 ```
 
-`test_scadenze.py` prova «Solo scadenze»: Banco spento, lotti di produzione in vetrina e poi in archivio, semilavorati e materie prime da smaltire come sempre, rivendita solo negli acquisti, e il ritorno allo scarico al Banco. `test_tema.py` prova il tema in Impostazioni: automatico, chiaro e scuro, la barra del browser e il ritorno senza lampi. `test_anno.py` carica un anno di lavoro (più di 500 documenti) e controlla che Acquisti e Produzione restino leggere, che la ricerca trovi anche i documenti più vecchi e che il passaggio tra le pagine fotografi solo lo schermo. `test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
+`test_lotti.py` prova il codice dei lotti: di partenza quello di sempre, l'anteprima che segue le scelte prima di salvare, lettere fisse e progressivo con «Parti da», separatori e cifre, la numerazione per prodotto con la sigla e per tutti senza, l'anno nuovo che riparte da 1, la data giuliana e la sola lettura. `test_scadenze.py` prova «Solo scadenze»: Banco spento, lotti di produzione in vetrina e poi in archivio, semilavorati e materie prime da smaltire come sempre, rivendita solo negli acquisti, e il ritorno allo scarico al Banco. `test_tema.py` prova il tema in Impostazioni: automatico, chiaro e scuro, la barra del browser e il ritorno senza lampi. `test_anno.py` carica un anno di lavoro (più di 500 documenti) e controlla che Acquisti e Produzione restino leggere, che la ricerca trovi anche i documenti più vecchi e che il passaggio tra le pagine fotografi solo lo schermo. `test_banco.py` prova il Banco: tasti, quantità, Invio per lotti (prima quelli che scadono prima), annullare, scontrini di oggi, tastiera, prezzo della rivendita, sola lettura e riapertura sul Banco. `test_uso.py` prova «Oggi» per urgenza con i filtri, Smaltisci tutti con un solo Annulla, il tasto Indietro sui fogli e sui moduli modificati, «Produci di nuovo», Oggi e Ieri, le abitudini dei fornitori, la memoria dello scorrimento e il movimento ridotto. `test_fatture_pdf.py` crea fatture PDF di prova con impaginazioni diverse (foglio di stile dell'Agenzia, gestionali dei fornitori, testo a larghezza fissa, due pagine, tabelle fitte, scansioni, PDF protetti) e serve l'app da un piccolo server locale. Servono anche `reportlab` e `pypdf`. `test_posta.py` sostituisce lo script di Google con un piccolo server che dà le stesse risposte, da un indirizzo diverso da quello dell'app. `test_notifiche.py` fa girare lo script vero in `fake_google.js`: il browser si iscrive, lo script firma e cifra le notifiche, il «telefono» le decifra e il service worker dell'app le mostra.
 
 ## Nota sulle etichette
 

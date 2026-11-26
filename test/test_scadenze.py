@@ -49,7 +49,7 @@ with sync_playwright() as p:
 
     # 2. Impostazioni → Vendite → «Solo scadenze»
     pg.evaluate("location.hash = 'impostazioni'"); pg.wait_for_selector("#v-impostazioni"); pg.wait_for_timeout(300)
-    check([T(x) for x in pg.locator(".opt b").all_inner_texts()] == ["Scarico al Banco", "Solo scadenze"] and pg.locator("input[name=vendite][value=banco]").is_checked(), "in Impostazioni due scelte, di partenza lo scarico al Banco")
+    check([T(x) for x in pg.locator(".opt:has(input[name=vendite]) b").all_inner_texts()] == ["Scarico al Banco", "Solo scadenze"] and pg.locator("input[name=vendite][value=banco]").is_checked(), "in Impostazioni due scelte, di partenza lo scarico al Banco")
     pg.locator(".opt", has_text="Solo scadenze").click()
     check(pg.locator("#cfg-ven-nota").is_visible(), "cambiando scelta l'app ricorda di salvare")
     pg.locator(".opt", has_text="Solo scadenze").scroll_into_view_if_needed(); pg.wait_for_timeout(150)

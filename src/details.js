@@ -5,7 +5,7 @@ function openSheet(o) {
   o.prevFocus = document.activeElement;
   const wrap = document.createElement('div');
   wrap.className = 'sheet-wrap';
-  wrap.innerHTML = `<div class="sheet${o.small ? ' small' : ''}${o.form ? ' form' : ''}" role="dialog" aria-modal="true"><div class="grab" aria-hidden="true"></div><div class="sh-head"><h2></h2><button type="button" class="btn icon" data-act="close" aria-label="Chiudi">${IC.x}</button></div><div class="sh-body"></div><div class="sh-foot"></div></div>`;
+  wrap.innerHTML = `<div class="sheet${o.small ? ' small' : ''}${o.form ? ' form' : ''}${o.tall ? ' tall' : ''}" role="dialog" aria-modal="true"><div class="grab" aria-hidden="true"></div><div class="sh-head"><h2></h2><button type="button" class="btn icon" data-act="close" aria-label="Chiudi">${IC.x}</button></div><div class="sh-body"></div><div class="sh-foot"></div></div>`;
   wrap.addEventListener('click', e => { if (e.target === wrap) requestClose(); });
   dragToClose(wrap);
   o.el = wrap; stack.push(o);

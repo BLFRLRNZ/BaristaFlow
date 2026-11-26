@@ -97,7 +97,7 @@ const buyUnits = base => base === 'kg' ? ['kg', 'g'] : base === 'l' ? ['l', 'ml'
 
 /* ---------- stato ---------- */
 const S = {db: null, mode: 'loading', ro: false, assets: null, downloads: null, user: null, got: new Set(), fresh: new Set(), slow: false, ver: 0, errShown: false, data: Object.fromEntries(COLS.map(c => [c, new Map()]))};
-const UI = {q: {prod: '', sch: '', mag: '', acq: '', prz: '', forn: '', banco: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false, todoF: '', bancoCat: '', pag: {}, per: {prod: null, acq: null}};
+const UI = {q: {banco: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false, todoF: '', bancoCat: '', pag: {}};
 const cfg = () => {
   const c = S.data.impostazioni.get('generale') || {};
   const g = Math.round(pnum(c.giorniAvviso)), iva = pnum(c.iva), sr = pnum(c.sogliaRincaro);

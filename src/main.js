@@ -101,9 +101,15 @@ const ACT = {
     try { await o.onSave(o); } finally { o.saving = false; if (stack.includes(o)) $$('.sh-foot .btn', o.el).forEach(x => { x.disabled = false; }); }
   },
   seg: b => { UI[b.dataset.k] = b.dataset.v; renderMain(); },
-  periodo: b => sheetPeriodo(b.dataset.k),
-  'per-rapido': b => perImposta(b.dataset.k, b.dataset.da, b.dataset.a),
-  'per-togli': b => perImposta(b.dataset.k, '', ''),
+  periodo: () => sheetPeriodo(),
+  'per-rapido': b => perImposta(b.dataset.da, b.dataset.a),
+  'per-togli': () => perImposta('', ''),
+  // ricerca unica: cosa cercare e i filtri di ciascun tipo
+  'cerca-cosa': b => cercaImposta({cosa: b.dataset.v, doc: '', stato: '', cat: ''}),
+  'cerca-doc': b => cercaImposta({doc: b.dataset.v}),
+  'cerca-stato': b => cercaImposta({stato: b.dataset.v}),
+  'cerca-cat': b => cercaImposta({cat: b.dataset.v}),
+  'cerca-altri': () => { CERCA.n += PAG; cercaDipingi(); },
   'todo-all': () => { UI.todoAll = true; renderMain(); },
   'todo-f': b => {
     UI.todoF = UI.todoF === b.dataset.f ? '' : b.dataset.f; renderMain();
@@ -313,7 +319,8 @@ function onFieldEvent(e, kind) {
   if (t.dataset && (t.dataset.gq || t.dataset.sq)) {
     if (kind !== 'input') return;
     const o = sheetOf(t); if (!o) return;
-    o.q = t.value; const sel = [t.selectionStart, t.selectionEnd], id = t.id;
+    if (o.isSearch) { CERCA.q = t.value; CERCA.n = PAG; } else o.q = t.value;
+    const sel = [t.selectionStart, t.selectionEnd], id = t.id;
     clearTimeout(o.qt);
     o.qt = setTimeout(() => { if (!stack.includes(o)) return; paintSheet(o); const i = document.getElementById(id); if (i) { i.focus({preventScroll: true}); try { i.setSelectionRange(sel[0], sel[1]); } catch { /* nessuna selezione */ } } }, 120);
     return;
@@ -367,6 +374,7 @@ function wire() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && stack.length) { e.preventDefault(); requestClose(); return; }
     if (e.key === 'Enter' && bancoEnter(e)) return;
+    if (e.key === 'Enter' && document.activeElement?.id === 'q-globale') { e.preventDefault(); document.activeElement.blur(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
     if (((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) && !stack.length) { e.preventDefault(); sheetSearch(); return; }
     if (document.activeElement?.id === 'labels' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); scrollLabels(e.key === 'ArrowRight' ? 1 : -1); }

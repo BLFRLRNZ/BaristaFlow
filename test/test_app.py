@@ -163,10 +163,12 @@ with sync_playwright() as p:
     check("Sotto scorta" in acq, "acqua sotto scorta")
     page.screenshot(path=str(SHOTS / "m_magazzino.png"), full_page=True)
     # ricerca per lotto fornitore
-    page.fill("#q-mag", "lv-3211")
-    page.wait_for_timeout(150)
-    check(page.locator("main .row").count() == 1 and page.locator("#q-mag").evaluate("e => e === document.activeElement"), "ricerca per lotto con focus mantenuto")
-    page.fill("#q-mag", "")
+    page.locator(".topbar .iconbtn.search").click(); page.wait_for_timeout(300)
+    page.fill("#q-globale", "lv-3211"); page.wait_for_timeout(400)
+    check(page.locator(".sheet .sres .row[data-act=open-acq]").count() == 1 and "LV-3211" in page.locator(".sheet .sres .row[data-act=open-acq]").inner_text()
+          and page.locator("#q-globale").evaluate("e => e === document.activeElement"), "dalla lente: ricerca per lotto con focus mantenuto")
+    page.fill("#q-globale", ""); page.wait_for_timeout(200)
+    page.keyboard.press("Escape"); page.wait_for_timeout(250)
     # richiamo: dove è finito il burro LV-3211
     page.locator(".row", has_text="Burro").click()
     page.wait_for_selector(".sheet .list .row")

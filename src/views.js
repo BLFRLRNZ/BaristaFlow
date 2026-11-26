@@ -57,43 +57,30 @@ function altri(k, items, cosa, ic, hint = '') {
   const rest = items.length - UI.pag[k].n; if (rest <= 0) return '';
   return `<button type="button" class="row" id="${k}-altri" data-act="altri" data-k="${k}">${av(ic)}<span class="m"><b>Mostra altri ${Math.min(rest, PAG)} ${cosa}</b><span>${rest === 1 ? 'Ne resta 1 più vecchio' : `Ne restano ${rest} più vecchi`}${hint}</span></span></button>`;
 }
-/* periodo (dal… al…) di Produzione e Acquisti: si sceglie dal pulsante «Periodo» e resta finché non lo togli, anche
-   cambiando pagina. Basta anche una data sola: «dal» fino a oggi, o tutto «fino al» */
-const perOk = k => { const x = UI.per[k]; return x && (x.da || x.a) ? x : null; };
-const inPer = (k, iso) => { const x = perOk(k); return !x || (validIso(iso) && (!x.da || iso >= x.da) && (!x.a || iso <= x.a)); };
-const perKey = k => { const x = perOk(k); return x ? `${x.da}~${x.a}` : ''; };
+/* periodo (dal… al…) della ricerca: basta anche una data sola, «dal» fino a oggi o tutto «fino al» */
 const perTxt = x => x.da && x.a ? (x.da === x.a ? `il ${fmtD(x.da)}` : `dal ${fmtD(x.da)} al ${fmtD(x.a)}`) : x.da ? `dal ${fmtD(x.da)}` : `fino al ${fmtD(x.a)}`;
 const perShort = x => x.da && x.a ? (x.da === x.a ? fmtDs(x.da) : `${fmtDs(x.da)} – ${fmtDs(x.a)}`) : x.da ? `Dal ${fmtDs(x.da)}` : `Fino al ${fmtDs(x.a)}`;
-function perBtn(k) {
-  const x = perOk(k);
-  if (!x) return `<button type="button" class="btn per" id="per-${k}" data-act="periodo" data-k="${k}">${IC.cal}<span>Periodo</span></button>`;
-  return `<span class="perbox"><button type="button" class="btn per on" id="per-${k}" data-act="periodo" data-k="${k}" aria-label="Periodo ${esc(perTxt(x))}: cambia">${IC.cal}<span>${esc(perShort(x))}</span></button><button type="button" class="btn icon per-x" data-act="per-togli" data-k="${k}" aria-label="Togli il periodo">${IC.x}</button></span>`;
-}
-const perSum = t => `<p class="persum" id="persum" role="status">${t}</p>`;
-/* il foglio del periodo: due date e alcune scelte rapide (che si applicano subito) */
-function sheetPeriodo(k) {
-  const x = perOk(k) || {da: '', a: ''}, st = {da: x.da, a: x.a}, t = today();
+/* il foglio del periodo, sopra la ricerca: due date e alcune scelte rapide (che si applicano subito) */
+function sheetPeriodo() {
+  const x = cercaPer() || {da: '', a: ''}, st = {da: x.da, a: x.a}, t = today();
   const pm1 = addDays(t.slice(0, 8) + '01', -1), pm0 = pm1.slice(0, 8) + '01';
   const rapide = [['Ultimi 7 giorni', addDays(t, -6), t], ['Questo mese', t.slice(0, 8) + '01', t], ['Mese scorso', pm0, pm1], ['Quest’anno', t.slice(0, 4) + '-01-01', t]];
-  openSheet({small: true, st, title: k === 'prod' ? 'Periodo dei lotti prodotti' : 'Periodo degli acquisti',
+  openSheet({small: true, st, isPeriodo: true, title: 'Periodo',
     body: () => `<div class="g2"><label class="fld"><span>Dal</span><input type="date" id="per-da" data-k="da" value="${esc(st.da)}"></label><label class="fld"><span>Al</span><input type="date" id="per-a" data-k="a" value="${esc(st.a)}"></label></div>
-      <p class="hint" style="margin:-6px 0 14px">${k === 'prod' ? 'Conta la data di produzione del lotto' : 'Conta la data del documento'}. Basta anche una data sola: «dal» fino a oggi, oppure tutto «fino al».</p>
-      <div class="fld"><span>Scelte rapide</span><div class="dchips">${rapide.map(([l, da, a]) => `<button type="button" class="dchip" data-act="per-rapido" data-k="${k}" data-da="${da}" data-a="${a}" aria-pressed="${x.da === da && x.a === a}">${esc(l)}</button>`).join('')}</div></div>
+      <p class="hint" style="margin:-6px 0 14px">Conta la data di produzione dei lotti e la data dei documenti d’acquisto. Basta anche una data sola: «dal» fino a oggi, oppure tutto «fino al».</p>
+      <div class="fld"><span>Scelte rapide</span><div class="dchips">${rapide.map(([l, da, a]) => `<button type="button" class="dchip" data-act="per-rapido" data-da="${da}" data-a="${a}" aria-pressed="${x.da === da && x.a === a}">${esc(l)}</button>`).join('')}</div></div>
       <p class="err" id="ferr" role="alert"></p>`,
-    foot: () => `${perOk(k) ? `<button type="button" class="btn" data-act="per-togli" data-k="${k}">Togli il periodo</button>` : '<button type="button" class="btn" data-act="close">Annulla</button>'}<button type="button" class="btn pri" data-act="save">Mostra</button>`,
-    onField: (_, o) => { o.dirty = false; },
+    foot: () => `${cercaPer() ? '<button type="button" class="btn" data-act="per-togli">Togli il periodo</button>' : '<button type="button" class="btn" data-act="close">Annulla</button>'}<button type="button" class="btn pri" data-act="save">Mostra</button>`,
     onSave: o => {
       if ((st.da && !validIso(st.da)) || (st.a && !validIso(st.a))) return ferr(o, 'Data non valida.');
-      perImposta(k, st.da, st.a);
+      perImposta(st.da, st.a);
     }});
 }
-/* applica il periodo: chi cerca i lotti di un periodo vuole vederli tutti, anche quelli finiti */
-function perImposta(k, da, a) {
+/* applica il periodo alla ricerca; chi cerca i lotti di un periodo li vuole tutti, anche quelli finiti */
+function perImposta(da, a) {
   if (da && a && da > a) [da, a] = [a, da];
-  UI.per[k] = da || a ? {da: da || '', a: a || ''} : null;
-  if (k === 'prod' && UI.per[k] && UI.prodF === 'attivi') UI.prodF = 'tutti';
-  if (top()?.title?.startsWith?.('Periodo')) closeSheet();
-  renderMain();
+  if (top()?.isPeriodo) closeSheet();
+  cercaImposta({per: da || a ? {da: da || '', a: a || ''} : null});
 }
 const av = (content, tone = '') => `<span class="av ${tone}" aria-hidden="true">${content}</span>`;
 const catIc = c => c === 'rivendita' ? IC.bottle : c === 'imballaggio' ? IC.bag : IC.wheat;
@@ -236,22 +223,17 @@ function vOggi() {
 /* ---------- Produzione e schede ---------- */
 const prodNav = cur => `<div class="subnav">${navSeg(cur, [['produzione', 'Lotti'], ['schede', 'Schede tecniche']])}</div>`;
 function vProduzione() {
-  const q = UI.q.prod.trim().toLowerCase();
   let lots = [...drv().prod.values()];
   if (UI.prodF === 'attivi') lots = lots.filter(l => l.res > EPS);
   else if (UI.prodF === 'esauriti') lots = lots.filter(l => l.res <= EPS);
-  if (q) lots = lots.filter(l => `${l.p.lotto} ${lotName(l)} ${l.p.operatore || ''}`.toLowerCase().includes(q));
-  const per = perOk('prod'); if (per) lots = lots.filter(l => inPer('prod', l.data));
   lots.sort((a, b) => b.data.localeCompare(a.data) || (b.p.creato || 0) - (a.p.creato || 0));
-  const flOf = n => UI.prodF === 'tutti' ? '' : UI.prodF === 'attivi' ? (vendite() ? 'con giacenza' : n === 1 ? 'attivo' : 'attivi') : vendite() ? (n === 1 ? 'esaurito' : 'esauriti') : 'in archivio', fl = flOf(lots.length);
   const nRic = [...S.data.ricette.values()].filter(r => !r.archiviato).length;
   return `<section id="v-produzione"><div class="ph"><div><h1>Produzione</h1><p>Ogni lotto conserva gli ingredienti usati, i lotti dei fornitori con le loro fatture e la scadenza.</p></div>
     <div class="acts w"><button type="button" class="btn pri" data-act="new-prod" ${nRic ? '' : 'disabled'}>${IC.plus}Nuova produzione</button></div></div>
     ${prodNav('produzione')}
     ${nRic ? '' : `<p class="note w">${IC.info}<span>Per produrre serve almeno una scheda tecnica. <button type="button" class="lnk" data-act="new-ric">Crea la prima scheda</button></span></p>`}
-    <div class="bar">${search('prod', 'Cerca lotto, prodotto o operatore')}${perBtn('prod')}${seg('prodF', vendite() ? [['attivi', 'Con giacenza'], ['esauriti', 'Esauriti'], ['tutti', 'Tutti']] : [['attivi', 'Attivi'], ['esauriti', 'In archivio'], ['tutti', 'Tutti']])}</div>
-    ${per ? perSum(`${lots.length === 1 ? '1 lotto' : `${lots.length} lotti`}${fl ? ' ' + fl : ''}${q ? (lots.length === 1 ? ' trovato' : ' trovati') : ''}, prodott${lots.length === 1 ? 'o' : 'i'} <b>${esc(perTxt(per))}</b>`) : ''}
-    ${lots.length ? `<div class="list">${pagina('prod', lots, q + '|' + UI.prodF + '|' + perKey('prod')).map(prodRow).join('')}${altri('prod', lots, 'lotti', IC.chef)}</div>` : empty(q ? 'Nessun lotto corrisponde alla ricerca.' : per ? `Nessun lotto${flOf(1) ? ' ' + flOf(1) : ''} prodotto ${perTxt(per)}.` : 'Nessun lotto in questo elenco.', IC.chef)}</section>`;
+    <div class="bar">${seg('prodF', vendite() ? [['attivi', 'Con giacenza'], ['esauriti', 'Esauriti'], ['tutti', 'Tutti']] : [['attivi', 'Attivi'], ['esauriti', 'In archivio'], ['tutti', 'Tutti']])}</div>
+    ${lots.length ? `<div class="list">${pagina('prod', lots, UI.prodF).map(prodRow).join('')}${altri('prod', lots, 'lotti', IC.chef, '. Per un periodo o un lotto preciso usa la lente in alto.')}</div>` : empty('Nessun lotto in questo elenco.', IC.chef)}</section>`;
 }
 function ricCard(r) {
   const al = algSort([...recAllergensOf(r, [r.id])]);
@@ -263,18 +245,16 @@ function ricCard(r) {
     <span class="rc-f"><span>Costo ${rq > 0 && !c.miss.length ? EUR(c.tot / rq) : '—'} ${u === 'pz' ? 'al pezzo' : 'al ' + u}</span><span>${vendite() || r.semilavorato ? `In giacenza ${fmtQ(s.usable, u)}` : s.n ? `In vetrina: ${s.n === 1 ? '1 lotto' : s.n + ' lotti'}` : 'Niente in vetrina'}</span></span></button>`;
 }
 function vSchede() {
-  const q = UI.q.sch.trim().toLowerCase();
   let rs = [...S.data.ricette.values()].filter(r => !!r.archiviato === UI.schArch);
   const cats = [...new Set(rs.map(r => r.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'it'));
   if (UI.schCat && cats.includes(UI.schCat)) rs = rs.filter(r => r.categoria === UI.schCat);
-  if (q) rs = rs.filter(r => `${r.nome} ${r.sigla} ${r.categoria}`.toLowerCase().includes(q));
   rs.sort(byName);
   const catSeg = cats.length > 1 ? seg('schCat', [['', 'Tutte'], ...cats.map(c => [c, c])]) : '';
   return `<section id="v-schede"><div class="ph"><div><h1>Schede tecniche</h1><p>Ricetta e grammature, allergeni, elenco ingredienti per il cartello, conservazione, durata e costo.</p></div>
     <div class="acts"><button type="button" class="btn pri w" data-act="new-ric">${IC.plus}Nuova scheda</button><button type="button" class="btn dl" data-act="dl-libro">${IC.down}Libro ingredienti</button></div></div>
     ${prodNav('schede')}
-    <div class="bar">${search('sch', 'Cerca scheda')}${catSeg}</div>
-    ${rs.length ? `<div class="cards">${rs.map(ricCard).join('')}</div>` : empty(q ? 'Nessuna scheda corrisponde alla ricerca.' : UI.schArch ? 'Nessuna scheda archiviata.' : 'Nessuna scheda tecnica. Crea la prima con «Nuova scheda».', IC.doc)}
+    ${catSeg ? `<div class="bar">${catSeg}</div>` : ''}
+    ${rs.length ? `<div class="cards">${rs.map(ricCard).join('')}</div>` : empty(UI.schArch ? 'Nessuna scheda archiviata.' : 'Nessuna scheda tecnica. Crea la prima con «Nuova scheda».', IC.doc)}
     <p style="margin-top:18px"><button type="button" class="lnk" data-act="toggle-arch">${UI.schArch ? 'Torna alle schede attive' : 'Mostra le schede archiviate'}</button></p></section>`;
 }
 
@@ -283,7 +263,7 @@ function vMagazzino() {
   return `<section id="v-magazzino"><div class="ph"><div><h1>Magazzino</h1><p>Giacenze calcolate dai lotti: caricate con gli acquisti, scalate da produzioni e scarichi.</p></div>
     <div class="acts"><button type="button" class="btn w" data-act="new-art">${IC.plus}Nuovo articolo</button><button type="button" class="btn dl" data-act="dl-csv">${IC.down}Esporta CSV</button></div></div>
     <div class="subnav">${seg('magSeg', [['acq', 'Acquistati'], ['prod', 'Prodotti']])}</div>
-    <div class="bar">${search('mag', UI.magSeg === 'acq' ? 'Cerca articolo o lotto del fornitore' : 'Cerca prodotto o lotto')}${UI.magSeg === 'acq' ? seg('magCat', [['tutti', 'Tutti'], ['materia', 'Materie prime'], ['rivendita', 'Rivendita'], ['imballaggio', 'Imballaggi']]) : ''}</div>
+    ${UI.magSeg === 'acq' ? `<div class="bar">${seg('magCat', [['tutti', 'Tutti'], ['materia', 'Materie prime'], ['rivendita', 'Rivendita'], ['imballaggio', 'Imballaggi']])}</div>` : ''}
     ${UI.magSeg === 'acq' ? magAcq() : magProd()}</section>`;
 }
 function artRow(a) {
@@ -307,67 +287,55 @@ function artRow(a) {
     <span class="s"><span class="q">${fmtQ(s.usable, a.unita)}</span></span></button>`;
 }
 function magAcq() {
-  const q = UI.q.mag.trim().toLowerCase(), Dd = drv();
   let arts = [...S.data.articoli.values()].filter(a => !a.archiviato);
   if (UI.magCat !== 'tutti') arts = arts.filter(a => (a.categoria || 'materia') === UI.magCat);
-  if (q) arts = arts.filter(a => String(a.nome).toLowerCase().includes(q) || (Dd.artLots.get(a.id) || []).some(l => l.lottoF.toLowerCase().includes(q)));
   arts.sort(byName);
-  return arts.length ? `<div class="list">${arts.map(artRow).join('')}</div>` : empty(q ? 'Nessun articolo corrisponde alla ricerca.' : 'Nessun articolo in questa categoria.', IC.box);
+  return arts.length ? `<div class="list">${arts.map(artRow).join('')}</div>` : empty('Nessun articolo in questa categoria.', IC.box);
 }
 function magProd() {
-  const q = UI.q.mag.trim().toLowerCase(), Dd = drv();
+  const Dd = drv();
   const out = [...S.data.ricette.values()].sort(byName).map(r => {
-    const lots = (Dd.ricLots.get(r.id) || []).filter(l => l.res > EPS && (!q || `${r.nome} ${l.p.lotto}`.toLowerCase().includes(q)));
+    const lots = (Dd.ricLots.get(r.id) || []).filter(l => l.res > EPS);
     if (!lots.length) return '';
     const s = stockOf(lots);
     const tot = lots[0].vetrina ? `${lots.length === 1 ? '1 lotto' : lots.length + ' lotti'} in vetrina` : `${fmtQ(s.usable, r.resaUnita)}${s.expired > EPS ? ` <small>+ ${fmtQ(s.expired, r.resaUnita)} scaduti</small>` : ''}`;
     return `<div class="grp"><div class="grp-h"><button type="button" class="lnk" data-act="open-ric" data-id="${esc(r.id)}">${esc(r.nome)}</button><span class="q">${tot}</span></div><div class="list">${lots.map(prodRow).join('')}</div></div>`;
   }).join('');
-  return out || empty(q ? 'Nessun prodotto corrisponde alla ricerca.' : vendite() ? 'Nessun prodotto in giacenza.' : 'Nessun prodotto in vetrina.', IC.chef);
+  return out || empty(vendite() ? 'Nessun prodotto in giacenza.' : 'Nessun prodotto in vetrina.', IC.chef);
 }
 
 /* ---------- Acquisti, fornitori ---------- */
 const acqNav = cur => navSeg(cur, [['acquisti', 'Documenti'], ['prezzi', 'Prezzi'], ['fornitori', 'Fornitori']]);
 const DOCAB = {fattura: 'FT', ddt: 'DDT', scontrino: 'SC', inventario: 'INV'};
+function docRow(d) {
+  const n = (d.righe || []).length, att = (d.allegati || []).length;
+  const noPrice = d.tipo !== 'inventario' && (d.righe || []).some(r => r.importo == null || r.importo === '');
+  return `<button type="button" class="row" data-act="open-doc" data-id="${esc(d.id)}">${av(DOCAB[d.tipo] || 'DOC', noPrice ? 'amb' : '')}<span class="m"><b>${esc(docName(d))}</b><span>${esc(fornName(d.fornitoreId) || (d.tipo === 'inventario' ? 'Merce già in magazzino' : 'Fornitore non indicato'))} · ${n === 1 ? '1 riga' : `${n} righe`}${att ? ` · ${att === 1 ? '1 allegato' : `${att} allegati`}` : ''}${d.tipo === 'ddt' && d.fatturaRif ? ` · fattura ${esc(d.fatturaRif)}` : ''}</span><span class="mc">${d.soloPrezzi ? '<span class="chip">Solo storico prezzi</span>' : ''}${noPrice ? '<span class="chip amb">Prezzi da inserire</span>' : ''}</span></span><span class="s"><span class="q">${EUR(docTot(d))}</span></span></button>`;
+}
+const ricRow = r => `<button type="button" class="row" data-act="open-ric" data-id="${esc(r.id)}">${av(esc(r.sigla || autoSigla(r.nome)), 'pri')}<span class="m"><b>${esc(r.nome)}</b><span>${esc(r.categoria || 'Senza categoria')}${r.semilavorato ? ' · semilavorato' : ''}${r.archiviato ? ' · archiviata' : ''}</span></span></button>`;
+function fornRow(f) {
+  const mine = [...S.data.documenti.values()].filter(d => d.fornitoreId === f.id), last = mine.map(d => d.data).sort().pop(), tot = mine.reduce((t, d) => t + docTot(d), 0);
+  return `<button type="button" class="row" data-act="open-forn" data-id="${esc(f.id)}">${av(initials(f.nome))}<span class="m"><b>${esc(f.nome)}</b><span>${mine.length === 1 ? '1 documento' : `${mine.length} documenti`}${last ? ' · ultimo ' + fmtD(last) : ''}${f.note ? ' · ' + esc(f.note) : ''}</span></span><span class="s"><span class="q">${EUR(tot)}</span></span></button>`;
+}
 function vAcquisti() {
-  const q = UI.q.acq.trim().toLowerCase();
-  let docs = [...S.data.documenti.values()];
-  if (q) docs = docs.filter(d => [d.numero, fornName(d.fornitoreId), TIPI[d.tipo], d.fatturaRif, ...(d.righe || []).flatMap(r => [S.data.articoli.get(r.articoloId)?.nome, r.lotto])].join(' ').toLowerCase().includes(q));
-  const per = perOk('acq'); if (per) docs = docs.filter(d => inPer('acq', d.data));
-  docs.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (b.creato || 0) - (a.creato || 0));
-  const rows = pagina('acq', docs, q + '|' + perKey('acq')).map(d => {
-    const n = (d.righe || []).length, att = (d.allegati || []).length;
-    const noPrice = d.tipo !== 'inventario' && (d.righe || []).some(r => r.importo == null || r.importo === '');
-    return `<button type="button" class="row" data-act="open-doc" data-id="${esc(d.id)}">${av(DOCAB[d.tipo] || 'DOC', noPrice ? 'amb' : '')}<span class="m"><b>${esc(docName(d))}</b><span>${esc(fornName(d.fornitoreId) || (d.tipo === 'inventario' ? 'Merce già in magazzino' : 'Fornitore non indicato'))} · ${n === 1 ? '1 riga' : `${n} righe`}${att ? ` · ${att === 1 ? '1 allegato' : `${att} allegati`}` : ''}${d.tipo === 'ddt' && d.fatturaRif ? ` · fattura ${esc(d.fatturaRif)}` : ''}</span><span class="mc">${d.soloPrezzi ? '<span class="chip">Solo storico prezzi</span>' : ''}${noPrice ? '<span class="chip amb">Prezzi da inserire</span>' : ''}</span></span><span class="s"><span class="q">${EUR(docTot(d))}</span></span></button>`;
-  }).join('') + altri('acq', docs, 'documenti', IC.receipt, q || per ? '' : '. Per trovarne uno, cerca il numero o il fornitore, o scegli il periodo.');
-  const tot = per ? docs.reduce((t, d) => t + docTot(d), 0) : 0;
+  const docs = [...S.data.documenti.values()].sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')) || (b.creato || 0) - (a.creato || 0));
+  const rows = pagina('acq', docs, '').map(docRow).join('') + altri('acq', docs, 'documenti', IC.receipt, '. Per trovarne uno, usa la lente in alto: numero, fornitore, articolo o periodo.');
   return `<section id="v-acquisti"><div class="ph"><div><h1>Acquisti</h1><p>Fatture e DDT: ogni riga diventa un lotto di magazzino con lotto del fornitore, scadenza e costo.</p></div>
     <div class="acts w"><button type="button" class="btn pri" data-act="new-doc">${IC.plus}Registra documento</button><button type="button" class="btn" data-act="fe-import">${IC.down}Importa fatture${postaCoda().length ? ` <span class="chip amb">${postaMail(postaCoda())} dalla posta</span>` : ''}</button><button type="button" class="btn" data-act="new-forn">Nuovo fornitore</button></div></div>
     <div class="subnav">${acqNav('acquisti')}</div>
-    <div class="bar">${search('acq', 'Cerca numero, fornitore, articolo o lotto')}${perBtn('acq')}</div>
-    ${per ? perSum(`${docs.length === 1 ? '1 documento' : `${docs.length} documenti`}${q ? (docs.length === 1 ? ' trovato' : ' trovati') : ''} <b>${esc(perTxt(per))}</b>${docs.length ? ` · ${EUR(tot)} senza IVA` : ''}`) : ''}
-    ${rows ? `<div class="list">${rows}</div>` : empty(q ? 'Nessun documento corrisponde alla ricerca.' : per ? `Nessun documento ${perTxt(per)}.` : 'Nessun acquisto registrato. Registra la prima fattura o il primo DDT.', IC.receipt)}</section>`;
+    ${rows ? `<div class="list">${rows}</div>` : empty('Nessun acquisto registrato. Registra la prima fattura o il primo DDT.', IC.receipt)}</section>`;
 }
 function vFornitori() {
-  const q = UI.q.forn.trim().toLowerCase();
-  let fs = [...S.data.fornitori.values()];
-  if (q) fs = fs.filter(f => `${f.nome} ${f.piva || ''} ${f.note || ''}`.toLowerCase().includes(q));
-  fs.sort(byName);
-  const docs = [...S.data.documenti.values()];
-  const rows = fs.map(f => {
-    const mine = docs.filter(d => d.fornitoreId === f.id), last = mine.map(d => d.data).sort().pop(), tot = mine.reduce((t, d) => t + docTot(d), 0);
-    return `<button type="button" class="row" data-act="open-forn" data-id="${esc(f.id)}">${av(initials(f.nome))}<span class="m"><b>${esc(f.nome)}</b><span>${mine.length === 1 ? '1 documento' : `${mine.length} documenti`}${last ? ' · ultimo ' + fmtD(last) : ''}${f.note ? ' · ' + esc(f.note) : ''}</span></span><span class="s"><span class="q">${EUR(tot)}</span></span></button>`;
-  }).join('');
+  const rows = [...S.data.fornitori.values()].sort(byName).map(fornRow).join('');
   return `<section id="v-fornitori"><div class="ph"><div><h1>Fornitori</h1><p>Chi ti rifornisce, con i documenti registrati e la spesa totale.</p></div>
     <div class="acts w"><button type="button" class="btn pri" data-act="new-forn">${IC.plus}Nuovo fornitore</button></div></div>
     <div class="subnav">${acqNav('fornitori')}</div>
-    <div class="bar">${search('forn', 'Cerca fornitore')}</div>
-    ${rows ? `<div class="list">${rows}</div>` : empty(q ? 'Nessun fornitore corrisponde alla ricerca.' : 'Nessun fornitore. Aggiungilo con «Nuovo fornitore».', IC.truck)}</section>`;
+    ${rows ? `<div class="list">${rows}</div>` : empty('Nessun fornitore. Aggiungilo con «Nuovo fornitore».', IC.truck)}</section>`;
 }
 
 /* ---------- Prezzi d'acquisto ---------- */
 function vPrezzi() {
-  const k = PERIODI[UI.prezziP] ? UI.prezziP : '3m', start = periodStart(k), Dd = drv(), q = UI.q.prz.trim().toLowerCase();
+  const k = PERIODI[UI.prezziP] ? UI.prezziP : '3m', start = periodStart(k), Dd = drv();
   const rows = [];
   for (const id of Dd.prices.keys()) { const a = S.data.articoli.get(id); if (a) rows.push({a, ps: priceStats(id, start)}); }
   const head = `<section id="v-prezzi"><div class="ph"><div><h1>Prezzi d'acquisto</h1><p>Prezzo al kg, al litro o al pezzo preso da fatture e DDT, IVA esclusa: così confronti anche confezioni di misura diversa.</p></div>
@@ -384,8 +352,7 @@ function vPrezzi() {
     ? `${lbl} hai speso ${EUR(tot)} in più rispetto ${ref}${worst.ps.extra > 0.005 ? `: il rincaro che pesa di più è ${worst.a.nome} (+${EUR(worst.ps.extra)})` : ''}.`
     : tot < -0.005 ? `${lbl} hai risparmiato ${EUR(-tot)} rispetto ${ref}${best.ps.extra < -0.005 ? `, soprattutto su ${best.a.nome}` : ''}.`
     : `${lbl} i prezzi sono rimasti stabili.`;
-  let list = q ? rows.filter(r => String(r.a.nome).toLowerCase().includes(q)) : rows;
-  list = [...list].sort((x, y) => (y.ps.extra - x.ps.extra) || ((y.ps.chg ?? 0) - (x.ps.chg ?? 0)) || byName(x.a, y.a));
+  const list = [...rows].sort((x, y) => (y.ps.extra - x.ps.extra) || ((y.ps.chg ?? 0) - (x.ps.chg ?? 0)) || byName(x.a, y.a));
   const prodRows = list.map(({a, ps}) => `<button type="button" class="row" data-act="open-prezzi" data-id="${esc(a.id)}">${av(catIc(a.categoria), ps.inP.length ? (dcls(ps.chg) === 'up' ? 'red' : dcls(ps.chg) === 'down' ? 'good' : '') : '')}
       <span class="m"><b>${esc(a.nome)}</b><span>Ultimo ${EUR(ps.last.p)} ${perU(a.unita)} il ${fmtD(ps.last.date)}${fornName(ps.last.forn) ? ' · ' + esc(fornName(ps.last.forn)) : ''}</span><span>${ps.s.length === 1 ? '1 acquisto' : ps.s.length + ' acquisti'}${Math.abs(ps.extra) >= 0.005 ? ` · ${ps.extra > 0 ? `+${EUR(ps.extra)} spesi in più` : `${EUR(-ps.extra)} risparmiati`}` : ''}</span><span class="mc">${ps.inP.length ? delta(ps.chg) : '<span class="chip">Nessun acquisto nel periodo</span>'}</span></span>
       <span class="s">${spark(ps.s)}</span></button>`).join('');
@@ -403,8 +370,7 @@ function vPrezzi() {
     <p class="finding">${esc(finding)}</p>
     <div class="stats"><div class="stat ${tot > 0.005 ? 'up' : tot < -0.005 ? 'down' : ''}"><b>${tot > 0.005 ? '+' : tot < -0.005 ? '−' : ''}${EUR(Math.abs(tot))}</b><span>${tot < -0.005 ? 'Risparmiati' : 'Spesi in più'} rispetto ${esc(ref)}</span></div><div class="stat"><b>${up.length}</b><span>${up.length === 1 ? 'Prodotto rincarato' : 'Prodotti rincarati'}</span></div><div class="stat"><b>${down.length}</b><span>${down.length === 1 ? 'Prodotto calato' : 'Prodotti calati'}</span></div></div>
     <h2>Prodotti</h2><p class="muted" style="margin-top:-4px">Variazione del prezzo ${k === 'tutto' ? 'dal primo acquisto registrato' : `negli ultimi ${PERIODI[k][0]}`}, dai rincari che pesano di più.</p>
-    <div class="bar">${search('prz', 'Cerca prodotto')}</div>
-    ${prodRows ? `<div class="list">${prodRows}</div>` : empty('Nessun prodotto corrisponde alla ricerca.', IC.search)}
+    <div class="list">${prodRows}</div>
     <h2>Costo delle schede</h2>
     <p class="muted" style="margin-top:-4px">Costo per unità oggi e con i prezzi di ${k === 'tutto' ? 'quando hai iniziato a registrarli' : 'inizio periodo'}.</p>
     ${impRows ? `<div class="list">${impRows}</div>` : empty('Nessuna variazione di costo nelle schede in questo periodo.', IC.doc)}

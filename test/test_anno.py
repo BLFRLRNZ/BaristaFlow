@@ -54,10 +54,14 @@ with sync_playwright() as p:
     check(docs() == 80 and pg.evaluate("document.activeElement.id") == "acq-altri", "«Mostra altri» ne aggiunge 40 e resta sotto il dito")
     # la ricerca guarda anche nei documenti non ancora mostrati
     num = old[1]["numero"]
-    pg.fill("#q-acq", num); pg.wait_for_timeout(250)
-    check(docs() >= 1 and num in pg.locator("#v-acquisti .list").inner_text(), f"la ricerca trova il documento più vecchio ({num}, {old[1]['data']})")
-    pg.fill("#q-acq", ""); pg.wait_for_timeout(250)
-    check(docs() == 40, "con un'altra ricerca si riparte dai primi 40")
+    check(pg.locator("#q-acq").count() == 0, "in Acquisti non c'è più una ricerca a parte: si cerca dalla lente")
+    pg.locator(".topbar .iconbtn.search").click(); pg.wait_for_timeout(300)
+    pg.locator(".cerca-cosa .dchip", has_text="Documenti").click(); pg.wait_for_timeout(300)
+    check(pg.locator(".sheet .sres .list > .row[data-act=open-doc]").count() == 40 and "Mostra altri 40" in pg.locator("#cerca-altri").inner_text(), "dalla lente, senza scrivere, tutti i documenti a gruppi di 40")
+    pg.fill("#q-globale", num); pg.wait_for_timeout(400)
+    check(num in pg.locator(".sheet .sres").inner_text(), f"la lente trova il documento più vecchio ({num}, {old[1]['data']})")
+    pg.fill("#q-globale", ""); pg.wait_for_timeout(300)
+    pg.keyboard.press("Escape"); pg.wait_for_timeout(250)
 
     # 3. Produzione, tutti i lotti
     pg.evaluate("location.hash = 'produzione'"); pg.wait_for_selector("#v-produzione"); pg.wait_for_timeout(300)

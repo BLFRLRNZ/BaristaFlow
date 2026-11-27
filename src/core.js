@@ -404,6 +404,8 @@ function docName(d) {
   if (d.tipo === 'inventario') return `${t} del ${fmtD(d.data)}`;
   return `${t}${d.numero ? ' n. ' + d.numero : ''} del ${fmtD(d.data)}`;
 }
+/* la fattura che ha chiuso un DDT (differita): «fattura n. 312 del 24/11/2026» */
+const fattDi = d => d?.tipo === 'ddt' && String(d.fatturaRif || '').trim() ? 'fattura ' + String(d.fatturaRif).trim() : '';
 const docTot = d => (d.righe || []).reduce((s, r) => s + (r.importo == null || r.importo === '' ? 0 : +r.importo || 0), 0);
 const fornName = id => S.data.fornitori.get(id)?.nome || '';
 const shelfTxt = r => { const n = Math.round(+r.shelfLife || 0); return n === 0 ? 'in giornata' : n === 1 ? '1 giorno' : `${n} giorni`; };

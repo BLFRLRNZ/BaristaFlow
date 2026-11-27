@@ -170,7 +170,7 @@ function schedaProduzionePdf(id) {
       return [own, ...righe(lp.p.consumi || [], dep + 1, [...path, cc.lotId])];
     }
     const la = Dd.acq.get(cc.lotId); if (!la) return [row('—', '—', 'Documento d’acquisto eliminato')];
-    return [row(la.lottoF || 'non indicato', fmtD(la.scad), [fornName(la.doc.fornitoreId), docName(la.doc)].filter(Boolean).join(' · '))];
+    return [row(la.lottoF || 'non indicato', fmtD(la.scad), [fornName(la.doc.fornitoreId), docName(la.doc), fattDi(la.doc)].filter(Boolean).join(' · '))];
   });
   const rows = righe(p.consumi || [], 0, [id]);
   if (rows.length) d.table([{t: 'Ingrediente', w: 148}, {t: 'Quantità', w: 64, right: true}, {t: 'Lotto', w: 84}, {t: 'Scadenza', w: 62}, {t: 'Provenienza', w: d.CW - 358}], rows);

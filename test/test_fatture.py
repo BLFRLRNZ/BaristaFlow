@@ -210,7 +210,7 @@ with sync_playwright() as p:
     pg.locator(".sheet .row", has_text="Fattura n. 1201").click(); pg.wait_for_timeout(350)
     t = top(pg)
     check("li hai già registrati" in T(t.locator(".note").first.inner_text()) and t.locator('[data-k="solo"]').is_checked(), "riconosce il DDT già registrato")
-    check(t.locator('[data-k="righe.0.lotto"]').count() == 0, "senza lotti: la merce è già in magazzino")
+    check(not t.locator('[data-k="righe.0.lotto"]').is_visible(), "senza lotti: la merce è già in magazzino")
     shot(pg, "f_differita")
     t.locator(".btn.pri", has_text="Importa fattura").click(); pg.wait_for_timeout(700)
     after = docs(pg, f"d.id === '{ddt['id']}'")[0]

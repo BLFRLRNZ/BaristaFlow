@@ -498,6 +498,21 @@ function feDup(f, fid) {
   if (!fid) return false;
   return [...S.data.documenti.values()].some(d => d.fornitoreId === fid && ((d.tipo === 'fattura' && d.data === f.data && (String(d.numero).trim() === String(f.numero).trim() || feNum1(d.numero) === feNum1(f.numero))) || (d.tipo === 'ddt' && d.fatturaRif === feRif(f))));
 }
+/* fattura differita: i DDT citati che nell'app non ci sono */
+const feDdtMancanti = (f, ddts) => f.ddt.filter(x => !ddts.some(d => feNum1(x.numero) === feNum1(d.numero) && (!x.data || x.data === d.data)));
+const feDdtTxt = xs => xs.map(x => `n. ${x.numero}${x.data ? ' del ' + fmtD(x.data) : ''}`).join(', ');
+/* per ogni riga (articolo e quantità in unità di giacenza): quanto è già in magazzino con i DDT registrati e quanto manca.
+   I DDT si contano per articolo e si consumano riga dopo riga, così due righe dello stesso articolo non contano due volte lo stesso DDT. */
+function feCopri(ddts, items) {
+  const pool = new Map();
+  for (const d of ddts) for (const r of d.righe || []) pool.set(r.articoloId, r6((pool.get(r.articoloId) || 0) + (+r.qta || 0)));
+  return items.map(u => {
+    if (!u || !(u.q > 0)) return {gia: 0, resto: 0};
+    const have = pool.get(u.a) || 0, gia = r6(Math.min(u.q, have));
+    pool.set(u.a, r6(have - gia));
+    return {gia, resto: r6(u.q - gia)};
+  });
+}
 function feStatus(e) {
   if (e.err) return {k: 'err', txt: e.err[0].toUpperCase() + e.err.slice(1)};
   if (e.done) return {k: 'done', txt: 'Importata'};
@@ -514,13 +529,17 @@ function feStatus(e) {
   if (m.every(x => x.skip)) return {k: 'check', txt: 'Nessuna riga di merce riconosciuta'};
   if (f.pdf && (!f.numero || !f.data)) return {k: 'check', txt: 'Da controllare: numero o data'};
   if (f.pdf && (f.quadra !== true || f.righe.some((r, i) => !m[i].skip && !r.ok))) return {k: 'check', txt: 'Da controllare: importi letti dal PDF'};
+  // differita con solo una parte dei DDT nell'app: va guardata prima di caricare la merce che manca
+  const dd = f.ddt.length ? feDdtDocs(f, fid) : [], manca = dd.length ? feDdtMancanti(f, dd).length : 0;
+  if (manca) return {k: 'check', txt: `Da controllare: ${manca === 1 ? '1 DDT non registrato' : manca + ' DDT non registrati'}`};
   const n = m.filter(x => !x.sure).length;
   return n ? {k: 'check', txt: `Da controllare: ${n === 1 ? '1 riga' : n + ' righe'}`} : {k: 'ready', txt: 'Pronta'};
 }
 
 /* --- salvataggio --- */
-async function feSave(e, fid, solo, lines) {
+async function feSave(e, fid, solo, lines, carica = false) {
   // lines: per riga {skip} oppure {a, f, q, lotto, scadenza}
+  // solo: la merce dei DDT registrati è già in magazzino; carica: la merce che quei DDT non coprono entra con questa fattura
   const f = e.f, newF = !fid;
   if (newF) {
     fid = uid();
@@ -531,16 +550,20 @@ async function feSave(e, fid, solo, lines) {
     return {a: x.a, qta, imp, pu: imp != null && qta > 0 ? imp / qta : null, lotto: x.lotto, scadenza: x.scadenza};
   });
   // fattura differita con i DDT già registrati: si completano i loro prezzi, la merce non si carica di nuovo
-  const ddts = solo ? feDdtDocs(f, fid) : [], inDdt = new Set(ddts.flatMap(d => (d.righe || []).map(r => r.articoloId)));
+  const ddts = solo ? feDdtDocs(f, fid) : [];
   for (const d of ddts) {
     const righe = (d.righe || []).map(r => { if (r.importo != null && r.importo !== '') return r; const s = used.find(u => u.a === r.articoloId && u.pu != null); return s ? {...r, importo: Math.round(s.pu * r.qta * 100) / 100} : r; });
     if (!(await put('documenti', d.id, {...strip(d), righe, fatturaRif: d.fatturaRif || feRif(f)}, true))) return false;
   }
-  const keep = solo ? used.filter(u => !inDdt.has(u.a)) : used;
+  // della differita resta solo la merce che i DDT registrati non hanno già portato in magazzino
+  const cv = solo ? feCopri(ddts, used.map(u => ({a: u.a, q: u.qta}))) : null;
+  const keep = solo ? used.map((u, i) => cv[i].resto > EPS ? {...u, qta: cv[i].resto, imp: u.pu != null ? Math.round(u.pu * cv[i].resto * 100) / 100 : u.imp} : null).filter(Boolean) : used;
+  const prezzi = solo && !carica, manca = solo ? feDdtMancanti(f, ddts) : [];   // senza «carica»: solo storico prezzi, come una volta
   if (keep.length) {
-    const righe = keep.map(u => ({id: uid(), articoloId: u.a, qta: u.qta, importo: u.imp, lotto: solo ? '' : String(u.lotto || '').trim(), scadenza: solo ? '' : u.scadenza || ''}));
-    const note = [`Importata dalla fattura elettronica ${f.file}.`, f.ddt.length ? `DDT: ${f.ddt.map(x => `n. ${x.numero}${x.data ? ' del ' + fmtD(x.data) : ''}`).join(', ')}.` : ''].filter(Boolean).join(' ');
-    if (!(await put('documenti', uid(), {tipo: 'fattura', numero: f.numero, data: f.data, fornitoreId: fid, fatturaRif: '', soloPrezzi: solo, note, allegati: [], righe, creato: Date.now()}))) return false;
+    const righe = keep.map(u => ({id: uid(), articoloId: u.a, qta: u.qta, importo: u.imp, lotto: prezzi ? '' : String(u.lotto || '').trim(), scadenza: prezzi ? '' : u.scadenza || ''}));
+    const note = [`Importata dalla fattura elettronica ${f.file}.`, f.ddt.length ? `DDT: ${feDdtTxt(f.ddt)}.` : '',
+      solo && !prezzi && manca.length ? `Qui c’è la merce ${manca.length === 1 ? 'del DDT' : 'dei DDT'} ${feDdtTxt(manca)}, ${manca.length === 1 ? 'che non era registrato' : 'che non erano registrati'} nell’app.` : ''].filter(Boolean).join(' ');
+    if (!(await put('documenti', uid(), {tipo: 'fattura', numero: f.numero, data: f.data, fornitoreId: fid, fatturaRif: '', soloPrezzi: prezzi, note, allegati: [], righe, creato: Date.now()}))) return false;
   }
   // il fornitore ricorda gli abbinamenti e la partita IVA per la prossima volta
   const F = S.data.fornitori.get(fid);
@@ -603,28 +626,46 @@ async function feAll() {
 }
 function sheetFattura(e) {
   const f = e.f, fid0 = feFornOf(f), pdf = !!f.pdf;
-  const st = {forn: fid0 || '__new', solo: false, numero: f.numero || '', data: f.data || '', fnome: f.forn.nome || '', fpiva: fePiva(f.forn.piva) || '', righe: []};
+  const st = {forn: fid0 || '__new', solo: false, carica: true, numero: f.numero || '', data: f.data || '', fnome: f.forn.nome || '', fpiva: fePiva(f.forn.piva) || '', righe: []};
   const fill = () => {
     const fid = st.forn === '__new' ? null : st.forn, m = feMatch(f, fid);
-    st.solo = feDdtDocs(f, fid).length > 0;
+    st.solo = feDdtDocs(f, fid).length > 0; st.carica = true;
     st.righe = f.righe.map((r, i) => ({a: m[i].skip ? '__skip' : m[i].a || '', fat: fmtIn(m[i].f || 1), q: r.qta > 0 ? fmtIn(r.qta) : '', imp: r.totale != null ? fmtIn(r.totale) : '', lotto: r.lotto || '', scad: r.scadenza || '', guess: !!m[i].guess}));
   };
   fill();
   const unitTxt = r => r.um ? esc(r.um) : 'unità';
   const totOf = i => pdf ? (String(st.righe[i].imp).trim() ? pnum(st.righe[i].imp) : null) : f.righe[i].totale;
-  const hint = i => {
+  const fidOf = () => st.forn === '__new' ? null : st.forn;
+  // differita: DDT registrati, DDT che mancano, e per ogni riga quanta merce c'è già e quanta manca
+  const ddtsOf = () => st.solo ? feDdtDocs(f, fidOf()) : [];
+  const mancaOf = () => { const dd = ddtsOf(); return dd.length ? feDdtMancanti(f, dd) : []; };
+  const carica = () => st.solo && st.carica && mancaOf().length > 0;
+  const copri = () => feCopri(ddtsOf(), st.righe.map(x => S.data.articoli.has(x.a) ? {a: x.a, q: r6(pnum(x.q) * pnum(x.fat))} : null));
+  const conLotti = (i, cv) => !st.solo || (carica() && cv[i].resto > EPS);
+  const hint = (i, cv = copri()) => {
     const x = st.righe[i], a = S.data.articoli.get(x.a), tot = totOf(i);
     if (!a) return '';
     const q = r6(pnum(x.q) * pnum(x.fat));
     if (!(q > 0)) return 'Indica quantità e conversione.';
-    return `In magazzino: ${fmtQ(q, a.unita)}${tot != null && tot >= 0 ? ` · ${EUR(tot / q)} ${a.unita === 'pz' ? 'al pezzo' : 'al ' + a.unita}` : ''}`;
+    const pz = tot != null && tot >= 0 ? ` · ${EUR(tot / q)} ${a.unita === 'pz' ? 'al pezzo' : 'al ' + a.unita}` : '';
+    if (!st.solo) return `In magazzino: ${fmtQ(q, a.unita)}${pz}`;
+    const c = cv[i];
+    if (c.resto <= EPS) return `Già in magazzino con i DDT: ${fmtQ(c.gia, a.unita)}${pz}`;
+    return `${c.gia > EPS ? `Con i DDT: ${fmtQ(c.gia, a.unita)} · ` : ''}${carica() ? 'Da caricare' : 'Solo storico prezzi'}: ${fmtQ(c.resto, a.unita)}${pz}`;
+  };
+  const aggiorna = () => {   // mentre si scrive: suggerimenti e campi del lotto di ogni riga, senza ridisegnare il foglio
+    const cv = copri();
+    st.righe.forEach((x, i) => {
+      const h = document.getElementById('fe-h-' + i); if (h) h.textContent = hint(i, cv);
+      const l = document.getElementById('fe-l-' + i); if (l) l.hidden = !conLotti(i, cv);
+    });
   };
   const sumTxt = () => {
     const s = Math.round(f.righe.reduce((t, r, i) => t + (st.righe[i].a === '__skip' && !pdf ? 0 : totOf(i) || 0), 0) * 100) / 100;
     const ref = f.imponibile;
     return ref == null ? `Somma delle righe: ${EUR(s)}. Imponibile non trovato nel PDF: confrontala con la fattura.` : Math.abs(s - ref) < .02 ? `Somma delle righe ${EUR(s)}: torna con l'imponibile della fattura.` : `Somma delle righe ${EUR(s)}, imponibile in fattura ${EUR(ref)}: controlla gli importi.`;
   };
-  const lineHTML = (r, i) => {
+  const lineHTML = (r, i, cv) => {
     const x = st.righe[i], a = S.data.articoli.get(x.a);
     return `<div class="card fe-line"><p class="fe-d"><b>${esc(r.descr || 'Riga ' + r.n)}</b></p>
       <p class="muted fe-q">${r.qta != null ? `${esc(fmtIn(r.qta))} ${unitTxt(r)}` : 'Quantità non indicata'}${r.prezzo != null ? ` × ${EUR(r.prezzo)}` : ''}${r.totale != null ? ` = <b>${EUR(r.totale)}</b>` : ''}${r.codice ? ` · cod. ${esc(r.codice)}` : ''}${pdf && !r.ok && x.a !== '__skip' ? ' <span class="chip amb">Quantità × prezzo non torna</span>' : ''}</p>
@@ -632,13 +673,13 @@ function sheetFattura(e) {
       ${a ? `<div class="${pdf ? 'g3' : 'g2'}"><label class="fld"><span>Quantità in fattura</span><input type="text" inputmode="decimal" data-k="righe.${i}.q" value="${esc(x.q)}" placeholder="0" autocomplete="off"></label>
       <label class="fld"><span>1 ${unitTxt(r)} = quanti ${a.unita === 'pz' ? 'pezzi' : a.unita}</span><input type="text" inputmode="decimal" data-k="righe.${i}.fat" value="${esc(x.fat)}" autocomplete="off"></label>
       ${pdf ? `<label class="fld"><span>Importo € senza IVA</span><input type="text" inputmode="decimal" data-k="righe.${i}.imp" value="${esc(x.imp)}" placeholder="0,00" autocomplete="off"></label>` : ''}</div>
-      <p class="hint fe-h" id="fe-h-${i}">${esc(hint(i))}</p>
-      ${st.solo ? '' : `<div class="g2"><label class="fld"><span>Lotto del fornitore</span><input type="text" data-k="righe.${i}.lotto" value="${esc(x.lotto)}" placeholder="Come sulla confezione" autocomplete="off"></label>
-      <label class="fld"><span>Scadenza</span><input type="date" data-k="righe.${i}.scad" value="${esc(x.scad)}"></label></div>`}` : ''}</div>`;
+      <p class="hint fe-h" id="fe-h-${i}">${esc(hint(i, cv))}</p>
+      <div class="g2" id="fe-l-${i}" ${conLotti(i, cv) ? '' : 'hidden'}><label class="fld"><span>Lotto del fornitore</span><input type="text" data-k="righe.${i}.lotto" value="${esc(x.lotto)}" placeholder="Come sulla confezione" autocomplete="off"></label>
+      <label class="fld"><span>Scadenza</span><input type="date" data-k="righe.${i}.scad" value="${esc(x.scad)}"></label></div>` : ''}</div>`;
   };
   const o = {form: true, st, title: () => `Fattura${st.numero ? ' n. ' + st.numero : ''}${pdf ? ' (PDF)' : ''}`,
     body: () => {
-      const fid = st.forn === '__new' ? null : st.forn, ddts = feDdtDocs(f, fid);
+      const fid = st.forn === '__new' ? null : st.forn, ddts = feDdtDocs(f, fid), man = ddts.length ? feDdtMancanti(f, ddts) : [], cv = copri();
       return `${pdf ? `<p class="note">${IC.info}<span>Letta dal PDF: controlla numero, data e importi prima di importare. Dall'XML la lettura è esatta.</span></p>
           <div class="g2"><label class="fld"><span>Numero della fattura</span><input type="text" data-k="numero" value="${esc(st.numero)}" autocomplete="off"></label>
           <label class="fld"><span>Data</span><input type="date" data-k="data" value="${esc(st.data)}"></label></div>`
@@ -646,10 +687,12 @@ function sheetFattura(e) {
         <label class="fld"><span>Fornitore</span><select data-k="forn"><option value="__new" ${st.forn === '__new' ? 'selected' : ''}>+ Crea «${esc(st.fnome || 'Fornitore')}»</option>${fornOpts(st.forn === '__new' ? '' : st.forn)}</select>${!fid0 ? '<small class="hint">Non l’ho trovato fra i tuoi fornitori: se c’è con un altro nome, sceglilo qui.</small>' : ''}</label>
         ${pdf && st.forn === '__new' ? `<div class="g2"><label class="fld"><span>Nome del nuovo fornitore</span><input type="text" data-k="fnome" value="${esc(st.fnome)}" autocomplete="off"></label>
           <label class="fld"><span>Partita IVA</span><input type="text" data-k="fpiva" value="${esc(st.fpiva)}" inputmode="numeric" autocomplete="off"></label></div>` : ''}
-        ${f.ddt.length ? `<p class="note">${IC.info}<span>Fattura dei DDT ${esc(f.ddt.map(x => `n. ${x.numero}${x.data ? ' del ' + fmtD(x.data) : ''}`).join(', '))}${ddts.length ? `: ${ddts.length === f.ddt.length ? 'li hai già registrati' : `ne hai registrati ${ddts.length}`}.` : ', non ancora registrati nell’app.'}</span></p>
-          ${ddts.length ? `<label class="chk"><input type="checkbox" data-k="solo" ${st.solo ? 'checked' : ''}>La merce è già in magazzino con i DDT: completa i loro prezzi senza caricarla di nuovo</label>` : ''}` : ''}
+        ${f.ddt.length ? `<p class="note">${IC.info}<span>Fattura dei DDT ${esc(feDdtTxt(f.ddt))}${!ddts.length ? ', non ancora registrati nell’app.' : !man.length ? ': li hai già registrati.' : `: ne hai registrati ${ddts.length}. ${man.length === 1 ? 'Manca il DDT' : 'Mancano i DDT'} ${esc(feDdtTxt(man))}.`}</span></p>
+          ${ddts.length ? `<label class="chk"><input type="checkbox" data-k="solo" ${st.solo ? 'checked' : ''}>${man.length ? 'La merce dei DDT registrati è già in magazzino: completa i loro prezzi senza caricarla di nuovo' : 'La merce è già in magazzino con i DDT: completa i loro prezzi senza caricarla di nuovo'}</label>` : ''}
+          ${st.solo && man.length ? `<label class="chk"><input type="checkbox" data-k="carica" ${st.carica ? 'checked' : ''}>Carica in magazzino con questa fattura la merce ${man.length === 1 ? 'del DDT che manca' : 'dei DDT che mancano'}</label>
+            <p class="hint" style="margin:-4px 0 14px">${st.carica ? 'Entra solo quello che i DDT registrati non coprono: lo vedi riga per riga.' : 'Senza spunta quella merce finisce solo nello storico prezzi: va bene solo se l’hai già caricata in un altro modo.'}</p>` : ''}` : ''}
         <h3>Righe della fattura</h3><p class="hint" style="margin:-4px 0 10px">Abbina ogni riga a un tuo articolo e controlla la conversione: per esempio «1 CT = 24 pezzi». L'app se lo ricorda per le prossime fatture di questo fornitore.</p>
-        ${f.righe.map(lineHTML).join('')}
+        ${f.righe.map((r, i) => lineHTML(r, i, cv)).join('')}
         ${pdf ? `<p class="hint" id="fe-sum">${esc(sumTxt())}</p>
           <details class="fe-raw"><summary>Testo letto dal PDF</summary><pre>${esc((f.testo || []).join('\n'))}</pre></details>` : ''}
         <p class="err" id="ferr" role="alert"></p>`;
@@ -658,7 +701,7 @@ function sheetFattura(e) {
     foot: () => e.posta ? `<button type="button" class="btn" data-act="fe-scarta">Non importare</button><button type="button" class="btn pri" data-act="save">Importa fattura</button>` : foot('Importa fattura'),
     onField: (k, oo, kind, el) => {
       if (k === 'forn') { fill(); paintSheet(oo); return; }
-      if (k === 'solo') { paintSheet(oo); return; }
+      if (k === 'solo' || k === 'carica') { paintSheet(oo); return; }
       if (k === 'numero') { $('.sh-head h2', oo.el).textContent = oo.title(); return; }
       const m = k.match(/^righe\.(\d+)\.(a|q|fat|imp)$/); if (!m) return;
       const i = +m[1], x = st.righe[i];
@@ -675,7 +718,7 @@ function sheetFattura(e) {
         const a = S.data.articoli.get(x.a); if (a) x.fat = fmtIn(feFactor(f.righe[i], a));
         paintSheet(oo); return;
       }
-      const h = document.getElementById('fe-h-' + i); if (h) h.textContent = hint(i);
+      aggiorna();
       const sm = document.getElementById('fe-sum'); if (sm) sm.textContent = sumTxt();
     },
     onSave: async oo => {
@@ -684,7 +727,7 @@ function sheetFattura(e) {
         if (!validIso(st.data)) return ferr(oo, 'Indica la data della fattura.');
         if (st.forn === '__new' && !st.fnome.trim()) return ferr(oo, 'Scrivi il nome del fornitore.');
       }
-      const lines = [];
+      const lines = [], cv = copri();
       for (const [i, x] of st.righe.entries()) {
         const r = f.righe[i], name = (r.descr || 'Riga ' + r.n).slice(0, 40);
         if (x.a === '__skip') { lines.push({skip: true}); continue; }
@@ -694,7 +737,7 @@ function sheetFattura(e) {
         if (!(fat > 0)) return ferr(oo, `«${name}»: conversione non valida.`);
         let imp;
         if (pdf) { if (!String(x.imp).trim()) imp = null; else { imp = pnum(x.imp); if (!(imp >= 0)) return ferr(oo, `«${name}»: importo non valido.`); } }
-        if (!st.solo && x.scad && !validIso(x.scad)) return ferr(oo, `«${name}»: scadenza non valida.`);
+        if (conLotti(i, cv) && x.scad && !validIso(x.scad)) return ferr(oo, `«${name}»: scadenza non valida.`);
         lines.push({a: x.a, f: fat, q, lotto: x.lotto, scadenza: x.scad, ...(pdf ? {imp} : {})});
       }
       if (!lines.some(x => !x.skip)) return ferr(oo, 'Nessuna riga da caricare: abbina almeno una riga a un articolo.');
@@ -704,9 +747,10 @@ function sheetFattura(e) {
         if (feDup(f, st.forn === '__new' ? null : st.forn)) return ferr(oo, 'Questa fattura risulta già importata.');
       }
       oo.dirty = false;
-      if (await feSave(e, st.forn === '__new' ? null : st.forn, st.solo, lines)) {
+      const nuova = carica() && cv.some(c => c.resto > EPS);
+      if (await feSave(e, st.forn === '__new' ? null : st.forn, st.solo, lines, carica())) {
         closeSheet(); refreshSheets();
-        toast(st.solo ? 'Fattura collegata ai DDT: prezzi completati' : 'Fattura importata: merce caricata in magazzino');
+        toast(!st.solo ? 'Fattura importata: merce caricata in magazzino' : nuova ? 'Prezzi dei DDT completati e merce mancante caricata' : 'Fattura collegata ai DDT: prezzi completati');
       }
     }};
   openSheet(o);

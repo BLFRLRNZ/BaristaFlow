@@ -203,7 +203,7 @@ function acqBody(key) {
   const a = l.item, s = st(l), u = lotUnit(l);
   return `<div class="dh"><p class="muted">${esc(lotName(l))} · lotto del fornitore</p><div class="big">${esc(l.lottoF || 'Senza codice')}</div><span class="chip ${s.c}">${esc(s.t)}</span></div>
     <div class="kv"><div><small>${l.fuori ? 'Comprato' : 'Caricato'}</small><b>${fmtQ(l.qta, u)}</b></div>${l.fuori ? '' : `<div><small>Residuo</small><b>${fmtQ(l.res, u)}</b></div>`}<div><small>Scadenza</small><b>${fmtD(l.scad)}</b></div><div><small>Costo</small><b>${l.costU != null ? EUR(l.costU) : '—'}</b><small>${l.costU != null ? (u === 'pz' ? 'al pezzo' : 'al ' + u) : 'importo non indicato'}</small></div></div>
-    <p>${fornName(l.doc.fornitoreId) ? `Da ${esc(fornName(l.doc.fornitoreId))} · ` : ''}<button type="button" class="lnk" data-act="open-doc" data-id="${esc(l.doc.id)}">${esc(docName(l.doc))}</button>${a ? ` · <button type="button" class="lnk" data-act="open-art" data-id="${esc(a.id)}">scheda articolo</button>` : ''}</p>
+    <p>${fornName(l.doc.fornitoreId) ? `Da ${esc(fornName(l.doc.fornitoreId))} · ` : ''}<button type="button" class="lnk" data-act="open-doc" data-id="${esc(l.doc.id)}">${esc(docName(l.doc))}</button>${fattDi(l.doc) ? ` · ${esc(fattDi(l.doc))}` : ''}${a ? ` · <button type="button" class="lnk" data-act="open-art" data-id="${esc(a.id)}">scheda articolo</button>` : ''}</p>
     ${allegatiHTML(l.doc)}
     ${l.fuori ? '<p class="hint">Lo scarico delle vendite è spento (Impostazioni): della rivendita si tengono solo gli acquisti e i prezzi.</p>' : ''}
     <h3>Dove è stato usato</h3><p class="hint" style="margin-top:-4px">Se il fornitore richiama questo lotto, qui trovi i prodotti che lo contengono.</p>${fwdTree(l)}

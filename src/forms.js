@@ -136,8 +136,9 @@ function formDocumento(id, pre) {
       <div class="g3"><label class="fld"><span>Quantità</span><input type="text" inputmode="decimal" data-k="righe.${i}.qta" value="${esc(r.qta)}" placeholder="0" autocomplete="off"></label>
       <label class="fld"><span>Unità</span><select data-k="righe.${i}.unita">${units.map(u => opt(u, u, units.includes(r.unita) ? r.unita : units[0])).join('')}</select></label>
       <label class="fld"><span>Importo € senza IVA</span><input type="text" inputmode="decimal" data-k="righe.${i}.importo" value="${esc(r.importo)}" placeholder="0,00" autocomplete="off"></label></div>
-      <div class="g2" ${priceOnly() ? 'hidden' : ''}><label class="fld"><span>Lotto del fornitore</span><input type="text" data-k="righe.${i}.lotto" value="${esc(r.lotto)}" placeholder="Come sulla confezione" autocomplete="off"></label>
-      <label class="fld"><span>Scadenza</span><input type="date" data-k="righe.${i}.scadenza" value="${esc(r.scadenza)}"></label></div></div>`;
+      <div ${priceOnly() ? 'hidden' : ''}><div class="g2"><label class="fld"><span>Lotto del fornitore</span><input type="text" data-k="righe.${i}.lotto" value="${esc(r.lotto)}" placeholder="Come sulla confezione" autocomplete="off"></label>
+      <label class="fld"><span>Scadenza</span><input type="date" data-k="righe.${i}.scadenza" value="${esc(r.scadenza)}"></label></div>
+      ${claudeRiga(st, i, {lot: `righe.${i}.lotto`, scad: `righe.${i}.scadenza`, art: `righe.${i}.articoloId`, forn: 'fornitoreId'})}</div></div>`;
   };
   const attHTML = o => `<div class="att">${st.allegati.map((a, i) => `<span class="chip">${esc(a.nome || 'Allegato')}<button type="button" class="attx" data-act="del-att" data-i="${i}" aria-label="Togli ${esc(a.nome || 'allegato')}">×</button></span>`).join('')}</div>
     ${S.assets ? `<label class="btn">${IC.plus}Allega foto o PDF<input type="file" accept="image/*,application/pdf" data-file="att" multiple></label>${o?.uploading ? ' <span class="hint">Caricamento in corso…</span>' : ''}` : '<small class="hint">Gli allegati si possono aggiungere aprendo la pagina su claude.ai come proprietario o editor.</small>'}`;

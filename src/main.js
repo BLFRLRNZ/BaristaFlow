@@ -267,6 +267,9 @@ const ACT = {
   'posta-setup': () => formPosta(),
   'posta-sync': () => postaSync(true),
   'posta-off': () => postaOff(),
+  'claude-setup': () => formClaude(),
+  'claude-prova': () => claudeProva(),
+  'claude-off': () => claudeOff(),
   'posta-copia': b => postaCopia(b),
   'posta-link': () => postaLinkCopia(),
   'notif-on': () => notifAttiva(),
@@ -341,6 +344,7 @@ function onFile(t) {
   if (t.dataset.file === 'import') { if (guard()) importBackup(files[0]); }
   else if (t.dataset.file === 'att') { const o = sheetOf(t); if (o) uploadAtt(o, files); }
   else if (t.dataset.file === 'fe') { const o = sheetOf(t); if (o) feAddFiles(o, files); }
+  else if (t.dataset.file === 'etichetta') { const o = sheetOf(t); if (o) claudeLeggi(o, {...t.dataset}, files); }
 }
 async function saveCfg(f) {
   if (!guard()) return;

@@ -636,3 +636,10 @@ ol.steps a{color:var(--link);font-weight:600;text-decoration:none}
 .posta-link{white-space:pre-wrap;word-break:break-all;font-size:13px;background:var(--surf2,rgba(0,0,0,.04));padding:10px 12px;border-radius:12px;user-select:all}
 .notif-temi{margin:2px 0 12px}
 .notif-temi .chk{min-height:40px;margin:0}
+/* lettura con Claude: pulsante sotto lotto e scadenza, esito dell'ultima lettura */
+.leggi{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin:-2px 0 6px}
+.leggi .note{margin:0;width:100%}
+.leggi .btn[aria-busy=true]{opacity:.7;pointer-events:none}
+.leggi .btn[aria-busy=true] svg.i{animation:leggip 1s ease-in-out infinite alternate}
+@keyframes leggip{from{opacity:.35}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.leggi .btn[aria-busy=true] svg.i{animation:none}}

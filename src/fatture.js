@@ -674,8 +674,9 @@ function sheetFattura(e) {
       <label class="fld"><span>1 ${unitTxt(r)} = quanti ${a.unita === 'pz' ? 'pezzi' : a.unita}</span><input type="text" inputmode="decimal" data-k="righe.${i}.fat" value="${esc(x.fat)}" autocomplete="off"></label>
       ${pdf ? `<label class="fld"><span>Importo € senza IVA</span><input type="text" inputmode="decimal" data-k="righe.${i}.imp" value="${esc(x.imp)}" placeholder="0,00" autocomplete="off"></label>` : ''}</div>
       <p class="hint fe-h" id="fe-h-${i}">${esc(hint(i, cv))}</p>
-      <div class="g2" id="fe-l-${i}" ${conLotti(i, cv) ? '' : 'hidden'}><label class="fld"><span>Lotto del fornitore</span><input type="text" data-k="righe.${i}.lotto" value="${esc(x.lotto)}" placeholder="Come sulla confezione" autocomplete="off"></label>
-      <label class="fld"><span>Scadenza</span><input type="date" data-k="righe.${i}.scad" value="${esc(x.scad)}"></label></div>` : ''}</div>`;
+      <div id="fe-l-${i}" ${conLotti(i, cv) ? '' : 'hidden'}><div class="g2"><label class="fld"><span>Lotto del fornitore</span><input type="text" data-k="righe.${i}.lotto" value="${esc(x.lotto)}" placeholder="Come sulla confezione" autocomplete="off"></label>
+      <label class="fld"><span>Scadenza</span><input type="date" data-k="righe.${i}.scad" value="${esc(x.scad)}"></label></div>
+      ${claudeRiga(st, i, {lot: `righe.${i}.lotto`, scad: `righe.${i}.scad`, art: `righe.${i}.a`, forn: 'forn'})}</div>` : ''}</div>`;
   };
   const o = {form: true, st, title: () => `Fattura${st.numero ? ' n. ' + st.numero : ''}${pdf ? ' (PDF)' : ''}`,
     body: () => {

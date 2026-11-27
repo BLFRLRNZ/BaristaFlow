@@ -12,7 +12,7 @@ def font_uri(m):
     return "url(data:font/woff2;base64," + base64.b64encode(data).decode("ascii") + ")"
 css, nfont = re.subn(r"url\((fonts/[\w.-]+\.woff2)\)", font_uri, css)
 assert nfont == 1, "atteso 1 carattere in style.css"
-js = "\n".join((src / f).read_text(encoding="utf-8") for f in ["core.js", "views.js", "details.js", "forms.js", "quick.js", "banco.js", "fatture.js", "posta.js", "notifiche.js", "pdf.js", "esempi.js", "main.js"])
+js = "\n".join((src / f).read_text(encoding="utf-8") for f in ["core.js", "views.js", "details.js", "forms.js", "quick.js", "banco.js", "fatture.js", "posta.js", "notifiche.js", "claude.js", "pdf.js", "esempi.js", "main.js"])
 logo = re.search(r"const LOGO = `(.*?)`;", js, re.S).group(1)
 # lo script di Google per le fatture dalla posta: l'app lo mostra e lo copia con la chiave del collegamento
 gs = (root / "apps-script" / "fatture-dalla-posta.gs").read_text(encoding="utf-8")

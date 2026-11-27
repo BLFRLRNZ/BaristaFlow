@@ -48,6 +48,8 @@ function crea(src, o = {}) {
     Logger: {lines: [], log(x) { this.lines.push(String(x)); }},
     props, triggers, fetches, codes
   };
+  if (o.SpreadsheetApp) s.SpreadsheetApp = o.SpreadsheetApp;   // il foglio del ponte di Claude
+  if (o.UrlFetchApp) s.UrlFetchApp = o.UrlFetchApp;            // risposte su misura (per esempio l'API di Claude)
   vm.createContext(s);
   vm.runInContext(src, s);
   return s;

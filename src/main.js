@@ -90,7 +90,7 @@ async function importBackup(file) {
 }
 
 /* ---------- azioni ---------- */
-const guard = () => { if (S.ro) { toast('Hai accesso solo in lettura.', true); return false; } return true; };
+const guard = () => { if (S.ro) { toast(S.roServizio ? 'Barista Flow è in sola lettura finché l’abbonamento è sospeso: puoi vedere ed esportare i dati.' : 'Hai accesso solo in lettura.', true); return false; } return true; };
 const sheetOf = el => { const w = el.closest('.sheet-wrap'); return w ? stack.find(x => x.el === w) : null; };
 const ACT = {
   close: () => requestClose(),
@@ -269,6 +269,8 @@ const ACT = {
   'posta-off': () => postaOff(),
   'claude-setup': () => formClaude(),
   'claude-prova': () => claudeProva(),
+  'serv-check': () => servRicontrolla(),
+  'avviso-letto': b => avvisoLetto(b),
   'claude-off': () => claudeOff(),
   'posta-copia': b => postaCopia(b),
   'posta-link': () => postaLinkCopia(),
@@ -452,7 +454,7 @@ async function init() {
   setupPWA();
   subscribe();
   paint();
-  if (S.mode === 'local') postaBoot();
+  if (S.mode === 'local') { postaBoot(); servBoot(); }
   // tocco su una notifica con l'app già aperta: il service worker dice quale pagina mostrare
   navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.tipo === 'apri' && /^#[a-z-]*$/.test(e.data.hash || '')) location.hash = e.data.hash; });
 }

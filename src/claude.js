@@ -4,13 +4,13 @@
 const CLAUDE = {note: new WeakMap(), busy: new WeakSet()};   // per riga del modulo: esito dell'ultima lettura, lettura in corso
 const claudeCfg = () => S.data.impostazioni.get('claude') || null;
 const claudeOk = () => S.mode === 'local';   // su claude.ai la pagina non può chiamare siti esterni
-const claudeOn = () => { const c = claudeCfg(); return claudeOk() && !S.ro && !!(c && c.url && c.codice); };
+const claudeOn = () => { const c = claudeCfg(); return claudeOk() && !S.ro && !servLimitato() && !!(c && c.url && c.codice); };   // limitato o sospeso: ferma
 const getPath = (o, path) => String(path || '').split('.').reduce((x, k) => (x == null ? x : x[k]), o);
 const CLAUDE_LATO = 2000;   // lato lungo delle foto mandate: abbastanza per i timbri piccoli, leggere da spedire
 
 async function claudeReq(c, body) {
   const u = new URL(c.url);
-  if (!body) u.searchParams.set('codice', c.codice);
+  if (!body) { u.searchParams.set('codice', c.codice); u.searchParams.set('app', appVersione()); }   // con la versione: chi gestisce il servizio vede chi va aggiornato
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 60000);
   let txt;
   try {   // GET o POST con un testo JSON: richieste «semplici», che lo script di Google accetta da un altro sito
@@ -26,6 +26,7 @@ function claudeErr(e) {
   const c = e?.code, j = e?.j || {};
   if (c === 'codice') return 'Il codice del bar non è riconosciuto: controllalo in Impostazioni → Lettura con Claude.';
   if (c === 'sospeso') return 'La lettura con Claude è sospesa per questo bar: senti chi ti ha installato Barista Flow.';
+  if (c === 'limitato') return 'La lettura con Claude è ferma per questo bar: trovi i dettagli in Oggi.';
   if (c === 'tetto') return `Le foto di questo mese sono finite${j.tetto ? ` (${j.tetto})` : ''}: ripartono il primo del mese. Lotto e scadenza si scrivono a mano.`;
   if (c === 'foto' || c === 'immagine') return 'Questa foto non si può leggere: rifalla, oppure scegli un’altra immagine.';
   if (c === 'chiave_api' || c === 'crediti') return 'Il servizio di lettura non è disponibile in questo momento: avvisa chi ti ha installato Barista Flow.';
@@ -102,6 +103,7 @@ async function claudeLeggi(o, ds, files) {
     claudeConta(j);
   } catch (e) {
     nota = {warn: true, html: esc(claudeErr(e))};
+    if (e?.code === 'limitato' || e?.code === 'sospeso') servCheck(true);   // l'abbonamento è cambiato da poco: si aggiorna
     if (e?.j?.rimaste != null) claudeConta(e.j);
   } finally { CLAUDE.busy.delete(riga); }
   CLAUDE.note.set(riga, nota);
@@ -114,17 +116,18 @@ function claudeConta(j) {   // quante foto restano: si vede in Impostazioni
 
 /* --- Impostazioni → Lettura con Claude --- */
 function claudeCard() {
-  if (S.ro) return '';
   const head = '<div class="setgrp" id="claude"><h2>Lettura con Claude</h2><div class="card">';
+  if (S.roServizio && claudeCfg()?.url) return `${head}${servRiga()}<div class="acts"><button type="button" class="btn" data-act="serv-check" ${SERV.busy ? 'disabled' : ''}>${SERV.busy ? 'Controllo…' : 'Controlla l’abbonamento'}</button><button type="button" class="btn" data-act="claude-setup">Cambia codice</button></div></div></div>`;   // sospeso: si ricontrolla, o si mette il codice nuovo
+  if (S.ro) return '';
   if (!claudeOk()) return `${head}<p class="muted">Con una foto dell’etichetta Claude scrive lotto e scadenza nelle righe degli acquisti. Si collega dall’app pubblicata sul tuo sito (GitHub Pages): da qui la pagina non può collegarsi.</p></div></div>`;
   const c = claudeCfg();
   if (!c?.url) return `${head}<p>Fotografi l’etichetta e Claude scrive lotto e scadenza nelle righe degli acquisti; tu controlli e salvi. Serve il collegamento che ti dà chi ti ha installato Barista Flow: l’indirizzo del servizio e il codice del tuo bar.</p><button type="button" class="btn pri w" data-act="claude-setup">${IC.cam}Collega la lettura</button></div></div>`;
   return `${head}<p>Collegata${c.bar ? ` come <b>${esc(c.bar)}</b>` : ''}. ${c.rimaste != null ? `Foto disponibili questo mese: <b>${esc(c.rimaste)}</b>${c.tetto ? ` su ${esc(c.tetto)}` : ''}${c.aggiornato ? `, al ${esc(fmtWhen(c.aggiornato))}` : ''}.` : ''}</p>
-    <p class="hint">Negli acquisti, sotto lotto e scadenza di ogni riga, c’è «Leggi l’etichetta».</p>
+    ${servRiga()}<p class="hint">Negli acquisti, sotto lotto e scadenza di ogni riga, c’è «Leggi l’etichetta».</p>
     <div class="acts"><button type="button" class="btn" data-act="claude-prova">Prova il collegamento</button><button type="button" class="btn" data-act="claude-setup">Modifica</button><button type="button" class="btn dan" data-act="claude-off">Scollega</button></div></div></div>`;
 }
 function formClaude() {
-  if (!guard() || !claudeOk()) return;
+  if (!(S.roServizio || guard()) || !claudeOk()) return;   // sospeso: il codice si può ancora cambiare
   const c = claudeCfg() || {}, st = {url: c.url || '', codice: c.codice || ''};
   openSheet({form: true, st, title: c.url ? 'Lettura con Claude' : 'Collega la lettura con Claude',
     body: () => `<p class="muted">Fotografi l’etichetta di una confezione e Claude legge lotto e scadenza; tu controlli e salvi. Le foto passano da un servizio di chi ti ha installato Barista Flow, che le manda a Claude: né l’app né il servizio le conservano.</p>
@@ -143,14 +146,18 @@ function formClaude() {
       catch (e) { return ferr(o, claudeErr(e)); }
       const rec = {url, codice, bar: String(j.bar || '').slice(0, 80), tetto: +j.tetto || null, rimaste: j.rimaste != null ? +j.rimaste : null, aggiornato: Date.now()};
       if (!(await put('impostazioni', 'claude', rec))) return;
-      o.dirty = false; closeSheet();
-      toast(`Lettura con Claude collegata${rec.bar ? ': ' + rec.bar : ''}${rec.rimaste != null ? `, ${rec.rimaste} foto disponibili questo mese` : ''}`);
+      o.dirty = false; closeSheet(); servSalva(j);
+      if (servLimitato()) toast('Collegata, ma la lettura con Claude è ferma per questo bar: trovi i dettagli in Oggi.', true);
+      else toast(`Lettura con Claude collegata${rec.bar ? ': ' + rec.bar : ''}${rec.rimaste != null ? `, ${rec.rimaste} foto disponibili questo mese` : ''}`);
     }});
 }
 async function claudeProva() {
   const c = claudeCfg(); if (!c) return;
-  try { const j = await claudeReq(c); claudeConta(j); toast(`Collegamento a posto${j.bar ? ' (' + j.bar + ')' : ''}: ${j.rimaste} foto disponibili questo mese.`); }
-  catch (e) { toast(claudeErr(e), true); }
+  try {
+    const j = await claudeReq(c); claudeConta(j); servSalva(j);   // insieme al collegamento si aggiorna l'abbonamento
+    if (servLimitato()) toast(claudeErr({code: servStato()}), true);
+    else toast(`Collegamento a posto${j.bar ? ' (' + j.bar + ')' : ''}: ${j.rimaste} foto disponibili questo mese.`);
+  } catch (e) { if (e?.code === 'codice') servSalva(null); toast(claudeErr(e), true); }
 }
 async function claudeOff() {
   if (!(await ask('Scollego la lettura con Claude? Lotti e scadenze già salvati restano; poi si scrivono a mano.', 'Scollega', true))) return;

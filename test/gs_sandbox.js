@@ -19,7 +19,9 @@ function crea(src, o = {}) {
       search: q => { s.queries.push(q); const m = mails(); return [{getMessages: () => m.slice(0, 2)}, {getMessages: () => m.slice(2)}]; },
       getMessageById: id => mails().find(m => m.getId() === id) || null
     },
-    Session: {getEffectiveUser: () => ({getEmail: () => o.email || 'fatture.bar@gmail.com'})},
+    // chi apre la pagina: con «Esegui come: Io» Google lo dice solo quando è il proprietario (o.attivo); vuoto per tutti gli altri
+    Session: {getEffectiveUser: () => ({getEmail: () => o.email || 'fatture.bar@gmail.com'}),
+      getActiveUser: () => ({getEmail: () => (typeof o.attivo === 'function' ? o.attivo() : o.attivo) || ''})},
     Utilities: {
       DigestAlgorithm: {SHA_256: 'sha256'},
       computeDigest: (alg, b) => signed(crypto.createHash('sha256').update(buf(b)).digest()),
@@ -40,11 +42,20 @@ function crea(src, o = {}) {
     })},
     LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
     ScriptApp: {
-      getProjectTriggers: () => triggers.map(f => ({getHandlerFunction: () => f.fn})),
-      newTrigger: fn => ({timeBased: () => ({everyMinutes: m => ({create: () => triggers.push({fn, m})})})})
+      getProjectTriggers: () => triggers.map(f => ({getHandlerFunction: () => f.fn, _t: f})),
+      deleteTrigger: t => { const i = triggers.indexOf(t && t._t); if (i >= 0) triggers.splice(i, 1); },
+      newTrigger: fn => ({timeBased: () => ({
+        everyMinutes: m => ({create: () => triggers.push({fn, m})}),
+        everyDays: d => ({atHour: h => ({inTimezone: tz => ({create: () => triggers.push({fn, d, h, tz})})})})
+      })})
     },
+    MailApp: {sendEmail: m => { s.inviate.push(m); }},
+    inviate: [],
     UrlFetchApp: {fetch: (url, opt) => { fetches.push({url, o: opt}); return {getResponseCode: () => codes[url] || 201}; }},
     ContentService: {MimeType: {JSON: 'json'}, createTextOutput: t => ({t, mime: '', setMimeType(m) { this.mime = m; return this; }})},
+    HtmlService: {createHtmlOutput: html => ({html: String(html), title: '', metas: {}, w: 0, h: 0,
+      setTitle(x) { this.title = x; return this; }, addMetaTag(n, c) { this.metas[n] = c; return this; },
+      setWidth(x) { this.w = x; return this; }, setHeight(x) { this.h = x; return this; }, getContent() { return this.html; }})},
     Logger: {lines: [], log(x) { this.lines.push(String(x)); }},
     props, triggers, fetches, codes
   };
@@ -81,4 +92,31 @@ function verificaJwt(jwt, pubB64) {
   return {ok, head: JSON.parse(unb64u(h)), claims: JSON.parse(unb64u(p))};
 }
 
-module.exports = {crea, nuovoTelefono, decifra, verificaJwt, att, msg, signed, buf, b64u, unb64u};
+// un foglio di calcolo in memoria (il foglio del ponte di Claude): come Google, setValues vuole le dimensioni giuste
+function foglioFinto(ui) {
+  const sheets = {};
+  const mk = name => {
+    const rows = [];
+    const sh = {
+      rows, frozen: 0,
+      getDataRange: () => ({getValues: () => rows.map(r => r.slice())}),
+      getLastRow: () => rows.length,
+      appendRow: r => { rows.push(r.slice()); },
+      getRange: (r, c, nr = 1, nc = 1) => ({
+        setValues: vs => {
+          if (vs.length !== nr || vs.some(x => x.length !== nc)) throw new Error(`setValues: servono ${nr}×${nc} valori`);
+          for (let i = 0; i < nr; i++) { rows[r - 1 + i] = rows[r - 1 + i] || []; for (let j = 0; j < nc; j++) rows[r - 1 + i][c - 1 + j] = vs[i][j]; }
+        },
+        getValues: () => Array.from({length: nr}, (_, i) => Array.from({length: nc}, (_, j) => { const v = (rows[r - 1 + i] || [])[c - 1 + j]; return v === undefined ? '' : v; })),
+        setFontWeight() { return this; }
+      }),
+      setFrozenRows: n => { sh.frozen = n; },
+      deleteRow: r => { if (r < 2 || r > rows.length) throw new Error('deleteRow: riga ' + r); rows.splice(r - 1, 1); }
+    };
+    sheets[name] = sh; return sh;
+  };
+  return {sheets, app: {getActiveSpreadsheet: () => ({getSheetByName: n => sheets[n] || null, insertSheet: n => mk(n), getSpreadsheetTimeZone: () => 'Europe/Rome'}),
+    getUi: () => { if (ui) return ui; throw new Error('niente interfaccia nelle prove'); }}};
+}
+
+module.exports = {crea, foglioFinto, nuovoTelefono, decifra, verificaJwt, att, msg, signed, buf, b64u, unb64u};

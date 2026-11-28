@@ -17,7 +17,7 @@ function renderChrome() {
   $('#bizName').textContent = sub; $('#bizName2').textContent = sub;
   $('#tbTitle').textContent = TITOLI[r];
   const sy = $('#sync'); let t = '', w = false;
-  if (S.mode === 'local') t = 'Dati nel browser';
+  if (S.mode === 'local') { t = S.roServizio ? 'Sola lettura' : 'Dati nel browser'; w = S.roServizio; }   // abbonamento sospeso: si vede da ogni pagina
   else if (S.mode === 'temp') { t = 'Prova: non salva'; w = true; }
   else if (S.mode === 'cloud') {
     if (S.ro) t = 'Sola lettura';
@@ -211,6 +211,7 @@ function vOggi() {
   return `<section id="v-oggi"><div class="ph"><div><p class="kick">${esc(dateStr)}</p><h1>${greet}</h1></div>
     <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div>
     ${vendite() ? `<a class="btn bk-entry mobonly w" href="#banco">${IC.banco}Banco</a>` : ''}</div>
+    ${servNote()}
     ${sample && S.mode === 'local' ? '' : modeNote()}
     ${sample ? demoBanner() : primiPassi()}
     <div class="tiles">${tile('red', exp.length, 'Lotti scaduti da smaltire', 'scaduti', IC.alert)}${tile('amb', soon.length, w === 1 ? 'In scadenza entro domani' : `In scadenza entro ${w} giorni`, 'scadenza', IC.clock)}${tile('amb', under.length, 'Articoli sotto scorta', 'scorta', IC.box)}${tile('amb', rincari.length, 'Rincari recenti', 'rincari', IC.trend)}</div>

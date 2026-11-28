@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Barista Flow">
-<meta name="barista-versione" content="ad74286fdff5">
+<meta name="barista-versione" content="30513542451f">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Barista Flow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E %3Cdefs%3E %3CradialGradient id=%22g%22 cx=%220.3%22 cy=%220.2%22 r=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%232f5d4e%22/%3E%3Cstop offset=%220.55%22 stop-color=%22%231b382f%22/%3E%3Cstop offset=%221%22 stop-color=%22%2310241e%22/%3E%3C/radialGradient%3E %3ClinearGradient id=%22o%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23e6cf9d%22/%3E%3Cstop offset=%220.5%22 stop-color=%22%23c9a464%22/%3E%3Cstop offset=%221%22 stop-color=%22%23a9843f%22/%3E%3C/linearGradient%3E %3C/defs%3E %3Crect width=%22512%22 height=%22512%22 fill=%22url%28%23g%29%22/%3E %3Ccircle cx=%22256%22 cy=%22256%22 r=%22178%22 fill=%22none%22 stroke=%22url%28%23o%29%22 stroke-width=%223%22 opacity=%220.75%22/%3E %3Cg transform=%22translate%28256 252%29 scale%2812.6%29 translate%28-11.5 -11.7%29%22 fill=%22none%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 stroke-width=%221.15%22%3E %3Cpath d=%22M6.1 9.6l.55 4.3a4.3 4.3 0 0 0 4.27 3.8h1.16a4.3 4.3 0 0 0 4.27-3.8l.55-4.3M16.6 11.1h.9a1.85 1.85 0 0 1 0 3.7h-1.45M4.6 19.8c2.6.85 11.2.85 13.8 0%22 stroke=%22%23f1e8d8%22/%3E %3Cpath d=%22M6.1 9.6h10.8M10 3.6c.95.85-.95 1.85 0 2.75M13 3.6c.95.85-.95 1.85 0 2.75%22 stroke=%22url%28%23o%29%22/%3E %3C/g%3E %3C/svg%3E">
@@ -241,6 +241,14 @@ textarea{min-height:110px;resize:vertical;line-height:1.5}
 .arw{display:inline-block;font-family:var(--f);font-size:.6em;line-height:1;vertical-align:.14em}
 .note{display:flex;gap:10px;align-items:flex-start;background:var(--surf);border-radius:14px;padding:12px 14px;font-size:14.5px;color:var(--ink2);margin:0 0 16px;box-shadow:var(--ring)}
 .note.warn{background:var(--ambbg);color:var(--amb);box-shadow:none}
+.note.bad{background:var(--redbg);color:var(--red);box-shadow:none}
+/* abbonamento e avvisi di chi gestisce il servizio, in cima a Oggi */
+.note.serv b,.note.avviso b{color:inherit;font-weight:650}
+.note.avviso{align-items:center;color:var(--ink)}
+.note.avviso.bad{color:var(--red)}
+.note .x{width:36px;height:36px;margin:-6px -6px -6px auto;color:inherit;opacity:.7}
+.note .x svg.i{width:18px;height:18px;margin:0}
+.note .lnk{color:inherit;font:inherit;font-weight:650;text-decoration:underline;padding:0;margin:0}
 .note svg.i{width:20px;height:20px;margin-top:1px}
 .empty{display:grid;justify-items:center;gap:10px;text-align:center;padding:30px 22px;border-radius:18px;background:var(--surf);color:var(--ink2);box-shadow:var(--ring);font-size:15px}
 .empty .ei{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--surf);color:var(--brasst);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--brass) 55%,transparent)}
@@ -791,7 +799,7 @@ const unitOpts = (base, pesoPz) => base === 'kg' ? ['g', 'kg'] : base === 'l' ? 
 const buyUnits = base => base === 'kg' ? ['kg', 'g'] : base === 'l' ? ['l', 'ml'] : ['pz'];
 
 /* ---------- stato ---------- */
-const S = {db: null, mode: 'loading', ro: false, assets: null, downloads: null, user: null, got: new Set(), fresh: new Set(), slow: false, ver: 0, errShown: false, data: Object.fromEntries(COLS.map(c => [c, new Map()]))};
+const S = {db: null, mode: 'loading', ro: false, roServizio: false, assets: null, downloads: null, user: null, got: new Set(), fresh: new Set(), slow: false, ver: 0, errShown: false, data: Object.fromEntries(COLS.map(c => [c, new Map()]))};
 const UI = {q: {banco: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false, todoF: '', bancoCat: '', pag: {}};
 const cfg = () => {
   const c = S.data.impostazioni.get('generale') || {};
@@ -837,6 +845,7 @@ function localDB(key) {
 
 /* ---------- scrittura ---------- */
 async function put(col, id, doc, quiet) {
+  if (S.roServizio && col !== 'impostazioni') { if (!quiet) guard(); return false; }   // abbonamento sospeso: sola lettura
   doc = clone(doc); delete doc.id;
   if (col !== 'impostazioni' && !doc.esempio && !S.data[col].has(id) && countSample()) doc.esempio = true;   // durante la prova anche quello che crei è di prova
   S.data[col].set(id, {...doc, id}); bump();
@@ -851,6 +860,7 @@ async function put(col, id, doc, quiet) {
   return false;
 }
 async function del(col, id, quiet) {
+  if (S.roServizio && col !== 'impostazioni') { if (!quiet) guard(); return false; }
   S.data[col].delete(id); bump();
   try { await S.db.collection(col).doc(id).delete(); return true; }
   catch (e) { if (!quiet) dbErr(e); return false; }
@@ -1159,7 +1169,7 @@ function renderChrome() {
   $('#bizName').textContent = sub; $('#bizName2').textContent = sub;
   $('#tbTitle').textContent = TITOLI[r];
   const sy = $('#sync'); let t = '', w = false;
-  if (S.mode === 'local') t = 'Dati nel browser';
+  if (S.mode === 'local') { t = S.roServizio ? 'Sola lettura' : 'Dati nel browser'; w = S.roServizio; }   // abbonamento sospeso: si vede da ogni pagina
   else if (S.mode === 'temp') { t = 'Prova: non salva'; w = true; }
   else if (S.mode === 'cloud') {
     if (S.ro) t = 'Sola lettura';
@@ -1353,6 +1363,7 @@ function vOggi() {
   return `<section id="v-oggi"><div class="ph"><div><p class="kick">${esc(dateStr)}</p><h1>${greet}</h1></div>
     <div class="acts w deskonly"><button type="button" class="btn pri" data-act="new-prod">${IC.plus}Nuova produzione</button><button type="button" class="btn" data-act="new-doc">${IC.receipt}Registra acquisto</button></div>
     ${vendite() ? `<a class="btn bk-entry mobonly w" href="#banco">${IC.banco}Banco</a>` : ''}</div>
+    ${servNote()}
     ${sample && S.mode === 'local' ? '' : modeNote()}
     ${sample ? demoBanner() : primiPassi()}
     <div class="tiles">${tile('red', exp.length, 'Lotti scaduti da smaltire', 'scaduti', IC.alert)}${tile('amb', soon.length, w === 1 ? 'In scadenza entro domani' : `In scadenza entro ${w} giorni`, 'scadenza', IC.clock)}${tile('amb', under.length, 'Articoli sotto scorta', 'scorta', IC.box)}${tile('amb', rincari.length, 'Rincari recenti', 'rincari', IC.trend)}</div>
@@ -2956,7 +2967,7 @@ function vBanco() {
   return `<section id="v-banco"${bar ? ' class="has-bar"' : ''}>${head}
     <div class="bk"><div class="bk-main">
       <div class="bar">${search('banco', 'Cerca un prodotto')}${cats.length > 1 ? seg('bancoCat', [['', 'Tutti'], ...cats.map(x => [x, x])]) : ''}</div>
-      ${S.ro ? `<p class="note">${IC.info}<span>Hai accesso solo in lettura: puoi guardare i prodotti, ma non registrare vendite.</span></p>` : ''}
+      ${S.ro ? `<p class="note">${IC.info}<span>${S.roServizio ? 'L’abbonamento è sospeso' : 'Hai accesso solo in lettura'}: puoi guardare i prodotti, ma non registrare vendite.</span></p>` : ''}
       ${grid}${bancoOggi(sc)}</div>
       ${S.ro ? '' : bancoSide(rs, c, sc[0])}</div>${bar}</section>`;
 }
@@ -3796,7 +3807,7 @@ const POSTA = {busy: false, last: 0, timer: 0};
 const postaCfg = () => S.data.impostazioni.get('posta') || null;
 const postaOk = () => S.mode === 'local';   // su claude.ai la pagina non può chiamare siti esterni
 const postaOn = () => { const p = postaCfg(); return postaOk() && !!(p && p.url && p.chiave); };
-const postaCoda = () => (postaOn() && Array.isArray(postaCfg().coda) ? postaCfg().coda : []);
+const postaCoda = () => (postaOn() && !servLimitato() && Array.isArray(postaCfg().coda) ? postaCfg().coda : []);   // con il servizio limitato la coda aspetta
 const postaMail = coda => new Set(coda.map(x => String(x.id).split(':')[0])).size;   // una mail = una fattura, anche con XML e PDF allegati
 const postaScript = k => POSTA_GS.replace('__CHIAVE__', k);
 const postaLink = p => p.url + (p.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(p.chiave);   // per collegare un altro dispositivo senza rifare lo script
@@ -3839,7 +3850,7 @@ function postaErr(e) {
 /* --- controllo della casella: all'avvio, quando si torna sull'app e ogni 15 minuti mentre è aperta --- */
 async function postaSync(manual) {
   const p = postaCfg();
-  if (!postaOn() || POSTA.busy || !allLoaded() || S.ro) return null;
+  if (!postaOn() || POSTA.busy || !allLoaded() || S.ro || servLimitato()) return null;   // con l'abbonamento limitato la posta aspetta
   if (!manual && !navigator.onLine) return null;
   POSTA.busy = true; POSTA.last = Date.now(); refreshSheets();
   let n = null;
@@ -3926,7 +3937,7 @@ function postaBar() {
   const p = postaCfg();
   if (!postaOn()) return `<p class="note posta-bar">${IC.mail}<span>Vuoi che le fatture arrivino da sole dalla posta? <button type="button" class="lnk" data-act="posta-setup">Collega la posta</button></span></p>`;
   const what = p.errore ? esc(p.errore) : `Posta collegata${p.casella ? ` (${esc(p.casella)})` : ''}: ${p.controllata ? 'controllata ' + esc(fmtWhen(p.controllata)) : 'non ancora controllata'}.`;
-  return `<p class="note posta-bar${p.errore ? ' warn' : ''}">${p.errore ? IC.alert : IC.mail}<span>${what} <button type="button" class="lnk" data-act="posta-sync" ${POSTA.busy ? 'disabled' : ''}>${POSTA.busy ? 'Controllo…' : 'Controlla adesso'}</button></span></p>`;
+  return `<p class="note posta-bar${p.errore ? ' warn' : ''}">${p.errore ? IC.alert : IC.mail}<span>${what} <button type="button" class="lnk" data-act="posta-sync" ${POSTA.busy || servLimitato() ? 'disabled' : ''}>${POSTA.busy ? 'Controllo…' : 'Controlla adesso'}</button></span></p>`;
 }
 function postaRow() {
   const n = postaMail(postaCoda());
@@ -3940,11 +3951,11 @@ function postaCard() {
   if (!postaOk()) return `${head}<p class="muted">Le fatture che arrivano per mail possono comparire da sole in «Importa fatture». Si collega dall’app pubblicata sul tuo sito (GitHub Pages): da qui la pagina non può collegarsi a Google.</p></div></div>`;
   const p = postaCfg();
   if (!postaOn()) return `${head}<p>Le fatture che arrivano come allegato in una casella Gmail, XML o PDF, compaiono da sole in «Importa fatture». Fa da ponte un piccolo script di Google, gratuito, che prepari una volta sola.</p><button type="button" class="btn pri w" data-act="posta-setup">${IC.mail}Collega la posta</button></div></div>`;
-  const n = postaMail(p.coda || []);
+  const n = postaMail(postaCoda());
   return `${head}<p>Collegata a <b>${esc(p.casella || 'Gmail')}</b>. La posta si controlla quando apri l’app e ogni 15 minuti mentre è aperta${p.controllata ? `; ultimo controllo ${esc(fmtWhen(p.controllata))}` : ''}.</p>
-    ${p.errore ? `<p class="note warn">${IC.alert}<span>${esc(p.errore)}</span></p>` : ''}
+    ${servLimitato() ? `<p class="note bad">${IC.alert}<span>Ferma finché il servizio di Barista Flow non torna attivo: trovi i dettagli in Oggi.</span></p>` : p.errore ? `<p class="note warn">${IC.alert}<span>${esc(p.errore)}</span></p>` : ''}
     ${n ? `<p><button type="button" class="lnk" data-act="fe-import">${n === 1 ? 'Una fattura da importare' : n + ' fatture da importare'}</button></p>` : ''}
-    <div class="acts"><button type="button" class="btn" data-act="posta-sync" ${POSTA.busy ? 'disabled' : ''}>Controlla adesso</button><button type="button" class="btn" data-act="posta-link">${IC.copy}Link per un altro dispositivo</button><button type="button" class="btn" data-act="posta-setup">Modifica</button><button type="button" class="btn dan" data-act="posta-off">Scollega</button></div>
+    <div class="acts"><button type="button" class="btn" data-act="posta-sync" ${POSTA.busy || servLimitato() ? 'disabled' : ''}>Controlla adesso</button><button type="button" class="btn" data-act="posta-link">${IC.copy}Link per un altro dispositivo</button><button type="button" class="btn" data-act="posta-setup">Modifica</button><button type="button" class="btn dan" data-act="posta-off">Scollega</button></div>
     <p class="hint" style="margin-top:10px">I dati dell’app restano su questo dispositivo: per ricevere le fatture anche su un altro, copia il link e incollalo lì in «Collega la posta».</p></div></div>`;
 }
 function formPosta() {
@@ -4048,7 +4059,7 @@ function notifRiepilogo() {
 }
 async function notifSync(force) {
   const n = notifCfg(), p = postaCfg();
-  if (!postaOn() || !n.attive || !allLoaded() || NOTIF.syncing || S.ro) return false;
+  if (!postaOn() || !n.attive || !allLoaded() || NOTIF.syncing || (S.ro && !S.roServizio)) return false;   // sospeso: gli avvisi delle scadenze continuano
   const stato = notifRiepilogo(), body = {op: 'stato', stato, ora: n.ora || '08:00', fuso: notifFuso(), temi: notifTemi(), origine: location.origin};
   const hash = notifHash(JSON.stringify([stato, body.ora, body.fuso, body.temi]));
   if (!force && hash === n.hash) return false;
@@ -4139,13 +4150,13 @@ function notifCard() {
 const CLAUDE = {note: new WeakMap(), busy: new WeakSet()};   // per riga del modulo: esito dell'ultima lettura, lettura in corso
 const claudeCfg = () => S.data.impostazioni.get('claude') || null;
 const claudeOk = () => S.mode === 'local';   // su claude.ai la pagina non può chiamare siti esterni
-const claudeOn = () => { const c = claudeCfg(); return claudeOk() && !S.ro && !!(c && c.url && c.codice); };
+const claudeOn = () => { const c = claudeCfg(); return claudeOk() && !S.ro && !servLimitato() && !!(c && c.url && c.codice); };   // limitato o sospeso: ferma
 const getPath = (o, path) => String(path || '').split('.').reduce((x, k) => (x == null ? x : x[k]), o);
 const CLAUDE_LATO = 2000;   // lato lungo delle foto mandate: abbastanza per i timbri piccoli, leggere da spedire
 
 async function claudeReq(c, body) {
   const u = new URL(c.url);
-  if (!body) u.searchParams.set('codice', c.codice);
+  if (!body) { u.searchParams.set('codice', c.codice); u.searchParams.set('app', appVersione()); }   // con la versione: chi gestisce il servizio vede chi va aggiornato
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 60000);
   let txt;
   try {   // GET o POST con un testo JSON: richieste «semplici», che lo script di Google accetta da un altro sito
@@ -4161,6 +4172,7 @@ function claudeErr(e) {
   const c = e?.code, j = e?.j || {};
   if (c === 'codice') return 'Il codice del bar non è riconosciuto: controllalo in Impostazioni → Lettura con Claude.';
   if (c === 'sospeso') return 'La lettura con Claude è sospesa per questo bar: senti chi ti ha installato Barista Flow.';
+  if (c === 'limitato') return 'La lettura con Claude è ferma per questo bar: trovi i dettagli in Oggi.';
   if (c === 'tetto') return `Le foto di questo mese sono finite${j.tetto ? ` (${j.tetto})` : ''}: ripartono il primo del mese. Lotto e scadenza si scrivono a mano.`;
   if (c === 'foto' || c === 'immagine') return 'Questa foto non si può leggere: rifalla, oppure scegli un’altra immagine.';
   if (c === 'chiave_api' || c === 'crediti') return 'Il servizio di lettura non è disponibile in questo momento: avvisa chi ti ha installato Barista Flow.';
@@ -4237,6 +4249,7 @@ async function claudeLeggi(o, ds, files) {
     claudeConta(j);
   } catch (e) {
     nota = {warn: true, html: esc(claudeErr(e))};
+    if (e?.code === 'limitato' || e?.code === 'sospeso') servCheck(true);   // l'abbonamento è cambiato da poco: si aggiorna
     if (e?.j?.rimaste != null) claudeConta(e.j);
   } finally { CLAUDE.busy.delete(riga); }
   CLAUDE.note.set(riga, nota);
@@ -4249,17 +4262,18 @@ function claudeConta(j) {   // quante foto restano: si vede in Impostazioni
 
 /* --- Impostazioni → Lettura con Claude --- */
 function claudeCard() {
-  if (S.ro) return '';
   const head = '<div class="setgrp" id="claude"><h2>Lettura con Claude</h2><div class="card">';
+  if (S.roServizio && claudeCfg()?.url) return `${head}${servRiga()}<div class="acts"><button type="button" class="btn" data-act="serv-check" ${SERV.busy ? 'disabled' : ''}>${SERV.busy ? 'Controllo…' : 'Controlla l’abbonamento'}</button><button type="button" class="btn" data-act="claude-setup">Cambia codice</button></div></div></div>`;   // sospeso: si ricontrolla, o si mette il codice nuovo
+  if (S.ro) return '';
   if (!claudeOk()) return `${head}<p class="muted">Con una foto dell’etichetta Claude scrive lotto e scadenza nelle righe degli acquisti. Si collega dall’app pubblicata sul tuo sito (GitHub Pages): da qui la pagina non può collegarsi.</p></div></div>`;
   const c = claudeCfg();
   if (!c?.url) return `${head}<p>Fotografi l’etichetta e Claude scrive lotto e scadenza nelle righe degli acquisti; tu controlli e salvi. Serve il collegamento che ti dà chi ti ha installato Barista Flow: l’indirizzo del servizio e il codice del tuo bar.</p><button type="button" class="btn pri w" data-act="claude-setup">${IC.cam}Collega la lettura</button></div></div>`;
   return `${head}<p>Collegata${c.bar ? ` come <b>${esc(c.bar)}</b>` : ''}. ${c.rimaste != null ? `Foto disponibili questo mese: <b>${esc(c.rimaste)}</b>${c.tetto ? ` su ${esc(c.tetto)}` : ''}${c.aggiornato ? `, al ${esc(fmtWhen(c.aggiornato))}` : ''}.` : ''}</p>
-    <p class="hint">Negli acquisti, sotto lotto e scadenza di ogni riga, c’è «Leggi l’etichetta».</p>
+    ${servRiga()}<p class="hint">Negli acquisti, sotto lotto e scadenza di ogni riga, c’è «Leggi l’etichetta».</p>
     <div class="acts"><button type="button" class="btn" data-act="claude-prova">Prova il collegamento</button><button type="button" class="btn" data-act="claude-setup">Modifica</button><button type="button" class="btn dan" data-act="claude-off">Scollega</button></div></div></div>`;
 }
 function formClaude() {
-  if (!guard() || !claudeOk()) return;
+  if (!(S.roServizio || guard()) || !claudeOk()) return;   // sospeso: il codice si può ancora cambiare
   const c = claudeCfg() || {}, st = {url: c.url || '', codice: c.codice || ''};
   openSheet({form: true, st, title: c.url ? 'Lettura con Claude' : 'Collega la lettura con Claude',
     body: () => `<p class="muted">Fotografi l’etichetta di una confezione e Claude legge lotto e scadenza; tu controlli e salvi. Le foto passano da un servizio di chi ti ha installato Barista Flow, che le manda a Claude: né l’app né il servizio le conservano.</p>
@@ -4278,18 +4292,130 @@ function formClaude() {
       catch (e) { return ferr(o, claudeErr(e)); }
       const rec = {url, codice, bar: String(j.bar || '').slice(0, 80), tetto: +j.tetto || null, rimaste: j.rimaste != null ? +j.rimaste : null, aggiornato: Date.now()};
       if (!(await put('impostazioni', 'claude', rec))) return;
-      o.dirty = false; closeSheet();
-      toast(`Lettura con Claude collegata${rec.bar ? ': ' + rec.bar : ''}${rec.rimaste != null ? `, ${rec.rimaste} foto disponibili questo mese` : ''}`);
+      o.dirty = false; closeSheet(); servSalva(j);
+      if (servLimitato()) toast('Collegata, ma la lettura con Claude è ferma per questo bar: trovi i dettagli in Oggi.', true);
+      else toast(`Lettura con Claude collegata${rec.bar ? ': ' + rec.bar : ''}${rec.rimaste != null ? `, ${rec.rimaste} foto disponibili questo mese` : ''}`);
     }});
 }
 async function claudeProva() {
   const c = claudeCfg(); if (!c) return;
-  try { const j = await claudeReq(c); claudeConta(j); toast(`Collegamento a posto${j.bar ? ' (' + j.bar + ')' : ''}: ${j.rimaste} foto disponibili questo mese.`); }
-  catch (e) { toast(claudeErr(e), true); }
+  try {
+    const j = await claudeReq(c); claudeConta(j); servSalva(j);   // insieme al collegamento si aggiorna l'abbonamento
+    if (servLimitato()) toast(claudeErr({code: servStato()}), true);
+    else toast(`Collegamento a posto${j.bar ? ' (' + j.bar + ')' : ''}: ${j.rimaste} foto disponibili questo mese.`);
+  } catch (e) { if (e?.code === 'codice') servSalva(null); toast(claudeErr(e), true); }
 }
 async function claudeOff() {
   if (!(await ask('Scollego la lettura con Claude? Lotti e scadenze già salvati restano; poi si scrivono a mano.', 'Scollega', true))) return;
   if (await del('impostazioni', 'claude')) toast('Lettura con Claude scollegata.');
+}
+
+/* ---------- abbonamento: il Barista Flow del bar chiede al ponte come sta il suo abbonamento ----------
+   Con l'indirizzo del servizio e il codice del bar (gli stessi della lettura con Claude) l'app chiede al ponte, all'avvio
+   e ogni ora in cui resta aperta, lo stato dell'abbonamento e gli avvisi di chi gestisce il servizio. L'ultima risposta
+   resta in questo browser: senza rete vale quella, e scollegare la lettura non la cancella. Prima della scadenza c'è un
+   promemoria in Oggi; limitato si fermano la lettura con Claude e le fatture dalla posta; sospeso l'app va in sola
+   lettura, con i dati sempre visibili ed esportabili. Gli avvisi delle scadenze dei prodotti non si fermano mai. */
+const SERV = {busy: false, last: 0, timer: 0};
+const servCache = () => { try { const x = JSON.parse(lsGet('bf-servizio') || 'null'); return x && typeof x === 'object' && x.servizio ? x : null; } catch { return null; } };
+const servStato = () => (S.mode === 'local' && servCache()?.servizio.stato) || 'attivo';
+const servLimitato = () => servStato() !== 'attivo';   // limitato o sospeso
+const appVersione = () => document.querySelector('meta[name="barista-versione"]')?.content || '';
+const avvisiLetti = () => { try { const x = JSON.parse(lsGet('bf-avvisi-letti') || '[]'); return Array.isArray(x) ? x : []; } catch { return []; } };
+const servData = iso => {   // 1° dicembre, 31 gennaio 2027
+  if (!validIso(iso)) return '';
+  const d = new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  return d.toLocaleDateString('it-IT', iso.slice(0, 4) === today().slice(0, 4) ? {day: 'numeric', month: 'long'} : {day: 'numeric', month: 'long', year: 'numeric'}).replace(/^1 /, '1° ');
+};
+
+/* --- la risposta del ponte --- */
+function servSalva(j) {   // null: il ponte non conosce più questo codice
+  if (!j) { if (servStato() === 'attivo') lsSet('bf-servizio', ''); }   // via i promemoria; un limite o una sospensione restano finché il bar non mette un codice valido
+  else {
+    const s = j.servizio && typeof j.servizio === 'object' ? j.servizio : {stato: 'attivo', fase: 'libero'};   // un ponte di prima: niente abbonamenti
+    const p = s.prossimo && validIso(s.prossimo.data) ? {fase: String(s.prossimo.fase || ''), data: s.prossimo.data} : null;
+    lsSet('bf-servizio', JSON.stringify({
+      servizio: {stato: ['attivo', 'limitato', 'sospeso'].includes(s.stato) ? s.stato : 'attivo', fase: String(s.fase || ''), coperto: validIso(s.coperto) ? s.coperto : '',
+        entro: validIso(s.entro) ? s.entro : '', giorni: +s.giorni || 0, prossimo: p, primo: !!s.primo, gratis: !!s.gratis, manuale: !!s.manuale},
+      avvisi: (Array.isArray(j.avvisi) ? j.avvisi : []).slice(0, 5).map(a => ({id: String(a?.id || '').slice(0, 40), testo: String(a?.testo || '').slice(0, 280), importante: !!a?.importante})).filter(a => a.id && a.testo),
+      contatto: String(j.contatto || '').slice(0, 140), t: Date.now()}));
+  }
+  servApplica();
+}
+// 'ok', 'codice' (codice cambiato o bar tolto dal ponte), 'rete' (vale l'ultima risposta) o null (niente da chiedere, o già in corso)
+async function servCheck(force) {
+  const c = claudeCfg();
+  if (!claudeOk() || !c?.url || !c?.codice) return null;
+  if (!navigator.onLine) return 'rete';
+  if (SERV.busy || (!force && Date.now() - SERV.last < 60 * 60e3)) return null;
+  SERV.busy = true; SERV.last = Date.now(); bump();   // «Controllo…» sui pulsanti
+  try { servSalva(await claudeReq(c)); return 'ok'; }
+  catch (e) {
+    if (e?.code === 'codice') { servSalva(null); return 'codice'; }
+    return 'rete';
+  } finally { SERV.busy = false; bump(); }
+}
+function servApplica() {   // sospeso: sola lettura, come per chi non ha il permesso di scrivere
+  const sosp = servStato() === 'sospeso';
+  if (sosp && !S.ro) { S.ro = true; S.roServizio = true; }
+  else if (!sosp && S.roServizio) { S.ro = false; S.roServizio = false; }
+  document.body.classList.toggle('ro', S.ro);
+  bump();
+}
+function servBoot() {   // all'avvio vale subito l'ultima risposta; appena l'archivio è caricato si chiede al ponte
+  servApplica();
+  let n = 0;
+  const t = setInterval(() => { if (allLoaded() || ++n > 80) { clearInterval(t); servCheck(true); } }, 250);
+  SERV.timer = setInterval(() => { if (document.visibilityState === 'visible') servCheck(); }, 5 * 60e3);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') servCheck(); });
+}
+async function servRicontrolla() {
+  const r = await servCheck(true);
+  if (r === 'rete') toast(navigator.onLine ? 'Il servizio non risponde: riprova tra poco.' : 'Sei senza connessione: per controllare l’abbonamento serve la rete.', true);
+  else if (r === 'codice') toast(claudeErr({code: 'codice'}), true);
+  else if (r === 'ok') { const m = servMessaggio(); toast(m ? m.t + '.' : 'Abbonamento in regola.', servLimitato()); }
+}
+
+/* --- quello che il bar legge --- */
+function servMessaggio() {
+  const c = servCache();
+  if (!c || S.mode !== 'local') return null;
+  const s = c.servizio, d = servData, chi = c.contatto ? `${s.manuale ? 'Per informazioni' : 'Per rinnovare'}: ${c.contatto}.` : 'Senti chi ti ha installato Barista Flow.';
+  const poi = s.prossimo?.fase === 'limitato' ? ` Dal ${d(s.prossimo.data)} si fermano la lettura con Claude e le fatture dalla posta.`
+    : s.prossimo?.fase === 'sospeso' ? ` Dal ${d(s.prossimo.data)} l’app va in sola lettura.` : '';
+  if (s.stato === 'sospeso') return {tono: 'bad', ancora: true, t: 'Barista Flow è in sola lettura',
+    d: `${s.manuale ? 'Il servizio è sospeso.' : 'L’abbonamento è scaduto.'} Puoi vedere ed esportare i tuoi dati, ma non registrarne di nuovi. ${chi}`};
+  if (s.stato === 'limitato') return {tono: 'bad', ancora: true, t: s.manuale ? 'Servizio limitato' : s.gratis ? 'Prova gratuita finita' : 'Abbonamento scaduto',
+    d: `La lettura con Claude e le fatture dalla posta sono ferme.${poi} ${chi}`};
+  if (s.manuale) return null;   // attivo per scelta di chi gestisce il servizio
+  if (s.fase === 'ritardo') return {tono: 'warn', ancora: true, t: s.gratis ? 'Prova gratuita finita' : 'Abbonamento da rinnovare',
+    d: `${s.gratis ? `La prova gratuita è finita il ${d(s.coperto)}.` : `${s.primo ? 'Il primo canone' : 'Il rinnovo'} andava pagato entro il ${d(s.entro)}.`}${poi} ${chi}`};
+  if (s.fase === 'scadenza') return {tono: 'warn', t: s.gratis ? 'Prova gratuita in scadenza' : s.primo ? 'Primo canone' : 'Abbonamento in scadenza',
+    d: `${s.gratis ? (s.giorni === 0 ? 'La prova gratuita è finita ieri: il primo canone va pagato oggi.' : `La prova gratuita finisce il ${d(s.coperto)}.`)
+      : s.primo ? (s.giorni === 0 ? 'Il primo canone va pagato oggi.' : `Il primo canone va pagato entro il ${d(s.entro)}.`)
+      : s.giorni === 0 ? 'Il rinnovo va pagato oggi.' : `L’abbonamento è pagato fino al ${d(s.coperto)}.`} ${chi}`};
+  return null;
+}
+// in cima a Oggi: lo stato dell'abbonamento e gli avvisi di chi gestisce il servizio
+function servNote() {
+  const m = servMessaggio(), c = servCache(), letti = avvisiLetti();
+  const av = (c && S.mode === 'local' ? c.avvisi : []).filter(a => !letti.includes(a.id));
+  return (m ? `<div class="note serv ${m.tono}" role="status">${m.tono === 'bad' ? IC.alert : IC.clock}<span><b>${esc(m.t)}</b> ${esc(m.d)}${m.ancora
+      ? ` <button type="button" class="lnk" data-act="serv-check" ${SERV.busy ? 'disabled' : ''}>${SERV.busy ? 'Controllo…' : 'Controlla di nuovo'}</button>` : ''}</span></div>` : '') +
+    av.map(a => `<div class="note avviso${a.importante ? ' bad' : ''}">${a.importante ? IC.alert : IC.info}<span>${esc(a.testo)}</span><button type="button" class="iconbtn x" data-act="avviso-letto" data-id="${esc(a.id)}" aria-label="Ho letto, togli l’avviso">${IC.x}</button></div>`).join('');
+}
+// in Impostazioni → Lettura con Claude: una riga sull'abbonamento
+function servRiga() {
+  const c = servCache(); if (!c || S.mode !== 'local') return '';
+  const s = c.servizio, m = servMessaggio(), quando = c.t ? ` Controllato ${fmtWhen(c.t)}.` : '';
+  if (m) return `<p class="note serv ${m.tono}">${m.tono === 'bad' ? IC.alert : IC.clock}<span><b>${esc(m.t)}</b> ${esc(m.d)}${esc(quando)}</span></p>`;
+  if (s.fase === 'regola' && s.coperto) return `<p class="muted">${s.gratis ? 'Prova gratuita' : 'Abbonamento in regola'} fino al ${esc(servData(s.coperto))}.${esc(quando)}</p>`;
+  return '';
+}
+function avvisoLetto(b) {
+  const id = b.dataset.id, l = avvisiLetti().filter(x => x !== id);
+  l.push(id); lsSet('bf-avvisi-letti', JSON.stringify(l.slice(-50)));
+  bump();
 }
 
 /* ---------- PDF senza librerie ----------
@@ -5013,7 +5139,7 @@ async function importBackup(file) {
 }
 
 /* ---------- azioni ---------- */
-const guard = () => { if (S.ro) { toast('Hai accesso solo in lettura.', true); return false; } return true; };
+const guard = () => { if (S.ro) { toast(S.roServizio ? 'Barista Flow è in sola lettura finché l’abbonamento è sospeso: puoi vedere ed esportare i dati.' : 'Hai accesso solo in lettura.', true); return false; } return true; };
 const sheetOf = el => { const w = el.closest('.sheet-wrap'); return w ? stack.find(x => x.el === w) : null; };
 const ACT = {
   close: () => requestClose(),
@@ -5192,6 +5318,8 @@ const ACT = {
   'posta-off': () => postaOff(),
   'claude-setup': () => formClaude(),
   'claude-prova': () => claudeProva(),
+  'serv-check': () => servRicontrolla(),
+  'avviso-letto': b => avvisoLetto(b),
   'claude-off': () => claudeOff(),
   'posta-copia': b => postaCopia(b),
   'posta-link': () => postaLinkCopia(),
@@ -5375,7 +5503,7 @@ async function init() {
   setupPWA();
   subscribe();
   paint();
-  if (S.mode === 'local') postaBoot();
+  if (S.mode === 'local') { postaBoot(); servBoot(); }
   // tocco su una notifica con l'app già aperta: il service worker dice quale pagina mostrare
   navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.tipo === 'apri' && /^#[a-z-]*$/.test(e.data.hash || '')) location.hash = e.data.hash; });
 }

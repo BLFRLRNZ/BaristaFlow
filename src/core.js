@@ -97,7 +97,7 @@ const unitOpts = (base, pesoPz) => base === 'kg' ? ['g', 'kg'] : base === 'l' ? 
 const buyUnits = base => base === 'kg' ? ['kg', 'g'] : base === 'l' ? ['l', 'ml'] : ['pz'];
 
 /* ---------- stato ---------- */
-const S = {db: null, mode: 'loading', ro: false, assets: null, downloads: null, user: null, got: new Set(), fresh: new Set(), slow: false, ver: 0, errShown: false, data: Object.fromEntries(COLS.map(c => [c, new Map()]))};
+const S = {db: null, mode: 'loading', ro: false, roServizio: false, assets: null, downloads: null, user: null, got: new Set(), fresh: new Set(), slow: false, ver: 0, errShown: false, data: Object.fromEntries(COLS.map(c => [c, new Map()]))};
 const UI = {q: {banco: ''}, prodF: 'attivi', schCat: '', schArch: false, magSeg: 'acq', magCat: 'tutti', prezziP: '3m', todoAll: false, todoF: '', bancoCat: '', pag: {}};
 const cfg = () => {
   const c = S.data.impostazioni.get('generale') || {};
@@ -143,6 +143,7 @@ function localDB(key) {
 
 /* ---------- scrittura ---------- */
 async function put(col, id, doc, quiet) {
+  if (S.roServizio && col !== 'impostazioni') { if (!quiet) guard(); return false; }   // abbonamento sospeso: sola lettura
   doc = clone(doc); delete doc.id;
   if (col !== 'impostazioni' && !doc.esempio && !S.data[col].has(id) && countSample()) doc.esempio = true;   // durante la prova anche quello che crei è di prova
   S.data[col].set(id, {...doc, id}); bump();
@@ -157,6 +158,7 @@ async function put(col, id, doc, quiet) {
   return false;
 }
 async function del(col, id, quiet) {
+  if (S.roServizio && col !== 'impostazioni') { if (!quiet) guard(); return false; }
   S.data[col].delete(id); bump();
   try { await S.db.collection(col).doc(id).delete(); return true; }
   catch (e) { if (!quiet) dbErr(e); return false; }

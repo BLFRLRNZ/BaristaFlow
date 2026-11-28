@@ -12,7 +12,7 @@ def font_uri(m):
     return "url(data:font/woff2;base64," + base64.b64encode(data).decode("ascii") + ")"
 css, nfont = re.subn(r"url\((fonts/[\w.-]+\.woff2)\)", font_uri, css)
 assert nfont == 1, "atteso 1 carattere in style.css"
-js = "\n".join((src / f).read_text(encoding="utf-8") for f in ["core.js", "views.js", "details.js", "forms.js", "quick.js", "banco.js", "fatture.js", "posta.js", "notifiche.js", "claude.js", "pdf.js", "esempi.js", "main.js"])
+js = "\n".join((src / f).read_text(encoding="utf-8") for f in ["core.js", "views.js", "details.js", "forms.js", "quick.js", "banco.js", "fatture.js", "posta.js", "notifiche.js", "claude.js", "servizio.js", "pdf.js", "esempi.js", "main.js"])
 logo = re.search(r"const LOGO = `(.*?)`;", js, re.S).group(1)
 # lo script di Google per le fatture dalla posta: l'app lo mostra e lo copia con la chiave del collegamento
 gs = (root / "apps-script" / "fatture-dalla-posta.gs").read_text(encoding="utf-8")
@@ -27,3 +27,16 @@ out = shell.replace("/*FAVICON*/", fav).replace("/*STYLE*/", css).replace("/*LOG
 out = out.replace("/*VERSIONE*/", hashlib.sha256(out.encode("utf-8")).hexdigest()[:12])
 (root / "index.html").write_text(out, encoding="utf-8")
 print("index.html:", len(out), "byte,", out.count("\n"), "righe")
+
+# il pannello del ponte di Claude: la pagina entra nello script, così su Google si incolla un file solo
+gsp = root / "apps-script" / "claude-ponte.gs"
+pan = (root / "apps-script" / "pannello.html").read_text(encoding="utf-8")
+assert pan.count("/*STATO*/null") == 1, "atteso un solo segnaposto dello stato in pannello.html"
+riga = lambda r: json.dumps(r, ensure_ascii=False).replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+righe = ",\n".join(riga(r) for r in pan.rstrip("\n").split("\n"))
+g = gsp.read_text(encoding="utf-8")
+g2, n = re.subn(r"(var PANNELLO = \[\n).*?(\n\]\.join\('\\n'\);)", lambda m: m.group(1) + righe + m.group(2), g, flags=re.S)
+assert n == 1, "in claude-ponte.gs manca var PANNELLO = [ … ].join('\\n');"
+if g2 != g:
+    gsp.write_text(g2, encoding="utf-8")
+print("claude-ponte.gs:", len(g2), "byte, con il pannello di", len(pan), "byte")

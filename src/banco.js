@@ -173,7 +173,7 @@ function vBanco() {
   return `<section id="v-banco"${bar ? ' class="has-bar"' : ''}>${head}
     <div class="bk"><div class="bk-main">
       <div class="bar">${search('banco', 'Cerca un prodotto')}${cats.length > 1 ? seg('bancoCat', [['', 'Tutti'], ...cats.map(x => [x, x])]) : ''}</div>
-      ${S.ro ? `<p class="note">${IC.info}<span>Hai accesso solo in lettura: puoi guardare i prodotti, ma non registrare vendite.</span></p>` : ''}
+      ${S.ro ? `<p class="note">${IC.info}<span>${S.roServizio ? 'L’abbonamento è sospeso' : 'Hai accesso solo in lettura'}: puoi guardare i prodotti, ma non registrare vendite.</span></p>` : ''}
       ${grid}${bancoOggi(sc)}</div>
       ${S.ro ? '' : bancoSide(rs, c, sc[0])}</div>${bar}</section>`;
 }

@@ -42,7 +42,7 @@ function notifRiepilogo() {
 }
 async function notifSync(force) {
   const n = notifCfg(), p = postaCfg();
-  if (!postaOn() || !n.attive || !allLoaded() || NOTIF.syncing || S.ro) return false;
+  if (!postaOn() || !n.attive || !allLoaded() || NOTIF.syncing || (S.ro && !S.roServizio)) return false;   // sospeso: gli avvisi delle scadenze continuano
   const stato = notifRiepilogo(), body = {op: 'stato', stato, ora: n.ora || '08:00', fuso: notifFuso(), temi: notifTemi(), origine: location.origin};
   const hash = notifHash(JSON.stringify([stato, body.ora, body.fuso, body.temi]));
   if (!force && hash === n.hash) return false;

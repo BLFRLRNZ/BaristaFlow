@@ -6,7 +6,7 @@ const POSTA = {busy: false, last: 0, timer: 0};
 const postaCfg = () => S.data.impostazioni.get('posta') || null;
 const postaOk = () => S.mode === 'local';   // su claude.ai la pagina non può chiamare siti esterni
 const postaOn = () => { const p = postaCfg(); return postaOk() && !!(p && p.url && p.chiave); };
-const postaCoda = () => (postaOn() && Array.isArray(postaCfg().coda) ? postaCfg().coda : []);
+const postaCoda = () => (postaOn() && !servLimitato() && Array.isArray(postaCfg().coda) ? postaCfg().coda : []);   // con il servizio limitato la coda aspetta
 const postaMail = coda => new Set(coda.map(x => String(x.id).split(':')[0])).size;   // una mail = una fattura, anche con XML e PDF allegati
 const postaScript = k => POSTA_GS.replace('__CHIAVE__', k);
 const postaLink = p => p.url + (p.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(p.chiave);   // per collegare un altro dispositivo senza rifare lo script
@@ -49,7 +49,7 @@ function postaErr(e) {
 /* --- controllo della casella: all'avvio, quando si torna sull'app e ogni 15 minuti mentre è aperta --- */
 async function postaSync(manual) {
   const p = postaCfg();
-  if (!postaOn() || POSTA.busy || !allLoaded() || S.ro) return null;
+  if (!postaOn() || POSTA.busy || !allLoaded() || S.ro || servLimitato()) return null;   // con l'abbonamento limitato la posta aspetta
   if (!manual && !navigator.onLine) return null;
   POSTA.busy = true; POSTA.last = Date.now(); refreshSheets();
   let n = null;
@@ -136,7 +136,7 @@ function postaBar() {
   const p = postaCfg();
   if (!postaOn()) return `<p class="note posta-bar">${IC.mail}<span>Vuoi che le fatture arrivino da sole dalla posta? <button type="button" class="lnk" data-act="posta-setup">Collega la posta</button></span></p>`;
   const what = p.errore ? esc(p.errore) : `Posta collegata${p.casella ? ` (${esc(p.casella)})` : ''}: ${p.controllata ? 'controllata ' + esc(fmtWhen(p.controllata)) : 'non ancora controllata'}.`;
-  return `<p class="note posta-bar${p.errore ? ' warn' : ''}">${p.errore ? IC.alert : IC.mail}<span>${what} <button type="button" class="lnk" data-act="posta-sync" ${POSTA.busy ? 'disabled' : ''}>${POSTA.busy ? 'Controllo…' : 'Controlla adesso'}</button></span></p>`;
+  return `<p class="note posta-bar${p.errore ? ' warn' : ''}">${p.errore ? IC.alert : IC.mail}<span>${what} <button type="button" class="lnk" data-act="posta-sync" ${POSTA.busy || servLimitato() ? 'disabled' : ''}>${POSTA.busy ? 'Controllo…' : 'Controlla adesso'}</button></span></p>`;
 }
 function postaRow() {
   const n = postaMail(postaCoda());
@@ -150,11 +150,11 @@ function postaCard() {
   if (!postaOk()) return `${head}<p class="muted">Le fatture che arrivano per mail possono comparire da sole in «Importa fatture». Si collega dall’app pubblicata sul tuo sito (GitHub Pages): da qui la pagina non può collegarsi a Google.</p></div></div>`;
   const p = postaCfg();
   if (!postaOn()) return `${head}<p>Le fatture che arrivano come allegato in una casella Gmail, XML o PDF, compaiono da sole in «Importa fatture». Fa da ponte un piccolo script di Google, gratuito, che prepari una volta sola.</p><button type="button" class="btn pri w" data-act="posta-setup">${IC.mail}Collega la posta</button></div></div>`;
-  const n = postaMail(p.coda || []);
+  const n = postaMail(postaCoda());
   return `${head}<p>Collegata a <b>${esc(p.casella || 'Gmail')}</b>. La posta si controlla quando apri l’app e ogni 15 minuti mentre è aperta${p.controllata ? `; ultimo controllo ${esc(fmtWhen(p.controllata))}` : ''}.</p>
-    ${p.errore ? `<p class="note warn">${IC.alert}<span>${esc(p.errore)}</span></p>` : ''}
+    ${servLimitato() ? `<p class="note bad">${IC.alert}<span>Ferma finché il servizio di Barista Flow non torna attivo: trovi i dettagli in Oggi.</span></p>` : p.errore ? `<p class="note warn">${IC.alert}<span>${esc(p.errore)}</span></p>` : ''}
     ${n ? `<p><button type="button" class="lnk" data-act="fe-import">${n === 1 ? 'Una fattura da importare' : n + ' fatture da importare'}</button></p>` : ''}
-    <div class="acts"><button type="button" class="btn" data-act="posta-sync" ${POSTA.busy ? 'disabled' : ''}>Controlla adesso</button><button type="button" class="btn" data-act="posta-link">${IC.copy}Link per un altro dispositivo</button><button type="button" class="btn" data-act="posta-setup">Modifica</button><button type="button" class="btn dan" data-act="posta-off">Scollega</button></div>
+    <div class="acts"><button type="button" class="btn" data-act="posta-sync" ${POSTA.busy || servLimitato() ? 'disabled' : ''}>Controlla adesso</button><button type="button" class="btn" data-act="posta-link">${IC.copy}Link per un altro dispositivo</button><button type="button" class="btn" data-act="posta-setup">Modifica</button><button type="button" class="btn dan" data-act="posta-off">Scollega</button></div>
     <p class="hint" style="margin-top:10px">I dati dell’app restano su questo dispositivo: per ricevere le fatture anche su un altro, copia il link e incollalo lì in «Collega la posta».</p></div></div>`;
 }
 function formPosta() {
